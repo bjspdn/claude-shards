@@ -1,0 +1,19 @@
+{
+  "name": "claude-code-memory",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "globby": "^16.1.1",
+    "gray-matter": "^4.0.3",
+    "tiktoken": "^1.0.22",
+    "zod": "^4.3.6"
+  }
+}
