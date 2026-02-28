@@ -2,13 +2,6 @@
 
 MCP server that gives Claude Code access to your Obsidian knowledge vault. Notes you write in Obsidian — gotchas, decisions, patterns, references — become queryable context without manual copy-pasting.
 
-## How It Works
-
-1. Maintain an Obsidian vault of categorized markdown notes with YAML frontmatter
-2. MCP server loads the vault on startup and exposes 7 tools
-3. Claude Code calls these tools during conversation to pull in relevant knowledge
-4. Optional `.context.toml` per project filters the vault to only relevant notes
-
 ## Installation
 
 Requires [Bun](https://bun.sh/).
@@ -44,9 +37,9 @@ Batched search+read in one call. Finds matching notes by keyword and returns the
 | `maxTokens` | number   | No       | Token budget — stops including bodies once exceeded |
 
 ```
-> Search my vault for notes about Bevy system ordering
+> Search my vault for notes about Next.js caching
 
-Calls: research({ query: "bevy system ordering" })
+Calls: research({ query: "next.js caching" })
 Returns: results table + full note bodies in one response
 ```
 
@@ -102,7 +95,7 @@ Full markdown content of a single note by relative path. Replaced by `research` 
 
 | Param  | Type   | Required | Description                                     |
 |--------|--------|----------|-------------------------------------------------|
-| `path` | string | Yes      | Relative path (e.g. `gotchas/bevy-ordering.md`) |
+| `path` | string | Yes      | Relative path (e.g. `gotchas/nextjs-fetch-cache.md`) |
 
 Path traversal and absolute paths rejected.
 
@@ -112,17 +105,18 @@ Path traversal and absolute paths rejected.
 ---
 type: gotcha
 projects:
-  - bevy-game
+  - my-next-app
 tags:
-  - bevy
-  - rust
+  - nextjs
+  - react
 created: 2026-02-01
 updated: 2026-02-15
 ---
 
-# Bevy system ordering matters
+# Next.js fetch cache persists across requests
 
-Systems in Bevy run in parallel by default...
+By default fetch() in Next.js App Router caches responses indefinitely.
+Add { cache: 'no-store' } or use revalidate to avoid stale data...
 ```
 
 ### Note Types
@@ -152,13 +146,13 @@ Organize however you like. The server finds all `.md` files recursively, ignorin
 ```
 vault/
   gotchas/
-    bevy-system-ordering.md
+    nextjs-fetch-cache.md
   decisions/
-    use-bun-over-node.md
+    chose-app-router-over-pages.md
   patterns/
-    rust-error-handling.md
+    react-compound-components.md
   references/
-    bevy-query-cheatsheet.md
+    tailwind-cheatsheet.md
 ```
 
 Invalid frontmatter notes are silently skipped.
@@ -169,10 +163,10 @@ Drop a `.context.toml` in any project root:
 
 ```toml
 [project]
-name = "bevy-game"
+name = "my-next-app"
 
 [filter]
-tags = ["rust", "bevy"]
+tags = ["typescript", "react", "nextjs"]
 types = ["gotcha", "pattern"]
 exclude = ["drafts/*"]
 ```
@@ -184,8 +178,8 @@ Applies to `index`, `research`, and `sync` automatically.
 ### Capture mistakes as you hit them
 
 ```
-Write a gotcha note about Rust lifetime elision not applying with
-multiple references in the return type. Tag it with rust.
+Write a gotcha note about Next.js fetch cache persisting across requests
+in production. Tag it with nextjs and react.
 ```
 
 Next session, the gotcha surfaces via Knowledge Index — no re-explaining.
@@ -193,14 +187,15 @@ Next session, the gotcha surfaces via Knowledge Index — no re-explaining.
 ### Preserve architecture decisions
 
 ```
-Write a decision note about why we chose ECS over OOP for bevy-game.
-Tag it with architecture and bevy.
+Write a decision note about why we chose App Router over Pages Router
+for my-next-app. Tag it with nextjs and architecture.
 ```
 
 ### Build a personal reference library
 
 ```
-Write a reference note with the Bun.serve() API signature and common options.
+Write a reference note with common Tailwind responsive breakpoints
+and utility patterns.
 ```
 
 Claude pulls it up instantly instead of searching docs.
@@ -224,19 +219,21 @@ Injects a compact index table — Claude sees all relevant notes at conversation
 ### Import web pages into vault
 
 ```
-Fetch https://docs.rs/some-crate and save the key parts as a reference note
+Fetch https://nextjs.org/docs/app/api-reference/functions/revalidatePath
+and save it as a reference note
 ```
 
 ### Scope notes to projects
 
-Notes with no `projects` field are global — they only sync to `~/.claude/CLAUDE.md`. Project-tagged notes sync to matching project CLAUDE.md files. Notes with tech tags (e.g. `rust`, `react`) are excluded from global sync to avoid bloat.
+Notes with no `projects` field are global — they only sync to `~/.claude/CLAUDE.md`. Project-tagged notes sync to matching project CLAUDE.md files. Notes with tech tags (e.g. `rust`, `react`, `next.js`) are excluded from global sync to avoid bloat.
 
 ```
 # Global — syncs to ~/.claude/CLAUDE.md only
 Write a gotcha note about keeping CLAUDE.md under 200 lines.
 
-# Project-scoped — syncs to bevy-game's CLAUDE.md
-Write a pattern note about Bevy system ordering, tag it with the bevy-game project.
+# Project-scoped — syncs to my-next-app's CLAUDE.md
+Write a pattern note about React Server Components data fetching,
+tag it with the my-next-app project.
 ```
 
 ## Running Tests
