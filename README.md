@@ -5,7 +5,7 @@ An MCP server that gives Claude Code access to your Obsidian knowledge vault. Wr
 ## How It Works
 
 1. You maintain an Obsidian vault of categorized markdown notes with YAML frontmatter
-2. The MCP server loads the vault on startup and exposes four tools: `index`, `search`, `read`, and `sync`
+2. The MCP server loads the vault on startup and exposes five tools: `index`, `search`, `read`, `write`, and `sync`
 3. Claude Code calls these tools during conversation to pull in relevant knowledge on demand
 4. An optional `.context.toml` per project filters the vault down to only the notes relevant to that project
 
@@ -147,6 +147,23 @@ Fetches the full markdown content of a note by its relative path. Use paths from
 | `path` | string | Yes      | Relative path within vault (e.g. `gotchas/bevy-system-ordering.md`) |
 
 Path traversal (`..`) and absolute paths are rejected.
+
+### `write`
+
+Creates a new note in the vault with structured frontmatter. Claude provides individual fields and the tool generates the markdown file with proper YAML frontmatter. Create-only — rejects writes to existing paths.
+
+**Parameters:**
+
+| Name       | Type     | Required | Description                                                |
+|------------|----------|----------|------------------------------------------------------------|
+| `path`     | string   | Yes      | Relative path within vault (e.g. `gotchas/my-new-note.md`) |
+| `type`     | string   | Yes      | One of `gotcha`, `decision`, `pattern`, `reference`        |
+| `title`    | string   | Yes      | Note title (becomes the H1 heading)                        |
+| `body`     | string   | Yes      | Markdown body content (after the H1)                       |
+| `tags`     | string[] | No       | Searchable tags                                            |
+| `projects` | string[] | No       | Project names this note relates to                         |
+
+Dates (`created` and `updated`) are set automatically to today. Path traversal (`..`) and absolute paths are rejected. Parent directories are created if they don't exist. After writing, the note is immediately available to `index`, `search`, and `read`.
 
 ### `sync`
 

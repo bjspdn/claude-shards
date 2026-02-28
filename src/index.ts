@@ -6,6 +6,7 @@ import { registerIndexTool } from "./tools/index-tool"
 import { registerReadTool } from "./tools/read-tool"
 import { registerSearchTool } from "./tools/search-tool"
 import { registerSyncTool } from "./tools/sync-tool"
+import { registerWriteTool } from "./tools/write-tool"
 
 function parseVaultPath(): string {
   const args = process.argv.slice(2)
@@ -43,6 +44,7 @@ async function main() {
   registerReadTool(server, vaultPath)
   registerSearchTool(server, entries, projectConfig)
   registerSyncTool(server, entries, vaultPath)
+  registerWriteTool(server, entries, vaultPath)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)

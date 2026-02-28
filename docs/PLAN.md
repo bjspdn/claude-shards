@@ -1,10 +1,10 @@
 # Implementation Plan: obsidian-context-mcp
 
 ## Stack
-> TypeScript, Bun, @modelcontextprotocol/sdk, gray-matter (frontmatter parsing), globby (file discovery), tiktoken (token counting)
+> TypeScript, Bun, @modelcontextprotocol/sdk, gray-matter (frontmatter parsing), globby (file discovery), tiktoken (token counting), smol-toml (config parsing), zod (schema validation)
 
 ## Scope
-> **In scope:** MCP server exposing Obsidian vault as structured context for Claude Code. Keyword search, compressed index generation, per-project CLAUDE.md sync, vault conventions (frontmatter schema, folder structure, typed categories), auto token counting.
+> **In scope:** MCP server exposing Obsidian vault as structured context for Claude Code. Keyword search, compressed index generation, per-project CLAUDE.md sync, vault conventions (frontmatter schema, folder structure, typed categories), auto token counting, note creation from Claude Code.
 > **Out of scope:** Semantic/embedding search, web UI for vault management, multi-vault support, auto-generating notes from code.
 
 ## Blockers
@@ -27,36 +27,37 @@
 ### 1.1 Project Setup
 > Bun project with dependencies and module structure.
 
-- [ ] Run `bun init` and add dependencies: `@modelcontextprotocol/sdk`, `gray-matter`, `globby`, `tiktoken`, `zod` (input validation)
-- [ ] Create module structure: `src/index.ts` (entrypoint), `src/vault/parser.ts`, `src/vault/types.ts`, `src/index-engine/index.ts`, `src/tools/index-tool.ts`, `src/tools/read-tool.ts`, `src/tools/search-tool.ts`, `src/tools/sync-tool.ts`
-- [ ] Set up `tsconfig.json` targeting Bun
+- [x] Run `bun init` and add dependencies: `@modelcontextprotocol/sdk`, `gray-matter`, `globby`, `tiktoken`, `zod`, `smol-toml`
+- [x] Create module structure: `src/index.ts` (entrypoint), `src/vault/parser.ts`, `src/vault/types.ts`, `src/vault/config.ts`, `src/vault/loader.ts`, `src/index-engine/index.ts`, `src/tools/index-tool.ts`, `src/tools/read-tool.ts`, `src/tools/search-tool.ts`, `src/tools/sync-tool.ts`, `src/tools/write-tool.ts`
+- [x] Set up `tsconfig.json` targeting Bun
 
 ### 1.2 Core Types
 > Define the data model for vault notes and index entries.
 
-- [ ] Define `NoteType` enum: `gotcha`, `decision`, `pattern`, `guide`, `reference`
-- [ ] Define `NoteFrontmatter`: type, projects (string[]), tags (string[]), created (date), updated (date)
-- [ ] Define `NoteEntry`: frontmatter + filePath, title (derived from filename or first H1), body (raw markdown), tokenCount (number)
-- [ ] Define `IndexEntry`: type icon, title, relative path, token count — the minimal row that appears in CLAUDE.md
-- [ ] Define `ProjectConfig` schema: vault path, project name, include tags, include types, exclude patterns
-- [ ] Create Zod schemas for all types to validate frontmatter and config at parse time
+- [x] Define `NoteType` zod enum: `gotcha`, `decision`, `pattern`, `reference`
+- [x] Define `NoteFrontmatter`: type, projects (string[]), tags (string[]), created (date), updated (date), title (optional override)
+- [x] Define `NoteEntry`: frontmatter + filePath, relativePath, title (derived from frontmatter title, first H1, or filename), body (raw markdown), tokenCount (number)
+- [x] Define `IndexEntry`: icon, title, relativePath, tokenDisplay — the minimal row that appears in CLAUDE.md
+- [x] Define `ProjectConfig` schema: project name, filter (tags, types, exclude globs)
+- [x] Create Zod schemas for all types to validate frontmatter and config at parse time
+- [x] Define `NOTE_TYPE_PRIORITY` and `NOTE_TYPE_ICONS` lookup tables
 
 ### 1.3 Configuration
 > Server and per-project configuration loading.
 
-- [ ] MCP server accepts vault path via `--vault` CLI arg, falls back to `OBSIDIAN_VAULT_PATH` env var
-- [ ] Per-project config read from `.context.toml` in working directory (optional — if absent, index the entire vault)
-- [ ] Define `.context.toml` schema:
+- [x] MCP server accepts vault path via `--vault` CLI arg, falls back to `OBSIDIAN_VAULT_PATH` env var
+- [x] Per-project config read from `.context.toml` in working directory (optional — if absent, index the entire vault)
+- [x] Define `.context.toml` schema:
   ```toml
   [project]
   name = "my-bevy-game"
-  
+
   [filter]
   tags = ["rust", "bevy", "ecs"]     # include notes matching ANY of these tags
   types = ["gotcha", "decision", "pattern"]  # include these note types
   exclude = ["drafts/*"]              # glob patterns to skip
   ```
-- [ ] Write TOML parser using Bun-compatible library (or hand-parse — TOML subset is small)
+- [x] Parse TOML using `smol-toml`, validate with Zod schema
 
 ---
 
@@ -67,33 +68,32 @@
 ### 2.1 File Discovery
 > Find all markdown files in the vault that match conventions.
 
-- [ ] Recursively discover `.md` files in vault path using globby
-- [ ] Ignore hidden directories (`.obsidian`, `.trash`, `.context`), `node_modules`
-- [ ] Return list of absolute file paths
+- [x] Recursively discover `.md` files in vault path using globby
+- [x] Ignore hidden directories and `node_modules`
+- [x] Return list of absolute file paths
 
 ### 2.2 Frontmatter Parser
 > Extract and validate frontmatter from each note.
 
-- [ ] Parse frontmatter using gray-matter
-- [ ] Validate against Zod schema — notes with missing/invalid frontmatter get logged as warnings and skipped
-- [ ] Extract title: use frontmatter `title` field if present, else first `# heading`, else filename without extension
-- [ ] Extract body: everything after frontmatter
+- [x] Parse frontmatter using gray-matter
+- [x] Validate against Zod schema — notes with missing/invalid frontmatter get logged as warnings and skipped
+- [x] Extract title: use frontmatter `title` field if present, else first `# heading`, else filename without extension
+- [x] Extract body: everything after frontmatter, trimmed
 
 ### 2.3 Token Counter
 > Calculate approximate token count for each note body.
 
-- [ ] Use tiktoken with `cl100k_base` encoding (Claude-compatible)
-- [ ] Count tokens for the note body only (not frontmatter)
-- [ ] Round to nearest 10 and prefix with `~` for display (e.g., `~150`)
-- [ ] Cache token counts — only recompute if file mtime changed since last parse
+- [x] Use tiktoken with `cl100k_base` encoding (Claude-compatible)
+- [x] Count tokens for the note body only (not frontmatter)
+- [x] Round to nearest 10 and prefix with `~` for display (e.g., `~150`)
 
 ### 2.4 Vault Loader
 > Orchestrate discovery → parsing → token counting into a full vault representation.
 
-- [ ] Combine file discovery, frontmatter parsing, and token counting into a single `loadVault(vaultPath): NoteEntry[]` function
-- [ ] Apply project config filters (tags, types, excludes) when a ProjectConfig is provided
-- [ ] Sort entries by type priority: gotcha > decision > pattern > guide > reference
-- [ ] Write tests: vault with valid notes, notes with missing frontmatter, empty vault, notes that should be filtered out
+- [x] Combine file discovery, frontmatter parsing, and token counting into a single `loadVault(vaultPath): NoteEntry[]` function
+- [x] `filterEntries()` applies project config filters (tags, types, excludes) with glob matching
+- [x] Sort entries by type priority: gotcha > decision > pattern > reference
+- [x] Write tests: vault with valid notes, notes with missing frontmatter, empty vault, notes that should be filtered out
 
 ---
 
@@ -104,77 +104,88 @@
 ### 3.1 Index Builder
 > Transform NoteEntry[] into the compressed index format.
 
-- [ ] Map NoteType to icon: `gotcha→🔴`, `decision→🟤`, `pattern→🔵`, `guide→🟡`, `reference→🟢`
-- [ ] Generate index as markdown table: `| T | Title | Path | ~Tok |`
-- [ ] Paths should be relative to vault root
-- [ ] Total index token count should be tracked — warn if index itself exceeds ~1500 tokens (signal that vault needs pruning or stricter project filters)
+- [x] Map NoteType to icon: `gotcha→🔴`, `decision→🟤`, `pattern→🔵`, `reference→🟢`
+- [x] Generate index as markdown table: `| T | Title | Path | ~Tok |`
+- [x] Paths are relative to vault root
+- [x] Return "No knowledge entries match the current filters." for empty results
 
 ### 3.2 CLAUDE.md Formatter
 > Format the index into a complete CLAUDE.md knowledge section.
 
-- [ ] Output format:
+- [x] Output format:
   ```markdown
   ## Knowledge Index
   Use MCP tool `read` with the note path to fetch full details on demand.
-  🔴 = gotcha  🟤 = decision  🔵 = pattern  🟡 = guide  🟢 = reference
+  🔴 = gotcha  🟤 = decision  🔵 = pattern  🟢 = reference
 
   | T | Title | Path | ~Tok |
   |---|-------|------|------|
   | 🔴 | Bevy system ordering | gotchas/bevy-system-order.md | ~120 |
   ...
   ```
-- [ ] If a CLAUDE.md already exists in the target directory, inject/replace only the `## Knowledge Index` section — preserve everything else in the file
-- [ ] If no CLAUDE.md exists, create one with only the knowledge index section
+- [x] If a CLAUDE.md already exists in the target directory, inject/replace only the `## Knowledge Index` section — preserve everything else in the file
+- [x] If no CLAUDE.md exists, create one with only the knowledge index section
 
 ---
 
 ## Epic 4: MCP Server
-> Wire up the MCP server with all four tools.
+> Wire up the MCP server with all five tools.
 > Depends on: Index Engine
 
 ### 4.1 Server Bootstrap
 > Initialize MCP server using the SDK with stdio transport.
 
-- [ ] Create MCP server instance with name `obsidian-context` and version from package.json
-- [ ] Configure stdio transport (Claude Code communicates over stdin/stdout)
-- [ ] Load vault on startup, store parsed NoteEntry[] in memory
-- [ ] Register all four tools with the server
-- [ ] Handle graceful shutdown
+- [x] Create MCP server instance with name `ccm` and version `0.1.0`
+- [x] Configure stdio transport (Claude Code communicates over stdin/stdout)
+- [x] Load vault on startup, store parsed NoteEntry[] in memory
+- [x] Register all five tools with the server
 
 ### 4.2 `index` Tool
 > Return the compressed index for the current project.
 
-- [ ] Input schema: `{ project?: string }` — optional project name to filter by
-- [ ] If project specified, load `.context.toml` from CWD or filter vault entries by project tag
-- [ ] Return the markdown index table (same format as CLAUDE.md section, without the header)
-- [ ] If no matching notes, return a clear message ("No knowledge entries match this project's filters")
+- [x] Input schema: `{ project?: string }` — optional project name to filter by
+- [x] If project specified, filter vault entries by project tag
+- [x] Return the markdown index table
+- [x] If no matching notes, return "No knowledge entries match the current filters."
 
 ### 4.3 `read` Tool
 > Fetch the full content of a specific vault note.
 
-- [ ] Input schema: `{ path: string }` — relative path within vault
-- [ ] Resolve path against vault root, validate it's within vault (prevent path traversal)
-- [ ] Return full markdown content including frontmatter
-- [ ] If note doesn't exist, return error with suggestion to run `index` to see available notes
+- [x] Input schema: `{ path: string }` — relative path within vault
+- [x] Resolve path against vault root, validate it's within vault (prevent path traversal)
+- [x] Return full markdown content including frontmatter
+- [x] If note doesn't exist, return error with suggestion to run `index` to see available notes
 
 ### 4.4 `search` Tool
 > Keyword search across vault notes.
 
-- [ ] Input schema: `{ query: string, types?: NoteType[], tags?: string[], limit?: number }`
-- [ ] Search strategy: split query into keywords, match against title + tags + body
-- [ ] Scoring: title match > tag match > body match (simple weighted scoring)
-- [ ] Return matching IndexEntry rows (not full content) — agent uses `read` to fetch details
-- [ ] Default limit: 10 results
-- [ ] Apply project filters if `.context.toml` present in CWD
+- [x] Input schema: `{ query: string, types?: NoteType[], tags?: string[], limit?: number }`
+- [x] Search strategy: split query into keywords, match against title + tags + body
+- [x] Scoring: title match (+10) > tag match (+5) > body match (+1)
+- [x] Return matching rows with score (not full content) — agent uses `read` to fetch details
+- [x] Default limit: 10 results
+- [x] Apply project filters if `.context.toml` present in CWD
 
 ### 4.5 `sync` Tool
 > Generate/update CLAUDE.md in the current project directory.
 
-- [ ] Input schema: `{ targetDir?: string }` — defaults to CWD
-- [ ] Load project config from `.context.toml` in target dir (if exists)
-- [ ] Generate index using Index Engine
-- [ ] Write/update CLAUDE.md in target dir using the CLAUDE.md Formatter (section injection, not overwrite)
-- [ ] Return summary: "Synced N entries to CLAUDE.md (~X total index tokens)"
+- [x] Input schema: `{ targetDir?: string }` — defaults to CWD
+- [x] Load project config from `.context.toml` in target dir (if exists)
+- [x] Generate index using Index Engine
+- [x] Write/update CLAUDE.md in target dir using the CLAUDE.md Formatter (section injection, not overwrite)
+- [x] Return summary: "Synced N entries to CLAUDE.md (~X total index tokens)"
+
+### 4.6 `write` Tool
+> Create a new note in the vault with structured frontmatter.
+
+- [x] Input schema: `{ path: string, type: NoteType, title: string, body: string, tags?: string[], projects?: string[] }`
+- [x] Path safety: reject absolute paths, reject `..` traversal via `relative()` check
+- [x] Existence check: reject if file already exists (create-only, no overwrites)
+- [x] Create parent directories with `mkdir -p` if needed
+- [x] Build YAML frontmatter from structured fields, auto-set `created` and `updated` to today
+- [x] Write file: frontmatter + `\n# ${title}\n\n${body}\n`
+- [x] Parse back with `parseNote()` and push to shared entries array, re-sort by `NOTE_TYPE_PRIORITY`
+- [x] Return `{ ok: true, path }` or `{ ok: false, error }`
 
 ---
 
@@ -186,7 +197,7 @@
 > Optional CLI command to bootstrap vault structure.
 
 - [ ] Add a `--init-vault` flag to the server CLI
-- [ ] Creates the folder structure: `patterns/`, `decisions/`, `gotchas/`, `guides/`, `references/`, `.context/`
+- [ ] Creates the folder structure: `patterns/`, `decisions/`, `gotchas/`, `references/`
 - [ ] Creates a template note in each folder with correct frontmatter schema as an example
 - [ ] Creates a `README.md` in vault root explaining the conventions
 
@@ -207,12 +218,12 @@
 ### 6.1 Integration Tests
 > Test the full flow from vault to Claude Code consumption.
 
-- [ ] Create a test vault fixture with ~20 notes across all types, some with overlapping project tags
-- [ ] Test: `index` returns correct filtered table for a project
-- [ ] Test: `read` returns full content, rejects path traversal attempts
-- [ ] Test: `search` returns ranked results matching keywords in title, tags, body
-- [ ] Test: `sync` creates CLAUDE.md with correct index, preserves existing CLAUDE.md content outside the knowledge section
-- [ ] Test: vault with notes missing frontmatter doesn't crash, logs warnings
+- [x] Create a test vault fixture with notes across all types, some with overlapping project tags
+- [x] Test: `index` returns correct filtered table for a project
+- [x] Test: `read` returns full content, rejects path traversal attempts
+- [x] Test: `search` returns ranked results matching keywords in title, tags, body
+- [x] Test: `sync` creates CLAUDE.md with correct index, preserves existing CLAUDE.md content outside the knowledge section
+- [x] Test: vault with notes missing frontmatter doesn't crash, logs warnings
 
 ### 6.2 Real-World Validation
 > Test with your actual Obsidian vault and a real Claude Code session.
