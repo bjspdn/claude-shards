@@ -70,7 +70,7 @@ test("executeResearch always includes at least one note even if over budget", as
 test("executeResearch filters by types", async () => {
   await setup
   const result = await executeResearch(
-    { query: "rust", types: ["gotcha"] },
+    { query: "rust", types: ["gotchas"] },
     entries,
     VAULT,
   )

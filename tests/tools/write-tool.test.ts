@@ -19,7 +19,7 @@ afterEach(async () => {
 
 test("rejects absolute paths", async () => {
   const result = await executeWrite(
-    { path: "/etc/passwd", type: "gotcha", title: "Bad", body: "nope" },
+    { path: "/etc/passwd", type: "gotchas", title: "Bad", body: "nope" },
     entries,
     tempVault,
   )
@@ -29,7 +29,7 @@ test("rejects absolute paths", async () => {
 
 test("rejects path traversal", async () => {
   const result = await executeWrite(
-    { path: "../etc/passwd", type: "gotcha", title: "Bad", body: "nope" },
+    { path: "../etc/passwd", type: "gotchas", title: "Bad", body: "nope" },
     entries,
     tempVault,
   )
@@ -42,7 +42,7 @@ test("rejects write to existing file", async () => {
   await Bun.write(filePath, "already here")
 
   const result = await executeWrite(
-    { path: "existing.md", type: "gotcha", title: "Dup", body: "nope" },
+    { path: "existing.md", type: "gotchas", title: "Dup", body: "nope" },
     entries,
     tempVault,
   )
@@ -54,7 +54,7 @@ test("creates file with correct frontmatter and body", async () => {
   const result = await executeWrite(
     {
       path: "gotchas/test-note.md",
-      type: "gotcha",
+      type: "gotchas",
       title: "Test Title",
       body: "Some body content.",
       tags: ["rust", "bevy"],
@@ -68,7 +68,7 @@ test("creates file with correct frontmatter and body", async () => {
   if (!result.ok) return
 
   const content = await Bun.file(join(tempVault, "gotchas/test-note.md")).text()
-  expect(content).toContain("type: gotcha")
+  expect(content).toContain("type: gotchas")
   expect(content).toContain("tags:")
   expect(content).toContain("  - rust")
   expect(content).toContain("  - bevy")
@@ -82,7 +82,7 @@ test("creates file with correct frontmatter and body", async () => {
 
 test("creates parent directories if missing", async () => {
   const result = await executeWrite(
-    { path: "deep/nested/dir/note.md", type: "pattern", title: "Deep", body: "content" },
+    { path: "deep/nested/dir/note.md", type: "patterns", title: "Deep", body: "content" },
     entries,
     tempVault,
   )
@@ -96,30 +96,30 @@ test("pushes new entry to entries array", async () => {
   expect(entries.length).toBe(0)
 
   await executeWrite(
-    { path: "gotchas/new.md", type: "gotcha", title: "New Note", body: "body" },
+    { path: "gotchas/new.md", type: "gotchas", title: "New Note", body: "body" },
     entries,
     tempVault,
   )
 
   expect(entries.length).toBe(1)
   expect(entries[0]!.title).toBe("New Note")
-  expect(entries[0]!.frontmatter.type).toBe("gotcha")
+  expect(entries[0]!.frontmatter.type).toBe("gotchas")
   expect(entries[0]!.relativePath).toBe("gotchas/new.md")
 })
 
 test("entries stay sorted by type priority after insert", async () => {
   await executeWrite(
-    { path: "references/ref.md", type: "reference", title: "Ref", body: "ref body" },
+    { path: "references/ref.md", type: "references", title: "Ref", body: "ref body" },
     entries,
     tempVault,
   )
   await executeWrite(
-    { path: "gotchas/gotcha.md", type: "gotcha", title: "Gotcha", body: "gotcha body" },
+    { path: "gotchas/gotcha.md", type: "gotchas", title: "Gotcha", body: "gotcha body" },
     entries,
     tempVault,
   )
   await executeWrite(
-    { path: "patterns/pat.md", type: "pattern", title: "Pattern", body: "pat body" },
+    { path: "patterns/pat.md", type: "patterns", title: "Pattern", body: "pat body" },
     entries,
     tempVault,
   )

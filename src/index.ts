@@ -27,10 +27,10 @@ function parseCliArgs(): CliCommand {
 }
 
 function printHelp() {
-  console.log(`${C.bold}ccm${C.reset} ${C.dim}— persistent memory for Claude Code${C.reset}
+  console.log(`${C.bold}claude-code-memory${C.reset} ${C.dim}(ccm)${C.reset} — Persistent memory for Claude Code
 
 ${C.bold}Usage:${C.reset}
-  ${C.cyan}ccm --init${C.reset}    Scaffold vault and register MCP server
+  ${C.cyan}bunx @bennys001/claude-code-memory --init${C.reset}
 
 ${C.dim}Vault:${C.reset} ~/.ccm/knowledge-base/
 ${C.dim}Docs:${C.reset}  https://github.com/bennys001/claude-code-memory`)

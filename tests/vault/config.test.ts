@@ -13,7 +13,7 @@ test("loadProjectConfig parses valid .context.toml", async () => {
   expect(config).not.toBeNull()
   expect(config!.project!.name).toBe("bevy-game")
   expect(config!.filter!.tags).toEqual(["rust", "bevy"])
-  expect(config!.filter!.types).toEqual(["gotcha", "pattern"])
+  expect(config!.filter!.types).toEqual(["gotchas", "patterns"])
   expect(config!.filter!.exclude).toEqual(["drafts/*"])
 })
 

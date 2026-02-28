@@ -49,7 +49,7 @@ Creates a new note with structured frontmatter. Create-only — rejects existing
 | Param      | Type     | Required | Description                                     |
 |------------|----------|----------|-------------------------------------------------|
 | `path`     | string   | Yes      | Relative path for new note                      |
-| `type`     | string   | Yes      | `gotcha`, `decision`, `pattern`, or `reference` |
+| `type`     | string   | Yes      | `gotchas`, `decisions`, `patterns`, or `references` |
 | `title`    | string   | Yes      | Note title (becomes H1)                         |
 | `body`     | string   | Yes      | Markdown body                                   |
 | `tags`     | string[] | No       | Searchable tags                                 |
@@ -95,10 +95,10 @@ Add { cache: 'no-store' } or use revalidate to avoid stale data...
 
 | Type        | Icon | Purpose                            |
 |-------------|------|------------------------------------|
-| `gotcha`    | 🔴   | Pitfalls and common mistakes       |
-| `decision`  | 🟤   | Architecture and tooling decisions |
-| `pattern`   | 🔵   | Reusable code patterns             |
-| `reference` | 🟢   | Cheatsheets and quick-reference    |
+| `gotchas`    | 🔴   | Pitfalls and common mistakes       |
+| `decisions`  | 🟤   | Architecture and tooling decisions |
+| `patterns`   | 🔵   | Reusable code patterns             |
+| `references` | 🟢   | Cheatsheets and quick-reference    |
 
 ### Frontmatter Fields
 
@@ -139,7 +139,7 @@ name = "my-next-app"
 
 [filter]
 tags = ["typescript", "react", "nextjs"]
-types = ["gotcha", "pattern"]
+types = ["gotchas", "patterns"]
 exclude = ["drafts/*"]
 ```
 

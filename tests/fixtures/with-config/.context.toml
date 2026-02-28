@@ -3,5 +3,5 @@ name = "bevy-game"
 
 [filter]
 tags = ["rust", "bevy"]
-types = ["gotcha", "pattern"]
+types = ["gotchas", "patterns"]
 exclude = ["drafts/*"]

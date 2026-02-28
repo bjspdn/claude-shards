@@ -1,5 +1,5 @@
 ---
-type: gotcha
+type: gotchas
 projects:
   - bevy-game
 tags:

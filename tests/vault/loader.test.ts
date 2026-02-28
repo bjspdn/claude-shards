@@ -21,13 +21,13 @@ test("loadVault parses all valid notes and skips invalid ones", async () => {
   expect(titles).not.toContain("invalid-type")
 })
 
-test("loadVault sorts by type priority: gotcha > decision > pattern > reference", async () => {
+test("loadVault sorts by type priority: gotchas > decisions > patterns > references", async () => {
   const entries = await loadVault(VAULT)
   const types = entries.map((e) => e.frontmatter.type)
-  const gotchaIdx = types.indexOf("gotcha")
-  const decisionIdx = types.indexOf("decision")
-  const patternIdx = types.indexOf("pattern")
-  const referenceIdx = types.indexOf("reference")
+  const gotchaIdx = types.indexOf("gotchas")
+  const decisionIdx = types.indexOf("decisions")
+  const patternIdx = types.indexOf("patterns")
+  const referenceIdx = types.indexOf("references")
   expect(gotchaIdx).toBeLessThan(decisionIdx)
   expect(decisionIdx).toBeLessThan(patternIdx)
   expect(patternIdx).toBeLessThan(referenceIdx)
@@ -53,10 +53,10 @@ test("filterEntries by tags keeps notes matching ANY tag", async () => {
 test("filterEntries by types keeps only matching types", async () => {
   const entries = await loadVault(VAULT)
   const config: ProjectConfig = {
-    filter: { types: ["gotcha"] },
+    filter: { types: ["gotchas"] },
   }
   const filtered = filterEntries(entries, config)
-  expect(filtered.every((e) => e.frontmatter.type === "gotcha")).toBe(true)
+  expect(filtered.every((e) => e.frontmatter.type === "gotchas")).toBe(true)
 })
 
 test("filterEntries with exclude patterns removes matching paths", async () => {

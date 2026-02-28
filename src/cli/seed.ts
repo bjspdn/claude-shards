@@ -1,5 +1,5 @@
 const OFM_NOTE = (date: string) => `---
-type: pattern
+type: patterns
 tags:
   - obsidian
   - markdown

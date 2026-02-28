@@ -1,20 +1,20 @@
 import { z } from "zod"
 
-export const NoteType = z.enum(["gotcha", "decision", "pattern", "reference"])
+export const NoteType = z.enum(["gotchas", "decisions", "patterns", "references"])
 export type NoteType = z.infer<typeof NoteType>
 
 export const NOTE_TYPE_ICONS: Record<NoteType, string> = {
-  gotcha: "\uD83D\uDD34",
-  decision: "\uD83D\uDFE4",
-  pattern: "\uD83D\uDD35",
-  reference: "\uD83D\uDFE2",
+  gotchas: "\uD83D\uDD34",
+  decisions: "\uD83D\uDFE4",
+  patterns: "\uD83D\uDD35",
+  references: "\uD83D\uDFE2",
 }
 
 export const NOTE_TYPE_PRIORITY: Record<NoteType, number> = {
-  gotcha: 0,
-  decision: 1,
-  pattern: 2,
-  reference: 3,
+  gotchas: 0,
+  decisions: 1,
+  patterns: 2,
+  references: 3,
 }
 
 export const NoteFrontmatter = z.object({

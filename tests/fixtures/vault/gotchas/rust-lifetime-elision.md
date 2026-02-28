@@ -1,5 +1,5 @@
 ---
-type: gotcha
+type: gotchas
 projects:
   - shared
 tags:

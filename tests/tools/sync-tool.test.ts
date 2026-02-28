@@ -162,15 +162,15 @@ test("executeSync excludes notes with tech tags from global CLAUDE.md", async ()
       filePath: "/vault/gotchas/general.md",
       tokenCount: 100,
       body: "general knowledge",
-      frontmatter: { type: "gotcha", tags: ["productivity"], projects: [], created: new Date(), updated: new Date() },
+      frontmatter: { type: "gotchas", tags: ["productivity"], projects: [], created: new Date(), updated: new Date() },
     },
     {
       title: "React Hooks Guide",
-      relativePath: "reference/react-hooks.md",
-      filePath: "/vault/reference/react-hooks.md",
+      relativePath: "references/react-hooks.md",
+      filePath: "/vault/references/react-hooks.md",
       tokenCount: 200,
       body: "react specific",
-      frontmatter: { type: "reference", tags: ["react", "performance"], projects: [], created: new Date(), updated: new Date() },
+      frontmatter: { type: "references", tags: ["react", "performance"], projects: [], created: new Date(), updated: new Date() },
     },
     {
       title: "Rust Lifetimes",
@@ -178,7 +178,7 @@ test("executeSync excludes notes with tech tags from global CLAUDE.md", async ()
       filePath: "/vault/gotchas/rust-lifetimes.md",
       tokenCount: 150,
       body: "rust specific",
-      frontmatter: { type: "gotcha", tags: ["rust"], projects: [], created: new Date(), updated: new Date() },
+      frontmatter: { type: "gotchas", tags: ["rust"], projects: [], created: new Date(), updated: new Date() },
     },
   ]
 

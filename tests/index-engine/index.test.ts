@@ -9,7 +9,7 @@ import type { NoteEntry } from "../../src/vault/types"
 const MOCK_ENTRIES: NoteEntry[] = [
   {
     frontmatter: {
-      type: "gotcha",
+      type: "gotchas",
       projects: ["bevy-game"],
       tags: ["bevy"],
       created: new Date(),
@@ -23,7 +23,7 @@ const MOCK_ENTRIES: NoteEntry[] = [
   },
   {
     frontmatter: {
-      type: "decision",
+      type: "decisions",
       projects: ["web-api"],
       tags: ["typescript"],
       created: new Date(),
@@ -60,7 +60,7 @@ test("buildIndexTable returns empty message for no entries", () => {
 test("formatKnowledgeSection wraps table with header and legend", () => {
   const section = formatKnowledgeSection(MOCK_ENTRIES)
   expect(section).toContain("## Knowledge Index")
-  expect(section).toContain("🔴 = gotcha")
+  expect(section).toContain("🔴 = gotchas")
   expect(section).toContain("| T")
   expect(section).toContain("Title")
 })

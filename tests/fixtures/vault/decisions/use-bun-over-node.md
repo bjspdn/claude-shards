@@ -1,5 +1,5 @@
 ---
-type: decision
+type: decisions
 projects:
   - web-api
 tags:
