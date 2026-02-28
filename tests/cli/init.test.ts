@@ -42,10 +42,11 @@ test("formatInitSummary produces readable output", () => {
 
   const summary = formatInitSummary(result)
   expect(summary).toContain("ccm init")
-  expect(summary).toContain("[+] vault directory")
-  expect(summary).toContain("[-] patterns/ofm.md")
-  expect(summary).toContain("[!] Claude Code MCP")
-  expect(summary).toContain("2 created, 1 skipped, 1 failed")
+  expect(summary).toContain("vault directory")
+  expect(summary).toContain("patterns/ofm.md")
+  expect(summary).toContain("Claude Code MCP")
+  expect(summary).toContain("2 created")
+  expect(summary).toContain("1 failed")
 })
 
 test("seed notes write to disk correctly", async () => {

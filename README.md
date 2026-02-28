@@ -17,7 +17,7 @@ This scaffolds the vault at `~/.ccm/knowledge-base/`, registers it with Obsidian
 If `--init` can't reach the `claude` CLI, register manually:
 
 ```bash
-claude mcp add --transport stdio --scope user ccm -- bunx @bennys001/claude-code-memory
+claude mcp add --transport stdio --scope user ccm -- bunx @bennys001/claude-code-memory --stdio
 ```
 
 ## MCP Tools

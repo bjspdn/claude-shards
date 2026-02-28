@@ -1,7 +1,7 @@
 import { mkdir } from "fs/promises"
 import { join } from "path"
 import { homedir } from "os"
-import { formatDate } from "../utils"
+import { formatDate, C } from "../utils"
 import { buildSeedNotes } from "./seed"
 import { registerVaultWithObsidian } from "./obsidian"
 import { registerMcpServer } from "./claude-code"
@@ -80,25 +80,34 @@ export async function executeInit(): Promise<InitResult> {
   return { vaultPath: VAULT_PATH, steps }
 }
 
+function formatStep(step: InitStep): string {
+  const icons = {
+    created: `${C.green}+${C.reset}`,
+    skipped: `${C.yellow}-${C.reset}`,
+    failed: `${C.red}!${C.reset}`,
+  }
+  const detail = step.detail ? ` ${C.dim}(${step.detail})${C.reset}` : ""
+  return `  ${icons[step.status]} ${step.name}${detail}`
+}
+
 export function formatInitSummary(result: InitResult): string {
   const lines = [
-    "ccm init",
-    `  vault: ${result.vaultPath}`,
+    `${C.bold}ccm init${C.reset}`,
+    `${C.dim}vault:${C.reset} ${result.vaultPath}`,
     "",
+    ...result.steps.map(formatStep),
   ]
-
-  for (const step of result.steps) {
-    const icon = step.status === "created" ? "+" : step.status === "skipped" ? "-" : "!"
-    const detail = step.detail ? ` (${step.detail})` : ""
-    lines.push(`  [${icon}] ${step.name}${detail}`)
-  }
 
   const created = result.steps.filter((s) => s.status === "created").length
   const skipped = result.steps.filter((s) => s.status === "skipped").length
   const failed = result.steps.filter((s) => s.status === "failed").length
 
   lines.push("")
-  lines.push(`  ${created} created, ${skipped} skipped, ${failed} failed`)
+  if (failed > 0) {
+    lines.push(`${C.red}${created} created, ${skipped} skipped, ${failed} failed${C.reset}`)
+  } else {
+    lines.push(`${C.green}${created} created${C.reset}, ${skipped} skipped`)
+  }
 
   return lines.join("\n")
 }

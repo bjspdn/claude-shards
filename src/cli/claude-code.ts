@@ -8,7 +8,7 @@ export type McpRegisterResult =
 function buildServerCommand(): string[] {
   const runtime = resolvePath(process.argv[0]!)
   const script = resolvePath(process.argv[1]!)
-  return [runtime, script]
+  return [runtime, script, "--stdio"]
 }
 
 function buildRegisterArgs(serverCmd: string[]): string[] {
