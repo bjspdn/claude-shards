@@ -4,7 +4,6 @@
   "description": "MCP server that gives Claude Code persistent memory via an Obsidian knowledge vault",
   "module": "dist/index.js",
   "main": "dist/index.js",
-  "private": true,
   "type": "module",
   "scripts": {
     "build": "bunup",
