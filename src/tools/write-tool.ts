@@ -3,6 +3,7 @@ import { mkdir } from "fs/promises"
 import { z } from "zod"
 import { NoteType, NOTE_TYPE_PRIORITY, type NoteEntry } from "../vault/types"
 import { parseNote } from "../vault/parser"
+import { fetchPageAsMarkdown } from "../web/fetcher"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 type WriteResult =
@@ -38,9 +39,10 @@ function buildFrontmatter(args: {
 export async function executeWrite(
   args: {
     path: string
-    type: string
-    title: string
-    body: string
+    type?: string
+    title?: string
+    body?: string
+    url?: string
     tags?: string[]
     projects?: string[]
   },
@@ -62,14 +64,40 @@ export async function executeWrite(
     return { ok: false, error: `File already exists: ${args.path}. Use a different path.` }
   }
 
+  let title = args.title
+  let body = args.body
+  let type = args.type
+
+  if (args.url) {
+    let page
+    try {
+      page = await fetchPageAsMarkdown(args.url)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return { ok: false, error: `Failed to fetch URL: ${msg}` }
+    }
+    title ??= page.title
+    body ??= page.markdown
+    type ??= "reference"
+    body = `> Source: ${args.url}\n\n${body}`
+  }
+
+  if (!title) {
+    return { ok: false, error: "A title is required. Provide title or url." }
+  }
+  if (!body) {
+    return { ok: false, error: "A body is required. Provide body or url." }
+  }
+  type ??= "reference"
+
   const today = formatDate(new Date())
   const frontmatter = buildFrontmatter({
-    type: args.type,
+    type,
     tags: args.tags,
     projects: args.projects,
     date: today,
   })
-  const content = `${frontmatter}\n\n# ${args.title}\n\n${args.body}\n`
+  const content = `${frontmatter}\n\n# ${title}\n\n${body}\n`
 
   await mkdir(dirname(resolved), { recursive: true })
   await Bun.write(resolved, content)
@@ -95,12 +123,16 @@ export function registerWriteTool(
   server.registerTool(
     "write",
     {
-      description: "Create a new note in the vault with structured frontmatter. Rejects writes to existing paths.",
+      description:
+        "Create a new note in the vault with structured frontmatter. " +
+        "Rejects writes to existing paths. " +
+        "Provide a url to auto-fetch and parse a web page as note content.",
       inputSchema: z.object({
         path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
-        type: NoteType.describe("Note type"),
-        title: z.string().describe("Note title (becomes the H1 heading)"),
-        body: z.string().describe("Markdown body content (after the H1)"),
+        type: NoteType.optional().describe("Note type (defaults to 'reference' when url provided)"),
+        title: z.string().optional().describe("Note title (becomes the H1 heading). Auto-detected from page when url provided."),
+        body: z.string().optional().describe("Markdown body content (after the H1). Auto-extracted from page when url provided."),
+        url: z.url().optional().describe("URL to fetch and parse as note content"),
         tags: z.array(z.string()).optional().describe("Searchable tags"),
         projects: z.array(z.string()).optional().describe("Project names this note relates to"),
       }),
