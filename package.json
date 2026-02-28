@@ -1,12 +1,21 @@
 {
   "name": "@bennys001/claude-code-memory",
   "publishConfig": { "access": "public" },
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "MCP server that gives Claude Code persistent memory via an Obsidian knowledge vault",
   "module": "dist/index.js",
   "main": "dist/index.js",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ben-Spn/claude-code-memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ben-Spn/claude-code-memory/issues"
+  },
+  "homepage": "https://github.com/Ben-Spn/claude-code-memory?tab=readme-ov-file#claude-code-memory-ccm",
   "scripts": {
+    "prepare": "husky",
     "build": "bunup",
     "prepublishOnly": "bun run build"
   },
@@ -21,7 +30,8 @@
     "@types/dompurify": "3.2.0",
     "@types/mozilla-readability": "0.2.1",
     "@types/turndown": "5.0.6",
-    "bunup": "0.16.31"
+    "bunup": "0.16.31",
+    "husky": "9.1.7"
   },
   "peerDependencies": {
     "typescript": "5.9.3"

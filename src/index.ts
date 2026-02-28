@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import pkg from "../package.json" with { type: "json" }
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { homedir } from "os"
@@ -50,7 +51,7 @@ async function runServer() {
 
   const server = new McpServer({
     name: "ccm",
-    version: "0.9.1",
+    version: pkg.version,
   })
 
   registerIndexTool(server, entries)
