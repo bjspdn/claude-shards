@@ -36,7 +36,7 @@ async function main() {
 
   const server = new McpServer({
     name: "ccm",
-    version: "0.3.3",
+    version: "0.3.4",
   })
 
   registerIndexTool(server, entries)
@@ -48,6 +48,14 @@ async function main() {
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
+
+  const shutdown = async () => {
+    await server.close()
+    process.exit(0)
+  }
+
+  process.on("SIGINT", shutdown)
+  process.on("SIGTERM", shutdown)
 }
 
 main().catch((err) => {
