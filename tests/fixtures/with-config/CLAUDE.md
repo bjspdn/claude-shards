@@ -1,6 +1,6 @@
 ## Knowledge Index
 Use MCP tool `read` with the note path to fetch full details on demand.
-🔴 = gotcha  🟤 = decision  🔵 = pattern  🟢 = reference
+🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references
 
 | T | Title | Path | ~Tok |
 |---|-------|------|------|

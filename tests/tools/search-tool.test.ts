@@ -27,10 +27,10 @@ test("executeSearch scores title matches higher than body matches", async () => 
 test("executeSearch filters by types param", async () => {
   await setup
   const results = executeSearch(
-    { query: "rust", types: ["gotcha"] },
+    { query: "rust", types: ["gotchas"] },
     entries,
   )
-  expect(results.every((r) => r.type === "gotcha")).toBe(true)
+  expect(results.every((r) => r.type === "gotchas")).toBe(true)
 })
 
 test("executeSearch filters by tags param", async () => {

@@ -22,7 +22,7 @@ test("buildSeedNotes returns expected files with date injected", () => {
   const ofm = notes.find((n) => n.relativePath.includes("obsidian-flavored-markdown"))
   expect(ofm).toBeDefined()
   expect(ofm!.content).toContain("created: 2026-02-28")
-  expect(ofm!.content).toContain("type: pattern")
+  expect(ofm!.content).toContain("type: patterns")
 
   const template = notes.find((n) => n.relativePath.includes("_templates/note.md"))
   expect(template).toBeDefined()

@@ -47,7 +47,7 @@ export function formatKnowledgeSection(entries: NoteEntry[]): string {
   return [
     "## Knowledge Index",
     "Use MCP tool `read` with the note path to fetch full details on demand.",
-    "🔴 = gotcha  🟤 = decision  🔵 = pattern  🟢 = reference",
+    "🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
     "",
     table,
   ].join("\n")

@@ -1,5 +1,5 @@
 ---
-type: reference
+type: references
 projects:
   - bevy-game
 tags:

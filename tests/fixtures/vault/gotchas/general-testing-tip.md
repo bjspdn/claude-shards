@@ -1,5 +1,5 @@
 ---
-type: gotcha
+type: gotchas
 tags:
   - general
 created: 2026-02-01

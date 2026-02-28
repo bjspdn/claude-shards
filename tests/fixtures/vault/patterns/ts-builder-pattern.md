@@ -1,5 +1,5 @@
 ---
-type: pattern
+type: patterns
 projects:
   - web-api
 tags:

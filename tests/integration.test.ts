@@ -38,7 +38,7 @@ test("read tool returns full content for valid note", async () => {
   const result = await executeRead("gotchas/bevy-system-ordering.md", VAULT)
   expect(result.ok).toBe(true)
   if (result.ok) {
-    expect(result.content).toContain("type: gotcha")
+    expect(result.content).toContain("type: gotchas")
     expect(result.content).toContain("bevy-game")
   }
 })
