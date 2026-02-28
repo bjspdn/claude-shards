@@ -1,5 +1,7 @@
 #!/bin/sh
 
+[ "$CCM_SKIP_HOOKS" = "1" ] && exit 0
+
 COMMIT_MSG=$(head -1 "$1")
 
 if echo "$COMMIT_MSG" | grep -qE '^feat(\(.+\))?!?:'; then
@@ -14,20 +16,4 @@ else
   exit 1
 fi
 
-CURRENT_VERSION=$(node -p "require('./package.json').version")
-MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
-
-if [ "$BUMP" = "minor" ]; then
-  MINOR=$((MINOR + 1))
-  PATCH=0
-else
-  PATCH=$((PATCH + 1))
-fi
-
-NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-
-sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" package.json
-git add package.json
-echo "Version bumped: $CURRENT_VERSION → $NEW_VERSION ($BUMP)"
+echo "$BUMP" > .husky/.pending_bump
