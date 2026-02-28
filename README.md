@@ -175,7 +175,7 @@ Generates or updates a `## Knowledge Index` section in a project's `CLAUDE.md`. 
 |-------------|--------|----------|-------------------------------------|
 | `targetDir` | string | No       | Project directory (defaults to CWD) |
 
-Existing content in `CLAUDE.md` outside the Knowledge Index section is preserved.
+Existing content in `CLAUDE.md` outside the Knowledge Index section is preserved. Notes are filtered by project scope: if the target directory has a `.context.toml` with `project.name`, only notes tagged with that project (plus untagged notes) are included. Directories without a project config only get untagged notes.
 
 ## Project-Level Filtering
 
@@ -192,6 +192,111 @@ exclude = ["drafts/*"]           # glob patterns to exclude
 ```
 
 The filters apply to `index`, `search`, and `sync` tools automatically.
+
+## Use Cases
+
+### Avoiding repeated mistakes
+
+You hit a subtle Rust lifetime issue, spend an hour debugging, and finally figure it out. Write a `gotcha` note so Claude catches it next time:
+
+```
+Write a gotcha note about Rust lifetime elision not applying when the return
+type has multiple references — I keep getting burned by this.
+```
+
+Next session, when Claude sees similar code, the gotcha surfaces via the Knowledge Index in `CLAUDE.md` — no need to explain the problem again.
+
+### Preserving architecture decisions
+
+Your team chose ECS over OOP for the game engine. Six months later, you're wondering why. A `decision` note captures the rationale:
+
+```
+Write a decision note about why we chose ECS over OOP for the bevy-game project.
+Tag it with architecture and bevy.
+```
+
+### Building a personal reference library
+
+You always forget the exact Bun.serve API signature, or which Bevy query filters exist. `reference` notes act as cheatsheets that Claude can pull up instantly instead of searching docs.
+
+### Cross-project knowledge sharing
+
+Some notes apply everywhere (general Rust gotchas, TypeScript patterns). Leave their `projects` field empty — they'll appear in every project's Knowledge Index when you `sync`. Project-specific notes only sync to their tagged projects.
+
+### Onboarding Claude to a new project
+
+Starting a new conversation in an unfamiliar project? Run `sync` to inject the Knowledge Index into `CLAUDE.md`, giving Claude immediate awareness of all relevant notes without burning context tokens on full content.
+
+## Workflows
+
+### Setting up a new project
+
+1. Create a `.context.toml` in the project root to scope which notes are relevant:
+
+```toml
+[project]
+name = "my-project"
+
+[filter]
+tags = ["typescript", "react"]
+types = ["gotcha", "pattern", "reference"]
+exclude = ["drafts/*"]
+```
+
+2. Ask Claude to sync the Knowledge Index:
+
+```
+Sync the knowledge index to CLAUDE.md
+```
+
+This injects a compact table into `CLAUDE.md` that Claude loads automatically in every conversation.
+
+### Writing notes during a session
+
+As you work, ask Claude to capture knowledge directly into the vault:
+
+```
+Write a gotcha note about React useEffect cleanup not running on fast remount
+in dev mode. Tag it with react and hooks.
+```
+
+The note is immediately available to `index`, `search`, and `read` — no server restart needed.
+
+### Searching for relevant knowledge
+
+When you need to find something specific:
+
+```
+Search the vault for notes about error handling
+```
+
+Claude uses the `search` tool to find notes ranked by relevance, then can `read` the full content of the most relevant match.
+
+### Global vs project-scoped notes
+
+Notes with no `projects` field are global — they sync to any `CLAUDE.md`, including `~/.claude/CLAUDE.md`. Notes tagged with specific projects only sync to directories where `.context.toml` declares a matching `project.name`.
+
+```
+# This note syncs everywhere (no projects field)
+Write a gotcha note about keeping CLAUDE.md under 200 lines.
+
+# This note only syncs to the bevy-game project
+Write a pattern note about Bevy system ordering, tag it with the bevy-game project.
+```
+
+### Keeping the index fresh
+
+After adding or removing notes, re-sync to update `CLAUDE.md`:
+
+```
+Sync the knowledge index
+```
+
+For your global `CLAUDE.md`:
+
+```
+Sync the knowledge index to ~/.claude
+```
 
 ## Running Tests
 

@@ -22,7 +22,19 @@ export async function executeSync(
   vaultPath: string,
 ): Promise<SyncResult> {
   const config = await loadProjectConfig(targetDir)
-  const filtered = filterEntries(allEntries, config)
+  let filtered = filterEntries(allEntries, config)
+
+  const projectName = config?.project?.name
+  if (projectName) {
+    filtered = filtered.filter(
+      (e) =>
+        e.frontmatter.projects.length === 0 ||
+        e.frontmatter.projects.includes(projectName),
+    )
+  } else {
+    filtered = filtered.filter((e) => e.frontmatter.projects.length === 0)
+  }
+
   const totalTokens = filtered.reduce((sum, e) => sum + e.tokenCount, 0)
 
   const claudeMdPath = join(targetDir, "CLAUDE.md")

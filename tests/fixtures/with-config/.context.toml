@@ -1,5 +1,5 @@
 [project]
-name = "test-project"
+name = "bevy-game"
 
 [filter]
 tags = ["rust", "bevy"]

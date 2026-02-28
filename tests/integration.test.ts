@@ -22,7 +22,7 @@ beforeAll(async () => {
 })
 
 test("full vault loads expected number of valid notes", () => {
-  expect(allEntries.length).toBe(9)
+  expect(allEntries.length).toBe(10)
 })
 
 test("index tool returns filtered table for project config", () => {
@@ -68,7 +68,7 @@ test("sync creates valid CLAUDE.md in temp directory", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "integration-test-"))
   const result = await executeSync(tempDir, allEntries, VAULT)
 
-  expect(result.entryCount).toBe(9)
+  expect(result.entryCount).toBe(1)
   expect(result.totalTokens).toBeGreaterThan(0)
 
   const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()

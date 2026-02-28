@@ -19,10 +19,12 @@ test("executeSync creates CLAUDE.md when none exists", async () => {
   await setup
   const result = await executeSync(tempDir, entries, VAULT)
   expect(result.summary).toContain("Synced")
+  expect(result.entryCount).toBe(1)
 
   const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
   expect(content).toContain("## Knowledge Index")
-  expect(content).toContain("| T | Title | Path | ~Tok |")
+  expect(content).toContain("General testing tip")
+  expect(content).not.toContain("bevy")
 })
 
 test("executeSync preserves existing CLAUDE.md content outside Knowledge Index", async () => {
@@ -70,7 +72,7 @@ test("executeSync applies .context.toml filters when present", async () => {
 test("executeSync returns entry count and token summary", async () => {
   await setup
   const result = await executeSync(tempDir, entries, VAULT)
-  expect(result.entryCount).toBeGreaterThan(0)
+  expect(result.entryCount).toBe(1)
   expect(result.totalTokens).toBeGreaterThan(0)
   expect(result.summary).toMatch(/Synced \d+ entries/)
 })
