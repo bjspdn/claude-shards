@@ -1,0 +1,7 @@
+[project]
+name = "test-project"
+
+[filter]
+tags = ["rust", "bevy"]
+types = ["gotcha", "pattern"]
+exclude = ["drafts/*"]
