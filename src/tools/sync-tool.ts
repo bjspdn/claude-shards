@@ -1,7 +1,8 @@
 import { z } from "zod"
-import { join } from "path"
+import { join, resolve } from "path"
+import { homedir } from "os"
 import type { NoteEntry } from "../vault/types"
-import { loadProjectConfig } from "../vault/config"
+import { loadProjectConfig, createDefaultConfig } from "../vault/config"
 import { filterEntries } from "../vault/loader"
 import {
   formatKnowledgeSection,
@@ -21,15 +22,28 @@ export async function executeSync(
   allEntries: NoteEntry[],
   vaultPath: string,
 ): Promise<SyncResult> {
-  const config = await loadProjectConfig(targetDir)
-  let filtered = filterEntries(allEntries, config)
+  let config = await loadProjectConfig(targetDir)
+
+  const globalClaudeDir = resolve(homedir(), ".claude")
+  if (!config && resolve(targetDir) !== globalClaudeDir) {
+    config = await createDefaultConfig(targetDir)
+  }
+
+  const filterConfig = config?.filter
+    ? { ...config, filter: { ...config.filter, tags: undefined } }
+    : config
+  let filtered = filterEntries(allEntries, filterConfig)
 
   const projectName = config?.project?.name
+  const filterTags = config?.filter?.tags
   if (projectName) {
     filtered = filtered.filter(
       (e) =>
-        e.frontmatter.projects.length === 0 ||
-        e.frontmatter.projects.includes(projectName),
+        e.frontmatter.projects.includes(projectName) ||
+        (e.frontmatter.projects.length === 0 &&
+          filterTags?.length !== undefined &&
+          filterTags.length > 0 &&
+          e.frontmatter.tags.some((t) => filterTags.includes(t))),
     )
   } else {
     filtered = filtered.filter((e) => e.frontmatter.projects.length === 0)

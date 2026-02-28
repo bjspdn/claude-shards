@@ -64,17 +64,17 @@ test("search respects project config filters", () => {
   expect(types.every((t) => projectConfig!.filter!.types!.includes(t))).toBe(true)
 })
 
-test("sync creates valid CLAUDE.md in temp directory", async () => {
+test("sync creates valid CLAUDE.md and .context.toml in temp directory", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "integration-test-"))
   const result = await executeSync(tempDir, allEntries, VAULT)
 
-  expect(result.entryCount).toBe(1)
-  expect(result.totalTokens).toBeGreaterThan(0)
+  expect(result.entryCount).toBe(0)
 
   const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
   expect(content).toContain("## Knowledge Index")
-  expect(content).toContain("🔴 = gotcha")
-  expect(content).toContain("| T | Title | Path | ~Tok |")
+
+  const configExists = await Bun.file(join(tempDir, ".context.toml")).exists()
+  expect(configExists).toBe(true)
 })
 
 test("sync with config filters produces smaller index", async () => {

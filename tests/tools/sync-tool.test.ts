@@ -15,16 +15,17 @@ beforeEach(async () => {
   tempDir = await mkdtemp(join(tmpdir(), "sync-test-"))
 })
 
-test("executeSync creates CLAUDE.md when none exists", async () => {
+test("executeSync creates CLAUDE.md and auto-creates .context.toml", async () => {
   await setup
   const result = await executeSync(tempDir, entries, VAULT)
   expect(result.summary).toContain("Synced")
-  expect(result.entryCount).toBe(1)
+  expect(result.entryCount).toBe(0)
 
   const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
   expect(content).toContain("## Knowledge Index")
-  expect(content).toContain("General testing tip")
-  expect(content).not.toContain("bevy")
+
+  const configExists = await Bun.file(join(tempDir, ".context.toml")).exists()
+  expect(configExists).toBe(true)
 })
 
 test("executeSync preserves existing CLAUDE.md content outside Knowledge Index", async () => {
@@ -72,7 +73,40 @@ test("executeSync applies .context.toml filters when present", async () => {
 test("executeSync returns entry count and token summary", async () => {
   await setup
   const result = await executeSync(tempDir, entries, VAULT)
-  expect(result.entryCount).toBe(1)
-  expect(result.totalTokens).toBeGreaterThan(0)
+  expect(result.entryCount).toBe(0)
+  expect(result.totalTokens).toBe(0)
   expect(result.summary).toMatch(/Synced \d+ entries/)
+})
+
+test("executeSync includes global notes when tags overlap", async () => {
+  await setup
+  await Bun.write(
+    join(tempDir, ".context.toml"),
+    '[project]\nname = "test-proj"\n\n[filter]\ntags = ["general"]\n',
+  )
+  const result = await executeSync(tempDir, entries, VAULT)
+  expect(result.entryCount).toBe(1)
+
+  const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
+  expect(content).toContain("General testing tip")
+})
+
+test("executeSync excludes global notes when no tag overlap", async () => {
+  await setup
+  await Bun.write(
+    join(tempDir, ".context.toml"),
+    '[project]\nname = "test-proj"\n\n[filter]\ntags = ["nonexistent"]\n',
+  )
+  const result = await executeSync(tempDir, entries, VAULT)
+  expect(result.entryCount).toBe(0)
+})
+
+test("executeSync excludes global notes when no filter.tags specified", async () => {
+  await setup
+  await Bun.write(
+    join(tempDir, ".context.toml"),
+    '[project]\nname = "test-proj"\n',
+  )
+  const result = await executeSync(tempDir, entries, VAULT)
+  expect(result.entryCount).toBe(0)
 })

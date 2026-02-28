@@ -1,6 +1,6 @@
-import { parse } from "smol-toml"
+import { parse, stringify } from "smol-toml"
 import { ProjectConfigSchema, type ProjectConfig } from "./types"
-import { join } from "path"
+import { join, basename } from "path"
 
 export async function loadProjectConfig(dir: string): Promise<ProjectConfig | null> {
   const configPath = join(dir, ".context.toml")
@@ -21,4 +21,11 @@ export async function loadProjectConfig(dir: string): Promise<ProjectConfig | nu
     console.error(`Warning: Failed to parse .context.toml in ${dir}`)
     return null
   }
+}
+
+export async function createDefaultConfig(dir: string): Promise<ProjectConfig> {
+  const config = { project: { name: basename(dir) } }
+  const configPath = join(dir, ".context.toml")
+  await Bun.write(configPath, stringify(config) + "\n")
+  return config
 }

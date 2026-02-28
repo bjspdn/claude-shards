@@ -198,6 +198,7 @@
 
 - [ ] Add a `--init-vault` flag to the server CLI
 - [ ] Creates the folder structure: `patterns/`, `decisions/`, `gotchas/`, `references/`
+- [ ] Creates the `obsidian-flavored-markdown.md` file 
 - [ ] Creates a template note in each folder with correct frontmatter schema as an example
 - [ ] Creates a `README.md` in vault root explaining the conventions
 
