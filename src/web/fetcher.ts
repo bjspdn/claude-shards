@@ -11,20 +11,20 @@ export interface ParsedPage {
 }
 
 export function convertHTMLToMarkdown(html: string, url: string): ParsedPage {
-  const window = parseHTML(html)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const window = parseHTML(html) as any
   if (!window.document?.documentElement) {
     throw new Error(`Could not extract readable content from ${url}`)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const purify = DOMPurify(window as any)
+  const purify = DOMPurify(window)
   const cleanHTML = purify.sanitize(window.document.documentElement.outerHTML, {
     WHOLE_DOCUMENT: true,
   })
-  const cleanWindow = parseHTML(cleanHTML)
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const reader = new Readability(cleanWindow.document as any, {
+  const cleanWindow = parseHTML(cleanHTML) as any
+
+  const reader = new Readability(cleanWindow.document, {
     charThreshold: 0,
   })
   const article = reader.parse()

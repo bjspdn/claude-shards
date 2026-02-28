@@ -2,25 +2,33 @@
 
 MCP server that gives Claude Code access to your Obsidian knowledge vault. Notes you write in Obsidian — gotchas, decisions, patterns, references — become queryable context without manual copy-pasting.
 
-## Installation
+## Quick Start
 
 Requires [Bun](https://bun.sh/).
+
+```bash
+bunx -y claude-code-memory --init
+```
+
+This scaffolds the knowledge vault at `~/.ccm/knowledge-base/`, registers it with Obsidian, and registers the MCP server with Claude Code.
+
+### Manual setup
+
+If `--init` can't reach the `claude` CLI, register manually:
+
+```bash
+claude mcp add --transport stdio --scope user ccm -- bunx -y claude-code-memory
+```
+
+The vault path defaults to `~/.ccm/knowledge-base/`. Override with `--vault` or `OBSIDIAN_VAULT_PATH` env var.
+
+### Development
 
 ```bash
 git clone <repo-url>
 cd claude-code-memory
 bun install
 ```
-
-### Register as MCP server
-
-```bash
-claude mcp add --transport stdio --scope user ccm -- \
-  bun run /path/to/claude-code-memory/src/index.ts \
-  --vault "/path/to/your/vault"
-```
-
-Vault path can also be set via `OBSIDIAN_VAULT_PATH` env var.
 
 ## MCP Tools
 

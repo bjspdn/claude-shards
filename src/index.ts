@@ -1,5 +1,8 @@
+#!/usr/bin/env bun
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
+import { homedir } from "os"
+import { join } from "path"
 import { loadVault } from "./vault/loader"
 import { registerIndexTool } from "./tools/index-tool"
 import { registerReadTool } from "./tools/read-tool"
@@ -8,45 +11,42 @@ import { registerSyncTool } from "./tools/sync-tool"
 import { registerWriteTool } from "./tools/write-tool"
 import { registerFetchPageTool } from "./tools/fetch-page-tool"
 import { registerResearchTool } from "./tools/research-tool"
+import { executeInit, formatInitSummary } from "./cli/init"
 
-function parseVaultPath(): string {
-  const args = process.argv.slice(2)
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--vault" && args[i + 1]) {
-      return args[i + 1]!
-    }
-  }
+type CliCommand = "init" | "serve"
 
-  if (process.env.OBSIDIAN_VAULT_PATH) {
-    return process.env.OBSIDIAN_VAULT_PATH
-  }
+const VAULT_PATH = join(homedir(), ".ccm", "knowledge-base")
 
-  console.error(
-    "Error: Vault path required.\n" +
-    "  Use: --vault /path/to/vault\n" +
-    "  Or set OBSIDIAN_VAULT_PATH environment variable",
-  )
-  process.exit(1)
+function parseCliArgs(): CliCommand {
+  if (process.argv.includes("--init")) return "init"
+  return "serve"
 }
 
-async function main() {
-  const vaultPath = parseVaultPath()
-  const entries = await loadVault(vaultPath)
+async function runInit() {
+  const result = await executeInit()
+  console.error(formatInitSummary(result))
 
-  console.error(`Loaded ${entries.length} notes from ${vaultPath}`)
+  const failed = result.steps.filter((s) => s.status === "failed").length
+  process.exit(failed > 0 ? 1 : 0)
+}
+
+async function runServer() {
+  const entries = await loadVault(VAULT_PATH)
+
+  console.error(`Loaded ${entries.length} notes from ${VAULT_PATH}`)
 
   const server = new McpServer({
     name: "ccm",
-    version: "0.4.1",
+    version: "0.9.0",
   })
 
   registerIndexTool(server, entries)
-  registerReadTool(server, vaultPath)
+  registerReadTool(server, VAULT_PATH)
   registerSearchTool(server, entries)
-  registerSyncTool(server, entries, vaultPath)
-  registerWriteTool(server, entries, vaultPath)
+  registerSyncTool(server, entries, VAULT_PATH)
+  registerWriteTool(server, entries, VAULT_PATH)
   registerFetchPageTool(server)
-  registerResearchTool(server, entries, vaultPath)
+  registerResearchTool(server, entries, VAULT_PATH)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
@@ -60,8 +60,16 @@ async function main() {
   process.on("SIGTERM", shutdown)
 }
 
-main().catch((err) => {
-  console.error("Fatal:", err)
-  process.exit(1)
-})
+const cli = parseCliArgs()
 
+if (cli === "init") {
+  runInit().catch((err) => {
+    console.error("Fatal:", err)
+    process.exit(1)
+  })
+} else {
+  runServer().catch((err) => {
+    console.error("Fatal:", err)
+    process.exit(1)
+  })
+}

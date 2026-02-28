@@ -194,23 +194,25 @@
 > Depends on: MCP Server
 
 ### 5.1 Vault Scaffolding Command
-> Optional CLI command to bootstrap vault structure.
+> CLI command to bootstrap vault structure and register with Obsidian + Claude Code.
 
-- [ ] Add a `--init-vault` flag to the server CLI
-- [ ] Creates the folder structure: `patterns/`, `decisions/`, `gotchas/`, `references/`
-- [ ] Creates the `obsidian-flavored-markdown.md` file 
-- [ ] Creates a template for frontmatter when manually creating new notes. 
-- [ ] Not related but It should gracefully shutdown the mcp when exiting a Claude Code session.
-- [ ] Creates a template note in each folder with correct frontmatter schema as an example
-- [ ] Creates a `README.md` in vault root explaining the conventions
+- [x] Add `--init` flag to CLI routing (discriminated union: init vs serve)
+- [x] Creates vault at `~/.ccm/knowledge-base/` with subfolders: `gotchas/`, `decisions/`, `patterns/`, `references/`, `_templates/`
+- [x] Creates seed notes: `patterns/obsidian-flavored-markdown.md`, `_templates/note.md`
+- [x] Registers vault with Obsidian (idempotent, graceful when not installed)
+- [x] Registers MCP server with Claude Code via `claude mcp add` (graceful fallback with manual command)
+- [x] All steps idempotent — re-running `--init` reports "skipped" for existing items
+- [x] Graceful shutdown on SIGINT/SIGTERM
 
-### 5.2 Claude Code Configuration Docs
-> Document how to wire this into Claude Code.
+### 5.2 npm Publishing & Distribution
+> Publish to npm for `bunx` distribution.
 
-- [ ] Write setup instructions: how to add the MCP server to Claude Code's config (`~/.claude/claude_desktop_config.json` or project-level `.mcp.json`)
-- [ ] Document the `.context.toml` schema with examples
-- [ ] Document the frontmatter schema with examples for each note type
-- [ ] Include a "writing good titles" guide (from the progressive disclosure principles — specific, actionable, searchable, self-contained)
+- [x] Build pipeline with bunup (`target: "bun"`, ESM output)
+- [x] Package config: bin, files, main, prepublishOnly
+- [x] `.npmignore` excludes tests, docs, source
+- [x] Default vault path `~/.ccm/knowledge-base/` when no `--vault` flag
+- [x] Install via `bunx -y claude-code-memory --init` or `claude mcp add`
+- [x] Updated README with Quick Start instructions
 
 ---
 
