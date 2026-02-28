@@ -1,40 +1,30 @@
 # claude-code-memory (ccm)
 
-MCP server that gives Claude Code access to your Obsidian knowledge vault. Notes you write in Obsidian — gotchas, decisions, patterns, references — become queryable context without manual copy-pasting.
+MCP server that gives Claude Code persistent memory via an Obsidian-compatible knowledge vault. Notes you write — gotchas, decisions, patterns, references — become queryable context across sessions without manual copy-pasting.
 
 ## Quick Start
 
-Requires [Bun](https://bun.sh/).
+Requires [Bun](https://bun.sh/) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 ```bash
-bunx -y claude-code-memory --init
+bunx @bennys001/claude-code-memory --init
 ```
 
-This scaffolds the knowledge vault at `~/.ccm/knowledge-base/`, registers it with Obsidian, and registers the MCP server with Claude Code.
+This scaffolds the vault at `~/.ccm/knowledge-base/`, registers it with Obsidian (if installed), and adds the MCP server to Claude Code.
 
 ### Manual setup
 
 If `--init` can't reach the `claude` CLI, register manually:
 
 ```bash
-claude mcp add --transport stdio --scope user ccm -- bunx -y claude-code-memory
-```
-
-The vault path defaults to `~/.ccm/knowledge-base/`. Override with `--vault` or `OBSIDIAN_VAULT_PATH` env var.
-
-### Development
-
-```bash
-git clone <repo-url>
-cd claude-code-memory
-bun install
+claude mcp add --transport stdio --scope user ccm -- bunx @bennys001/claude-code-memory
 ```
 
 ## MCP Tools
 
 ### `research`
 
-Batched search+read in one call. Finds matching notes by keyword and returns the results table plus full note content. Preferred over `search` → `read` chains.
+Batched search+read in one call. Finds matching notes by keyword and returns the results table plus full note content.
 
 | Param       | Type     | Required | Description                                         |
 |-------------|----------|----------|-----------------------------------------------------|
@@ -43,13 +33,6 @@ Batched search+read in one call. Finds matching notes by keyword and returns the
 | `tags`      | string[] | No       | Filter by tag                                       |
 | `limit`     | number   | No       | Max results (default 10)                            |
 | `maxTokens` | number   | No       | Token budget — stops including bodies once exceeded |
-
-```
-> Search my vault for notes about Next.js caching
-
-Calls: research({ query: "next.js caching" })
-Returns: results table + full note bodies in one response
-```
 
 ### `index`
 
@@ -72,40 +55,21 @@ Creates a new note with structured frontmatter. Create-only — rejects existing
 | `tags`     | string[] | No       | Searchable tags                                 |
 | `projects` | string[] | No       | Project names                                   |
 
-Dates set automatically. Parent dirs created if needed. Note immediately available to other tools.
-
 ### `sync`
 
-Generates/updates `## Knowledge Index` section in a project's `CLAUDE.md`. Injects the index table so Claude sees it at conversation start without a tool call.
+Generates/updates a `## Knowledge Index` section in a project's `CLAUDE.md`. Injects the index table so Claude sees relevant notes at conversation start without a tool call.
 
 | Param       | Type   | Required | Description                         |
 |-------------|--------|----------|-------------------------------------|
 | `targetDir` | string | No       | Project directory (defaults to CWD) |
 
-Preserves existing `CLAUDE.md` content outside the Knowledge Index section. Filters by project scope via `.context.toml`.
-
 ### `fetch-page`
 
-Fetches a web page, extracts main content via Readability, converts to markdown. Returns a temp file path — read it, clean it up, then `write` to vault.
+Fetches a web page, extracts main content via Readability, converts to markdown. Returns a temp file path — read it, then `write` to vault.
 
 | Param | Type   | Required | Description  |
 |-------|--------|----------|--------------|
 | `url` | string | Yes      | URL to fetch |
-
-### `search` *(deprecated)*
-
-Keyword search returning only the results table, not note content. Replaced by `research` which returns table + bodies in one call. Still functional but will be removed in a future version.
-
-
-### `read` *(deprecated)*
-
-Full markdown content of a single note by relative path. Replaced by `research` which returns table + bodies in one call. Still functional but will be removed in a future version.
-
-| Param  | Type   | Required | Description                                     |
-|--------|--------|----------|-------------------------------------------------|
-| `path` | string | Yes      | Relative path (e.g. `gotchas/nextjs-fetch-cache.md`) |
-
-Path traversal and absolute paths rejected.
 
 ## Note Format
 
@@ -152,7 +116,7 @@ Add { cache: 'no-store' } or use revalidate to avoid stale data...
 Organize however you like. The server finds all `.md` files recursively, ignoring hidden dirs and `node_modules`.
 
 ```
-vault/
+~/.ccm/knowledge-base/
   gotchas/
     nextjs-fetch-cache.md
   decisions/
@@ -185,75 +149,47 @@ Applies to `index`, `research`, and `sync` automatically.
 
 ### Capture mistakes as you hit them
 
-```
-Write a gotcha note about Next.js fetch cache persisting across requests
-in production. Tag it with nextjs and react.
-```
+> Write a gotcha note about Next.js fetch cache persisting across requests
+> in production. Tag it with nextjs and react.
 
 Next session, the gotcha surfaces via Knowledge Index — no re-explaining.
 
 ### Preserve architecture decisions
 
-```
-Write a decision note about why we chose App Router over Pages Router
-for my-next-app. Tag it with nextjs and architecture.
-```
+> Write a decision note about why we chose App Router over Pages Router
+> for my-next-app. Tag it with nextjs and architecture.
 
 ### Build a personal reference library
 
-```
-Write a reference note with common Tailwind responsive breakpoints
-and utility patterns.
-```
-
-Claude pulls it up instantly instead of searching docs.
-
-### Research vault knowledge
-
-```
-Search my vault for notes about error handling
-```
-
-One `research` call returns ranked results with full note content.
-
-### Onboard Claude to a project
-
-```
-Sync the knowledge index to CLAUDE.md
-```
-
-Injects a compact index table — Claude sees all relevant notes at conversation start.
+> Write a reference note with common Tailwind responsive breakpoints
+> and utility patterns.
 
 ### Import web pages into vault
 
-```
-Fetch https://nextjs.org/docs/app/api-reference/functions/revalidatePath
-and save it as a reference note
-```
+> Fetch https://nextjs.org/docs/app/api-reference/functions/revalidatePath
+> and save it as a reference note
 
 ### Scope notes to projects
 
-Notes with no `projects` field are global — they only sync to `~/.claude/CLAUDE.md`. Project-tagged notes sync to matching project CLAUDE.md files. Notes with tech tags (e.g. `rust`, `react`, `next.js`) are excluded from global sync to avoid bloat.
+Notes with no `projects` field are global — they sync to `~/.claude/CLAUDE.md`. Project-tagged notes sync to matching project `CLAUDE.md` files.
 
-```
-# Global — syncs to ~/.claude/CLAUDE.md only
-Write a gotcha note about keeping CLAUDE.md under 200 lines.
+> Write a gotcha note about keeping CLAUDE.md under 200 lines.
 
-# Project-scoped — syncs to my-next-app's CLAUDE.md
-Write a pattern note about React Server Components data fetching,
-tag it with the my-next-app project.
-```
+> Write a pattern note about React Server Components data fetching,
+> tag it with the my-next-app project.
 
-## Running Tests
+## Development
 
 ```bash
+git clone https://github.com/bennys001/claude-code-memory.git
+cd claude-code-memory
+bun install
 bun test
 ```
 
 ## Tech Stack
 
 - **Runtime:** Bun
-- **Language:** TypeScript
 - **Protocol:** [Model Context Protocol](https://modelcontextprotocol.io/) via `@modelcontextprotocol/sdk`
 - **Frontmatter:** gray-matter
 - **Tokens:** tiktoken (cl100k_base)
