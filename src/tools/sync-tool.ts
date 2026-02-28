@@ -8,6 +8,7 @@ import {
   formatKnowledgeSection,
   injectKnowledgeSection,
   formatTokenCount,
+  toIndexEntry,
 } from "../index-engine/index"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
@@ -34,14 +35,56 @@ interface SyncResult {
   summary: string
 }
 
+function extractTableEntries(content: string): string[] | null {
+  const sectionStart = content.indexOf("## Knowledge Index")
+  if (sectionStart === -1) return null
+
+  let sectionEnd = content.indexOf(
+    "\n## ",
+    sectionStart + "## Knowledge Index".length,
+  )
+  const section =
+    sectionEnd === -1
+      ? content.substring(sectionStart)
+      : content.substring(sectionStart, sectionEnd)
+
+  const tableLines = section.split("\n").filter((line) => line.startsWith("|"))
+  if (tableLines.length < 2) return null
+
+  return tableLines.slice(2).map((row) =>
+    row
+      .split("|")
+      .slice(1, -1)
+      .map((c) => c.trim())
+      .join("|"),
+  )
+}
+
+function buildEntryFingerprint(entries: NoteEntry[]): string[] {
+  return entries.map((e) => {
+    const idx = toIndexEntry(e)
+    return [idx.icon, idx.title, idx.relativePath, idx.tokenDisplay].join("|")
+  })
+}
+
 async function syncToFile(
   claudeMdPath: string,
   filtered: NoteEntry[],
-): Promise<{ entryCount: number; totalTokens: number }> {
+): Promise<{ entryCount: number; totalTokens: number; changed: boolean }> {
   const totalTokens = filtered.reduce((sum, e) => sum + e.tokenCount, 0)
 
   const file = Bun.file(claudeMdPath)
   const existing = (await file.exists()) ? await file.text() : ""
+
+  if (existing) {
+    const existingEntries = extractTableEntries(existing)
+    if (
+      existingEntries !== null &&
+      existingEntries.join("\n") === buildEntryFingerprint(filtered).join("\n")
+    ) {
+      return { entryCount: filtered.length, totalTokens, changed: false }
+    }
+  }
 
   const updated = existing
     ? injectKnowledgeSection(existing, filtered)
@@ -49,7 +92,7 @@ async function syncToFile(
 
   await Bun.write(claudeMdPath, updated)
 
-  return { entryCount: filtered.length, totalTokens }
+  return { entryCount: filtered.length, totalTokens, changed: true }
 }
 
 interface SyncOptions {
@@ -95,12 +138,14 @@ export async function executeSync(
     )
   }
 
-  const { entryCount, totalTokens } = await syncToFile(
+  const { entryCount, totalTokens, changed } = await syncToFile(
     join(targetDir, "CLAUDE.md"),
     filtered,
   )
 
-  let summary = `Synced ${entryCount} entries to CLAUDE.md (${formatTokenCount(totalTokens)} total index tokens)`
+  let summary = changed
+    ? `Synced ${entryCount} entries to CLAUDE.md (${formatTokenCount(totalTokens)} total index tokens)`
+    : `CLAUDE.md already up to date (${entryCount} entries, ${formatTokenCount(totalTokens)} total index tokens)`
 
   if (autoCreated) {
     const allTags = [...new Set(allEntries.flatMap((e) => e.frontmatter.tags))].sort()
@@ -123,7 +168,9 @@ export async function executeSync(
       join(globalClaudeDir, "CLAUDE.md"),
       globalEntries,
     )
-    summary += `\nSynced ${globalResult.entryCount} global entries to ~/.claude/CLAUDE.md (${formatTokenCount(globalResult.totalTokens)} total index tokens)`
+    summary += globalResult.changed
+      ? `\nSynced ${globalResult.entryCount} global entries to ~/.claude/CLAUDE.md (${formatTokenCount(globalResult.totalTokens)} total index tokens)`
+      : `\n~/.claude/CLAUDE.md already up to date (${globalResult.entryCount} entries, ${formatTokenCount(globalResult.totalTokens)} total index tokens)`
   }
 
   return {

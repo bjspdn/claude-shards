@@ -24,7 +24,7 @@ test("full vault loads expected number of valid notes", () => {
 
 test("index tool returns full table", () => {
   const table = executeIndex({}, allEntries)
-  expect(table).toContain("| T | Title | Path | ~Tok |")
+  expect(table).toContain("| T")
 })
 
 test("index tool filters by project name", () => {

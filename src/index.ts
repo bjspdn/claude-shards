@@ -36,7 +36,7 @@ async function main() {
 
   const server = new McpServer({
     name: "ccm",
-    version: "0.3.1",
+    version: "0.3.3",
   })
 
   registerIndexTool(server, entries)

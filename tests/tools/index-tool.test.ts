@@ -10,7 +10,7 @@ const setup = loadVault(VAULT).then((e) => (entries = e))
 test("executeIndex returns full index table with no filters", async () => {
   await setup
   const result = executeIndex({}, entries)
-  expect(result).toContain("| T | Title | Path | ~Tok |")
+  expect(result).toContain("| T")
   expect(result).toContain("🔴")
   expect(result).toContain("🟤")
 })

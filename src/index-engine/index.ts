@@ -22,16 +22,23 @@ export function buildIndexTable(entries: NoteEntry[]): string {
     return "No knowledge entries match the current filters."
   }
 
+  const headers = ["T", "Title", "Path", "~Tok"]
   const rows = entries.map((e) => {
     const idx = toIndexEntry(e)
-    return `| ${idx.icon} | ${idx.title} | ${idx.relativePath} | ${idx.tokenDisplay} |`
+    return [idx.icon, idx.title, idx.relativePath, idx.tokenDisplay]
   })
 
-  return [
-    "| T | Title | Path | ~Tok |",
-    "|---|-------|------|------|",
-    ...rows,
-  ].join("\n")
+  const colWidths = headers.map((h, i) =>
+    Math.max(h.length, ...rows.map((r) => r[i].length)),
+  )
+
+  const padRow = (cells: string[]) =>
+    "| " + cells.map((c, i) => c.padEnd(colWidths[i])).join(" | ") + " |"
+
+  const separator =
+    "|" + colWidths.map((w) => "-".repeat(w + 2)).join("|") + "|"
+
+  return [padRow(headers), separator, ...rows.map(padRow)].join("\n")
 }
 
 export function formatKnowledgeSection(entries: NoteEntry[]): string {

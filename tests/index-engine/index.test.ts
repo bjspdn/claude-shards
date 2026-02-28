@@ -37,11 +37,19 @@ const MOCK_ENTRIES: NoteEntry[] = [
   },
 ]
 
-test("buildIndexTable generates markdown table rows", () => {
+test("buildIndexTable generates padded markdown table", () => {
   const table = buildIndexTable(MOCK_ENTRIES)
-  expect(table).toContain("| 🔴 | System ordering matters | gotchas/ordering.md | ~130 |")
-  expect(table).toContain("| 🟤 | Use Bun over Node | decisions/bun.md | ~80 |")
-  expect(table).toContain("| T | Title | Path | ~Tok |")
+  const lines = table.split("\n")
+  expect(lines).toHaveLength(4)
+  expect(lines[0]).toContain("| T")
+  expect(lines[0]).toContain("Title")
+  expect(lines[1]).toMatch(/^\|[-]+\|[-]+\|[-]+\|[-]+\|$/)
+  expect(lines[2]).toContain("System ordering matters")
+  expect(lines[2]).toContain("gotchas/ordering.md")
+  expect(lines[3]).toContain("Use Bun over Node")
+  expect(lines[3]).toContain("decisions/bun.md")
+  const rowLengths = lines.filter((_, i) => i !== 1).map((l) => l.length)
+  expect(new Set(rowLengths).size).toBe(1)
 })
 
 test("buildIndexTable returns empty message for no entries", () => {
@@ -53,7 +61,8 @@ test("formatKnowledgeSection wraps table with header and legend", () => {
   const section = formatKnowledgeSection(MOCK_ENTRIES)
   expect(section).toContain("## Knowledge Index")
   expect(section).toContain("🔴 = gotcha")
-  expect(section).toContain("| T | Title | Path | ~Tok |")
+  expect(section).toContain("| T")
+  expect(section).toContain("Title")
 })
 
 test("injectKnowledgeSection appends to file without existing section", () => {
