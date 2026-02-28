@@ -110,3 +110,16 @@ test("executeSync excludes global notes when no filter.tags specified", async ()
   const result = await executeSync(tempDir, entries, VAULT)
   expect(result.entryCount).toBe(0)
 })
+
+test("executeSync auto-created .context.toml contains inferred tags from extensions", async () => {
+  await setup
+  await Bun.write(join(tempDir, "index.ts"), "export default {}")
+  await Bun.write(join(tempDir, "app.tsx"), "<App />")
+
+  const result = await executeSync(tempDir, entries, VAULT)
+
+  const toml = await Bun.file(join(tempDir, ".context.toml")).text()
+  expect(toml).toContain("typescript")
+  expect(result.summary).toContain("inferred tags")
+  expect(result.summary).toContain("Available vault tags")
+})

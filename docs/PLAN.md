@@ -199,6 +199,8 @@
 - [ ] Add a `--init-vault` flag to the server CLI
 - [ ] Creates the folder structure: `patterns/`, `decisions/`, `gotchas/`, `references/`
 - [ ] Creates the `obsidian-flavored-markdown.md` file 
+- [ ] Creates a template for frontmatter when manually creating new notes. 
+- [ ] Not related but It should gracefully shutdown the mcp when exiting a Claude Code session.
 - [ ] Creates a template note in each folder with correct frontmatter schema as an example
 - [ ] Creates a `README.md` in vault root explaining the conventions
 

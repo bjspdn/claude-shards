@@ -23,10 +23,12 @@ export async function executeSync(
   vaultPath: string,
 ): Promise<SyncResult> {
   let config = await loadProjectConfig(targetDir)
+  let autoCreated = false
 
   const globalClaudeDir = resolve(homedir(), ".claude")
   if (!config && resolve(targetDir) !== globalClaudeDir) {
-    config = await createDefaultConfig(targetDir)
+    config = await createDefaultConfig(targetDir, allEntries)
+    autoCreated = true
   }
 
   const filterConfig = config?.filter
@@ -61,10 +63,25 @@ export async function executeSync(
 
   await Bun.write(claudeMdPath, updated)
 
+  let summary = `Synced ${filtered.length} entries to CLAUDE.md (${formatTokenCount(totalTokens)} total index tokens)`
+
+  if (autoCreated) {
+    const allTags = [...new Set(allEntries.flatMap((e) => e.frontmatter.tags))].sort()
+    const inferredTags = config?.filter?.tags
+    if (inferredTags?.length) {
+      summary += `\nAuto-created .context.toml with inferred tags: [${inferredTags.join(", ")}]`
+    } else {
+      summary += `\nAuto-created .context.toml (no tags inferred from file extensions)`
+    }
+    if (allTags.length > 0) {
+      summary += `\nAvailable vault tags: [${allTags.join(", ")}] — edit .context.toml filter.tags to refine`
+    }
+  }
+
   return {
     entryCount: filtered.length,
     totalTokens,
-    summary: `Synced ${filtered.length} entries to CLAUDE.md (${formatTokenCount(totalTokens)} total index tokens)`,
+    summary,
   }
 }
 

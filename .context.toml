@@ -1,0 +1,6 @@
+[project]
+name = "claude-code-memory"
+
+[filter]
+tags = ["typescript"]
+
