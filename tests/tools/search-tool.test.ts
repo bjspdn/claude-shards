@@ -29,7 +29,6 @@ test("executeSearch filters by types param", async () => {
   const results = executeSearch(
     { query: "rust", types: ["gotcha"] },
     entries,
-    null,
   )
   expect(results.every((r) => r.type === "gotcha")).toBe(true)
 })
@@ -39,7 +38,6 @@ test("executeSearch filters by tags param", async () => {
   const results = executeSearch(
     { query: "bun", tags: ["typescript"] },
     entries,
-    null,
   )
   expect(results.length).toBeGreaterThan(0)
 })
@@ -55,7 +53,6 @@ test("executeSearch returns empty array for no matches", async () => {
   const results = executeSearch(
     { query: "xyznonexistent" },
     entries,
-    null,
   )
   expect(results).toEqual([])
 })

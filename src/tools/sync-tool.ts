@@ -11,6 +11,23 @@ import {
 } from "../index-engine/index"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
+export const TECH_TAGS = new Set([
+  "bash", "c", "clojure", "cpp", "csharp", "css", "dart", "elixir", "erlang",
+  "fsharp", "go", "haskell", "html", "java", "javascript", "kotlin", "lua",
+  "ocaml", "perl", "php", "python", "ruby", "rust", "scala", "sql", "swift",
+  "typescript", "zig",
+  "angular", "astro", "bevy", "django", "docker", "electron", "express",
+  "fastapi", "fastify", "flask", "flutter", "gatsby", "gin", "godot",
+  "htmx", "kubernetes", "laravel", "nestjs", "nextjs", "nuxt", "rails",
+  "react", "react-native", "remix", "solid", "spring", "svelte", "tailwind",
+  "tauri", "unity", "unreal", "vue",
+  "bun", "deno", "node", "nodejs",
+])
+
+function hasTechTag(entry: NoteEntry): boolean {
+  return entry.frontmatter.tags.some((t) => TECH_TAGS.has(t))
+}
+
 interface SyncResult {
   entryCount: number
   totalTokens: number
@@ -73,7 +90,9 @@ export async function executeSync(
           e.frontmatter.tags.some((t) => filterTags.includes(t))),
     )
   } else {
-    filtered = filtered.filter((e) => e.frontmatter.projects.length === 0)
+    filtered = filtered.filter(
+      (e) => e.frontmatter.projects.length === 0 && !hasTechTag(e),
+    )
   }
 
   const { entryCount, totalTokens } = await syncToFile(
@@ -97,7 +116,9 @@ export async function executeSync(
   }
 
   if (!isGlobalDir) {
-    const globalEntries = allEntries.filter((e) => e.frontmatter.projects.length === 0)
+    const globalEntries = allEntries.filter(
+      (e) => e.frontmatter.projects.length === 0 && !hasTechTag(e),
+    )
     const globalResult = await syncToFile(
       join(globalClaudeDir, "CLAUDE.md"),
       globalEntries,

@@ -1,6 +1,7 @@
 import { test, expect, beforeEach } from "bun:test"
 import { executeSync } from "../../src/tools/sync-tool"
 import { loadVault } from "../../src/vault/loader"
+import type { NoteEntry } from "../../src/vault/types"
 import { join } from "path"
 import { mkdtemp, mkdir } from "fs/promises"
 import { tmpdir } from "os"
@@ -126,7 +127,7 @@ test("executeSync auto-created .context.toml contains inferred tags from extensi
   expect(result.summary).toContain("Available vault tags")
 })
 
-test("executeSync also writes global CLAUDE.md with project-less notes", async () => {
+test("executeSync also writes global CLAUDE.md with project-less non-tech notes", async () => {
   await setup
   await Bun.write(
     join(tempDir, ".context.toml"),
@@ -139,10 +140,7 @@ test("executeSync also writes global CLAUDE.md with project-less notes", async (
 
   const globalContent = await Bun.file(join(globalDir, "CLAUDE.md")).text()
   expect(globalContent).toContain("## Knowledge Index")
-  const globalNotes = entries.filter((e) => e.frontmatter.projects.length === 0)
-  for (const note of globalNotes) {
-    expect(globalContent).toContain(note.title)
-  }
+  expect(globalContent).toContain("General testing tip")
 })
 
 test("executeSync skips global sync when targetDir is the global claude dir", async () => {
@@ -153,4 +151,46 @@ test("executeSync skips global sync when targetDir is the global claude dir", as
 
   const content = await Bun.file(join(globalDir, "CLAUDE.md")).text()
   expect(content).toContain("## Knowledge Index")
+})
+
+test("executeSync excludes notes with tech tags from global CLAUDE.md", async () => {
+  await setup
+  const syntheticEntries: NoteEntry[] = [
+    {
+      title: "General Tip",
+      relativePath: "gotchas/general.md",
+      filePath: "/vault/gotchas/general.md",
+      tokenCount: 100,
+      body: "general knowledge",
+      frontmatter: { type: "gotcha", tags: ["productivity"], projects: [], created: new Date(), updated: new Date() },
+    },
+    {
+      title: "React Hooks Guide",
+      relativePath: "reference/react-hooks.md",
+      filePath: "/vault/reference/react-hooks.md",
+      tokenCount: 200,
+      body: "react specific",
+      frontmatter: { type: "reference", tags: ["react", "performance"], projects: [], created: new Date(), updated: new Date() },
+    },
+    {
+      title: "Rust Lifetimes",
+      relativePath: "gotchas/rust-lifetimes.md",
+      filePath: "/vault/gotchas/rust-lifetimes.md",
+      tokenCount: 150,
+      body: "rust specific",
+      frontmatter: { type: "gotcha", tags: ["rust"], projects: [], created: new Date(), updated: new Date() },
+    },
+  ]
+
+  await Bun.write(
+    join(tempDir, ".context.toml"),
+    '[project]\nname = "test-proj"\n',
+  )
+
+  await executeSync(tempDir, syntheticEntries, VAULT, { globalClaudeDir: globalDir })
+
+  const globalContent = await Bun.file(join(globalDir, "CLAUDE.md")).text()
+  expect(globalContent).toContain("General Tip")
+  expect(globalContent).not.toContain("React Hooks Guide")
+  expect(globalContent).not.toContain("Rust Lifetimes")
 })
