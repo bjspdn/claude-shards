@@ -23,10 +23,13 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
+      - run: npm install -g npm@latest
       - run: bun install --frozen-lockfile
       - run: bun run build
 
       - name: Tag and publish
+        env:
+          NPM_CONFIG_PROVENANCE: true
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v$VERSION"
@@ -38,5 +41,5 @@ jobs:
 
           git tag "$TAG"
           git push origin "$TAG"
-          npm publish --access public --provenance
+          npm publish --access public
           echo "Released $TAG to npm"
