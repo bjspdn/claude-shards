@@ -6,3 +6,8 @@ Version bumps are handled automatically by the husky `commit-msg` hook on every 
   - `feat: ...` → **MINOR** bump
   - `fix: ...` / `refactor: ...` / etc → **PATCH** bump
   - **MAJOR** bumps are reserved — only bump manually when explicitly told to.
+
+### Branching
+- `master` — protected, releases only via PR merge
+- `dev` — working branch for local development
+- Feature branches off `dev` for contributors
