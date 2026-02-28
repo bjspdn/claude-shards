@@ -65,12 +65,15 @@ test("formatKnowledgeSection wraps table with header and legend", () => {
   expect(section).toContain("Title")
 })
 
-test("injectKnowledgeSection appends to file without existing section", () => {
+test("injectKnowledgeSection prepends to file without existing section", () => {
   const existing = "# My Project\n\nSome content here.\n"
   const result = injectKnowledgeSection(existing, MOCK_ENTRIES)
   expect(result).toContain("# My Project")
   expect(result).toContain("Some content here.")
   expect(result).toContain("## Knowledge Index")
+  expect(result.indexOf("## Knowledge Index")).toBeLessThan(
+    result.indexOf("# My Project"),
+  )
 })
 
 test("injectKnowledgeSection replaces existing Knowledge Index section", () => {

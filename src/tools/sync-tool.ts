@@ -77,8 +77,10 @@ async function syncToFile(
   const existing = (await file.exists()) ? await file.text() : ""
 
   if (existing) {
+    const sectionAtTop = existing.trimStart().startsWith("## Knowledge Index")
     const existingEntries = extractTableEntries(existing)
     if (
+      sectionAtTop &&
       existingEntries !== null &&
       existingEntries.join("\n") === buildEntryFingerprint(filtered).join("\n")
     ) {

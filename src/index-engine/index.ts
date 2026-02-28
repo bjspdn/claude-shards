@@ -61,7 +61,7 @@ export function injectKnowledgeSection(
   const sectionStart = existingContent.indexOf("## Knowledge Index")
 
   if (sectionStart === -1) {
-    return existingContent.trimEnd() + "\n\n" + newSection + "\n"
+    return newSection + "\n\n" + existingContent.trimStart()
   }
 
   const beforeSection = existingContent.substring(0, sectionStart)
@@ -70,11 +70,10 @@ export function injectKnowledgeSection(
     sectionStart + "## Knowledge Index".length,
   )
 
-  if (afterSectionStart === -1) {
-    return beforeSection + newSection + "\n"
-  }
+  const rest =
+    afterSectionStart === -1
+      ? beforeSection.trimEnd()
+      : (beforeSection + existingContent.substring(afterSectionStart + 1)).trimStart()
 
-  return (
-    beforeSection + newSection + "\n" + existingContent.substring(afterSectionStart + 1)
-  )
+  return rest ? newSection + "\n\n" + rest : newSection + "\n"
 }
