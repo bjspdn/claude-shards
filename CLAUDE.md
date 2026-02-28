@@ -8,6 +8,6 @@ Version bumps are handled automatically by the husky `commit-msg` hook on every 
   - **MAJOR** bumps are reserved — only bump manually when explicitly told to.
 
 ### Branching
-- `master` — protected, releases only via PR merge
-- `dev` — working branch for local development
-- Feature branches off `dev` for contributors
+- `master` — protected, releases only via PR from `dev`. Merging auto-tags and publishes to npm.
+- `dev` — protected, integration branch. Owner merges `dev` → `master` for releases.
+- Contributors create feature branches off `dev`, then PR back to `dev` (requires owner approval).
