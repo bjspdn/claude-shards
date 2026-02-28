@@ -1,12 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { loadVault } from "./vault/loader"
-import { loadProjectConfig } from "./vault/config"
 import { registerIndexTool } from "./tools/index-tool"
 import { registerReadTool } from "./tools/read-tool"
 import { registerSearchTool } from "./tools/search-tool"
 import { registerSyncTool } from "./tools/sync-tool"
 import { registerWriteTool } from "./tools/write-tool"
+import { registerFetchPageTool } from "./tools/fetch-page-tool"
 
 function parseVaultPath(): string {
   const args = process.argv.slice(2)
@@ -31,20 +31,20 @@ function parseVaultPath(): string {
 async function main() {
   const vaultPath = parseVaultPath()
   const entries = await loadVault(vaultPath)
-  const projectConfig = await loadProjectConfig(process.cwd())
 
   console.error(`Loaded ${entries.length} notes from ${vaultPath}`)
 
   const server = new McpServer({
     name: "ccm",
-    version: "0.2.0",
+    version: "0.3.0",
   })
 
-  registerIndexTool(server, entries, projectConfig)
+  registerIndexTool(server, entries)
   registerReadTool(server, vaultPath)
-  registerSearchTool(server, entries, projectConfig)
+  registerSearchTool(server, entries)
   registerSyncTool(server, entries, vaultPath)
   registerWriteTool(server, entries, vaultPath)
+  registerFetchPageTool(server)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)

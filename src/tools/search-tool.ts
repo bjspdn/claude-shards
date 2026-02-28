@@ -3,9 +3,7 @@ import {
   NoteType,
   NOTE_TYPE_ICONS,
   type NoteEntry,
-  type ProjectConfig,
 } from "../vault/types"
-import { filterEntries } from "../vault/loader"
 import { formatTokenCount } from "../index-engine/index"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
@@ -43,9 +41,8 @@ function scoreEntry(entry: NoteEntry, keywords: string[]): number {
 export function executeSearch(
   args: SearchArgs,
   entries: NoteEntry[],
-  projectConfig: ProjectConfig | null,
 ): SearchResult[] {
-  let filtered = filterEntries(entries, projectConfig)
+  let filtered = entries.slice()
 
   if (args.types?.length) {
     filtered = filtered.filter((e) => args.types!.includes(e.frontmatter.type))
@@ -78,7 +75,6 @@ export function executeSearch(
 export function registerSearchTool(
   server: McpServer,
   entries: NoteEntry[],
-  projectConfig: ProjectConfig | null,
 ) {
   server.registerTool(
     "search",
@@ -92,7 +88,7 @@ export function registerSearchTool(
       })
     },
     async (args) => {
-      const results = executeSearch(args, entries, projectConfig)
+      const results = executeSearch(args, entries)
       if (results.length === 0) {
         return { content: [{ type: "text" as const, text: "No notes match that query." }] }
       }

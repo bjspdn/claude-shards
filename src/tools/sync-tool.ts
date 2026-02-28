@@ -17,16 +17,41 @@ interface SyncResult {
   summary: string
 }
 
+async function syncToFile(
+  claudeMdPath: string,
+  filtered: NoteEntry[],
+): Promise<{ entryCount: number; totalTokens: number }> {
+  const totalTokens = filtered.reduce((sum, e) => sum + e.tokenCount, 0)
+
+  const file = Bun.file(claudeMdPath)
+  const existing = (await file.exists()) ? await file.text() : ""
+
+  const updated = existing
+    ? injectKnowledgeSection(existing, filtered)
+    : formatKnowledgeSection(filtered) + "\n"
+
+  await Bun.write(claudeMdPath, updated)
+
+  return { entryCount: filtered.length, totalTokens }
+}
+
+interface SyncOptions {
+  globalClaudeDir?: string
+}
+
 export async function executeSync(
   targetDir: string,
   allEntries: NoteEntry[],
   vaultPath: string,
+  options: SyncOptions = {},
 ): Promise<SyncResult> {
   let config = await loadProjectConfig(targetDir)
   let autoCreated = false
 
-  const globalClaudeDir = resolve(homedir(), ".claude")
-  if (!config && resolve(targetDir) !== globalClaudeDir) {
+  const globalClaudeDir = options.globalClaudeDir ?? resolve(homedir(), ".claude")
+  const isGlobalDir = resolve(targetDir) === resolve(globalClaudeDir)
+
+  if (!config && !isGlobalDir) {
     config = await createDefaultConfig(targetDir, allEntries)
     autoCreated = true
   }
@@ -51,19 +76,12 @@ export async function executeSync(
     filtered = filtered.filter((e) => e.frontmatter.projects.length === 0)
   }
 
-  const totalTokens = filtered.reduce((sum, e) => sum + e.tokenCount, 0)
+  const { entryCount, totalTokens } = await syncToFile(
+    join(targetDir, "CLAUDE.md"),
+    filtered,
+  )
 
-  const claudeMdPath = join(targetDir, "CLAUDE.md")
-  const file = Bun.file(claudeMdPath)
-  const existing = (await file.exists()) ? await file.text() : ""
-
-  const updated = existing
-    ? injectKnowledgeSection(existing, filtered)
-    : formatKnowledgeSection(filtered) + "\n"
-
-  await Bun.write(claudeMdPath, updated)
-
-  let summary = `Synced ${filtered.length} entries to CLAUDE.md (${formatTokenCount(totalTokens)} total index tokens)`
+  let summary = `Synced ${entryCount} entries to CLAUDE.md (${formatTokenCount(totalTokens)} total index tokens)`
 
   if (autoCreated) {
     const allTags = [...new Set(allEntries.flatMap((e) => e.frontmatter.tags))].sort()
@@ -78,8 +96,17 @@ export async function executeSync(
     }
   }
 
+  if (!isGlobalDir) {
+    const globalEntries = allEntries.filter((e) => e.frontmatter.projects.length === 0)
+    const globalResult = await syncToFile(
+      join(globalClaudeDir, "CLAUDE.md"),
+      globalEntries,
+    )
+    summary += `\nSynced ${globalResult.entryCount} global entries to ~/.claude/CLAUDE.md (${formatTokenCount(globalResult.totalTokens)} total index tokens)`
+  }
+
   return {
-    entryCount: filtered.length,
+    entryCount,
     totalTokens,
     summary,
   }

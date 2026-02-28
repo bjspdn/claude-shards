@@ -1,6 +1,5 @@
 import { test, expect, beforeAll } from "bun:test"
 import { loadVault } from "../src/vault/loader"
-import { loadProjectConfig } from "../src/vault/config"
 import { executeIndex } from "../src/tools/index-tool"
 import { executeRead } from "../src/tools/read-tool"
 import { executeSearch } from "../src/tools/search-tool"
@@ -14,25 +13,22 @@ const VAULT = join(import.meta.dir, "fixtures/vault")
 const CONFIG_DIR = join(import.meta.dir, "fixtures/with-config")
 
 let allEntries: NoteEntry[]
-let projectConfig: Awaited<ReturnType<typeof loadProjectConfig>>
 
 beforeAll(async () => {
   allEntries = await loadVault(VAULT)
-  projectConfig = await loadProjectConfig(CONFIG_DIR)
 })
 
 test("full vault loads expected number of valid notes", () => {
   expect(allEntries.length).toBe(10)
 })
 
-test("index tool returns filtered table for project config", () => {
-  const table = executeIndex({}, allEntries, projectConfig)
+test("index tool returns full table", () => {
+  const table = executeIndex({}, allEntries)
   expect(table).toContain("| T | Title | Path | ~Tok |")
-  expect(table).not.toContain("drafts/")
 })
 
 test("index tool filters by project name", () => {
-  const table = executeIndex({ project: "bevy-game" }, allEntries, null)
+  const table = executeIndex({ project: "bevy-game" }, allEntries)
   expect(table).toContain("Bevy")
   expect(table).not.toContain("Bun over Node")
   expect(table).not.toContain("TypeScript builder")
@@ -53,20 +49,15 @@ test("read tool blocks path traversal", async () => {
 })
 
 test("search finds relevant notes and ranks by score", () => {
-  const results = executeSearch({ query: "bevy ordering" }, allEntries, null)
+  const results = executeSearch({ query: "bevy ordering" }, allEntries)
   expect(results.length).toBeGreaterThan(0)
   expect(results[0]!.title).toContain("Bevy system ordering")
 })
 
-test("search respects project config filters", () => {
-  const results = executeSearch({ query: "bun" }, allEntries, projectConfig)
-  const types = results.map((r) => r.type)
-  expect(types.every((t) => projectConfig!.filter!.types!.includes(t))).toBe(true)
-})
-
 test("sync creates valid CLAUDE.md and .context.toml in temp directory", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "integration-test-"))
-  const result = await executeSync(tempDir, allEntries, VAULT)
+  const globalDir = await mkdtemp(join(tmpdir(), "integration-global-"))
+  const result = await executeSync(tempDir, allEntries, VAULT, { globalClaudeDir: globalDir })
 
   expect(result.entryCount).toBe(0)
 
@@ -78,7 +69,8 @@ test("sync creates valid CLAUDE.md and .context.toml in temp directory", async (
 })
 
 test("sync with config filters produces smaller index", async () => {
-  const result = await executeSync(CONFIG_DIR, allEntries, VAULT)
+  const globalDir = await mkdtemp(join(tmpdir(), "integration-global-"))
+  const result = await executeSync(CONFIG_DIR, allEntries, VAULT, { globalClaudeDir: globalDir })
   expect(result.entryCount).toBeLessThan(allEntries.length)
   expect(result.entryCount).toBeGreaterThan(0)
 })

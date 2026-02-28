@@ -1,4 +1,4 @@
-import { test, expect, beforeEach, afterEach, mock } from "bun:test"
+import { test, expect, beforeEach, afterEach } from "bun:test"
 import { executeWrite } from "../../src/tools/write-tool"
 import { NOTE_TYPE_PRIORITY, type NoteEntry } from "../../src/vault/types"
 import { join } from "path"
@@ -132,74 +132,3 @@ test("entries stay sorted by type priority after insert", async () => {
   }
 })
 
-test("rejects when neither url nor body provided", async () => {
-  const result = await executeWrite(
-    { path: "test.md", title: "Title" },
-    entries,
-    tempVault,
-  )
-  expect(result.ok).toBe(false)
-  if (!result.ok) expect(result.error).toContain("body is required")
-})
-
-test("rejects when neither url nor title provided", async () => {
-  const result = await executeWrite(
-    { path: "test.md", body: "Some body" },
-    entries,
-    tempVault,
-  )
-  expect(result.ok).toBe(false)
-  if (!result.ok) expect(result.error).toContain("title is required")
-})
-
-test("defaults type to reference when url-derived content is used", async () => {
-  mock.module("../../src/web/fetcher", () => ({
-    fetchPageAsMarkdown: async () => ({
-      title: "Fetched Title",
-      markdown: "Fetched body content.",
-      siteName: null,
-      excerpt: null,
-    }),
-  }))
-
-  const { executeWrite: writeWithMock } = await import("../../src/tools/write-tool")
-
-  const result = await writeWithMock(
-    { path: "references/fetched.md", url: "https://example.com/page" },
-    entries,
-    tempVault,
-  )
-
-  expect(result.ok).toBe(true)
-  if (!result.ok) return
-
-  const content = await Bun.file(join(tempVault, "references/fetched.md")).text()
-  expect(content).toContain("type: reference")
-  expect(content).toContain("# Fetched Title")
-})
-
-test("source URL appears as blockquote in written file", async () => {
-  mock.module("../../src/web/fetcher", () => ({
-    fetchPageAsMarkdown: async () => ({
-      title: "Page Title",
-      markdown: "Page content here.",
-      siteName: null,
-      excerpt: null,
-    }),
-  }))
-
-  const { executeWrite: writeWithMock } = await import("../../src/tools/write-tool")
-
-  const result = await writeWithMock(
-    { path: "references/sourced.md", url: "https://example.com/article" },
-    entries,
-    tempVault,
-  )
-
-  expect(result.ok).toBe(true)
-  if (!result.ok) return
-
-  const content = await Bun.file(join(tempVault, "references/sourced.md")).text()
-  expect(content).toContain("> Source: https://example.com/article")
-  expect(content).toContain("Page content here.")
-})

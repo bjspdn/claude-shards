@@ -11,14 +11,14 @@ const setup = loadVault(VAULT).then((e) => (entries = e))
 
 test("executeSearch finds notes matching title keywords", async () => {
   await setup
-  const results = executeSearch({ query: "Bevy system ordering" }, entries, null)
+  const results = executeSearch({ query: "Bevy system ordering" }, entries)
   expect(results.length).toBeGreaterThan(0)
   expect(results[0]!.title).toContain("Bevy system ordering")
 })
 
 test("executeSearch scores title matches higher than body matches", async () => {
   await setup
-  const results = executeSearch({ query: "bevy" }, entries, null)
+  const results = executeSearch({ query: "bevy" }, entries)
   expect(results.length).toBeGreaterThan(1)
   const firstTitle = results[0]!.title.toLowerCase()
   expect(firstTitle).toContain("bevy")
@@ -46,7 +46,7 @@ test("executeSearch filters by tags param", async () => {
 
 test("executeSearch respects limit", async () => {
   await setup
-  const results = executeSearch({ query: "bevy", limit: 2 }, entries, null)
+  const results = executeSearch({ query: "bevy", limit: 2 }, entries)
   expect(results.length).toBeLessThanOrEqual(2)
 })
 
@@ -60,9 +60,3 @@ test("executeSearch returns empty array for no matches", async () => {
   expect(results).toEqual([])
 })
 
-test("executeSearch applies project config filters", async () => {
-  await setup
-  const config = { filter: { types: ["gotcha" as const] } }
-  const results = executeSearch({ query: "bevy" }, entries, config)
-  expect(results.every((r) => r.type === "gotcha")).toBe(true)
-})

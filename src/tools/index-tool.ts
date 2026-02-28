@@ -1,6 +1,5 @@
 import { z } from "zod"
-import type { NoteEntry, ProjectConfig } from "../vault/types"
-import { filterEntries } from "../vault/loader"
+import type { NoteEntry } from "../vault/types"
 import { buildIndexTable } from "../index-engine/index"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
@@ -11,9 +10,8 @@ interface IndexArgs {
 export function executeIndex(
   args: IndexArgs,
   entries: NoteEntry[],
-  projectConfig: ProjectConfig | null,
 ): string {
-  let filtered = filterEntries(entries, projectConfig)
+  let filtered = entries
 
   if (args.project) {
     filtered = filtered.filter((e) =>
@@ -27,7 +25,6 @@ export function executeIndex(
 export function registerIndexTool(
   server: McpServer,
   entries: NoteEntry[],
-  projectConfig: ProjectConfig | null,
 ) {
   server.registerTool("index",
     {
@@ -37,7 +34,7 @@ export function registerIndexTool(
       })
     }, 
     async (args) => {
-      const result = executeIndex(args, entries, projectConfig)
+      const result = executeIndex(args, entries)
       return { content: [{ type: "text" as const, text: result }] }
     }
   )
