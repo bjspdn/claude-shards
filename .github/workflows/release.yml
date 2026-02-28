@@ -1,4 +1,4 @@
-name: Tag Release
+name: Release
 
 on:
   pull_request:
@@ -6,23 +6,39 @@ on:
     types: [closed]
 
 jobs:
-  tag:
+  release:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create version tag
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+      - name: Tag and publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v$VERSION"
+
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping"
             exit 0
           fi
+
           git tag "$TAG"
           git push origin "$TAG"
-          echo "Tagged $TAG → triggers publish workflow"
+          npm publish --access public --provenance
+          echo "Released $TAG to npm"
