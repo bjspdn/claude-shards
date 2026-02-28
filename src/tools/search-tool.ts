@@ -80,14 +80,16 @@ export function registerSearchTool(
   entries: NoteEntry[],
   projectConfig: ProjectConfig | null,
 ) {
-  server.tool(
+  server.registerTool(
     "search",
-    "Keyword search across vault notes. Returns index entries — use 'read' tool to fetch full content.",
     {
-      query: z.string().describe("Space-separated keywords to search for"),
-      types: z.array(NoteType).optional().describe("Filter to these note types"),
-      tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
-      limit: z.number().optional().describe("Max results (default 10)"),
+      description: "Keyword search across vault notes. Returns index entries — use 'read' tool to fetch full content.",
+      inputSchema: z.object({
+        query: z.string().describe("Space-separated keywords to search for"),
+        types: z.array(NoteType).optional().describe("Filter to these note types"),
+        tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
+        limit: z.number().optional().describe("Max results (default 10)"),
+      })
     },
     async (args) => {
       const results = executeSearch(args, entries, projectConfig)

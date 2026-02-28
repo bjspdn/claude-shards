@@ -35,7 +35,7 @@ async function main() {
   console.error(`Loaded ${entries.length} notes from ${vaultPath}`)
 
   const server = new McpServer({
-    name: "obsidian-context",
+    name: "ccm",
     version: "0.1.0",
   })
 
@@ -52,3 +52,4 @@ main().catch((err) => {
   console.error("Fatal:", err)
   process.exit(1)
 })
+

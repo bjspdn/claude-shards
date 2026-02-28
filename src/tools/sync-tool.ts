@@ -47,16 +47,18 @@ export function registerSyncTool(
   entries: NoteEntry[],
   vaultPath: string,
 ) {
-  server.tool(
-    "sync",
-    "Generate or update the Knowledge Index section in a project's CLAUDE.md",
-    {
-      targetDir: z.string().optional().describe("Project directory (defaults to server CWD)"),
-    },
-    async ({ targetDir }) => {
-      const dir = targetDir ?? process.cwd()
-      const result = await executeSync(dir, entries, vaultPath)
-      return { content: [{ type: "text" as const, text: result.summary }] }
-    },
-  )
+    server.registerTool(
+        "sync",
+        {
+            description: "Generate or update the Knowledge Index section in a project's CLAUDE.md",
+            inputSchema: z.object({
+                targetDir: z.string().optional().describe("Project directory (defaults to server CWD)")
+            })
+        },
+        async ({ targetDir }) => {
+            const dir = targetDir ?? process.cwd()
+            const result = await executeSync(dir, entries, vaultPath)
+            return { content: [{ type: "text" as const, text: result.summary }] }
+        },
+    )
 }

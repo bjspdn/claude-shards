@@ -29,15 +29,16 @@ export function registerIndexTool(
   entries: NoteEntry[],
   projectConfig: ProjectConfig | null,
 ) {
-  server.tool(
-    "index",
-    "Return the compressed knowledge index table for the current project or vault",
+  server.registerTool("index",
     {
-      project: z.string().optional().describe("Filter to notes tagged with this project name"),
-    },
+      description: "Return the compressed knowledge index table for the current project or vault",
+      inputSchema: z.object({
+        project: z.string().optional().describe("Filter to notes tagged with this project name"),
+      })
+    }, 
     async (args) => {
       const result = executeIndex(args, entries, projectConfig)
       return { content: [{ type: "text" as const, text: result }] }
-    },
+    }
   )
 }

@@ -30,16 +30,20 @@ export async function executeRead(
 }
 
 export function registerReadTool(server: McpServer, vaultPath: string) {
-  server.tool(
+  server.registerTool(
     "read",
-    "Fetch full content of a vault note by its relative path",
-    { path: z.string().describe("Relative path within vault (e.g. gotchas/bevy-system-ordering.md)") },
+    {
+      description: "Fetch full content of a vault note by its relative path",
+      inputSchema: z.object({
+        path: z.string().describe("Relative path within vault (e.g. gotchas/bevy-system-ordering.md)")
+      })
+    },
     async ({ path }) => {
       const result = await executeRead(path, vaultPath)
       if (result.ok) {
         return { content: [{ type: "text" as const, text: result.content }] }
       }
       return { content: [{ type: "text" as const, text: result.error }], isError: true }
-    },
+    }
   )
 }
