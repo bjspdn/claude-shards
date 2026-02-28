@@ -7,6 +7,7 @@ import { registerSearchTool } from "./tools/search-tool"
 import { registerSyncTool } from "./tools/sync-tool"
 import { registerWriteTool } from "./tools/write-tool"
 import { registerFetchPageTool } from "./tools/fetch-page-tool"
+import { registerResearchTool } from "./tools/research-tool"
 
 function parseVaultPath(): string {
   const args = process.argv.slice(2)
@@ -36,7 +37,7 @@ async function main() {
 
   const server = new McpServer({
     name: "ccm",
-    version: "0.3.4",
+    version: "0.4.1",
   })
 
   registerIndexTool(server, entries)
@@ -45,6 +46,7 @@ async function main() {
   registerSyncTool(server, entries, vaultPath)
   registerWriteTool(server, entries, vaultPath)
   registerFetchPageTool(server)
+  registerResearchTool(server, entries, vaultPath)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)

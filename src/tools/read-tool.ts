@@ -28,12 +28,14 @@ export async function executeRead(
 
   return { ok: true, content: await file.text() }
 }
-
+/**
+ * @deprecated Prefer `registerResearchTool` which batches search+read into a single call.
+ */
 export function registerReadTool(server: McpServer, vaultPath: string) {
   server.registerTool(
     "read",
     {
-      description: "Fetch full content of a vault note by its relative path",
+      description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Fetch full content of a vault note by its relative path",
       inputSchema: z.object({
         path: z.string().describe("Relative path within vault (e.g. gotchas/bevy-system-ordering.md)")
       })

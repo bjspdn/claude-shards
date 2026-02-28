@@ -72,6 +72,9 @@ export function executeSearch(
   return scored.slice(0, limit)
 }
 
+/**
+ * @deprecated Prefer `registerResearchTool` which batches search+read into a single call.
+ */
 export function registerSearchTool(
   server: McpServer,
   entries: NoteEntry[],
@@ -79,7 +82,7 @@ export function registerSearchTool(
   server.registerTool(
     "search",
     {
-      description: "Keyword search across vault notes. Returns index entries — use 'read' tool to fetch full content.",
+      description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Keyword search across vault notes. Returns index entries only.",
       inputSchema: z.object({
         query: z.string().describe("Space-separated keywords to search for"),
         types: z.array(NoteType).optional().describe("Filter to these note types"),
