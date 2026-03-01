@@ -19,3 +19,6 @@ Version bumps are handled automatically by the husky `commit-msg` hook on every 
 - `master` — protected, releases only via PR from `dev`. Merging auto-tags and publishes to npm.
 - `dev` — protected, integration branch. Owner merges `dev` → `master` for releases.
 - Contributors create feature branches off `dev`, then PR back to `dev` (requires owner approval).
+
+### Changelog
+When creating a PR to `dev`, update `CHANGELOG.md` under the next unreleased version heading with concise, user-facing bullet points summarizing what changed. Focus on what the end user gains — not implementation details or file-level diffs.
