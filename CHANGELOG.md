@@ -1,3 +1,8 @@
+## Unreleased
+
+- Version bumping moved from per-commit husky hooks to the GitHub release workflow
+- Simplified `commit-msg` hook to validation-only — no more automatic `package.json` amendments on each commit
+
 ## 0.13.0
 
 - Write tool now supports `append` and `patch` modes for incremental note updates without rewriting the entire file

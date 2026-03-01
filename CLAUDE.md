@@ -10,10 +10,12 @@ Use MCP tool `read` with the note path to fetch full details on demand.
 - Name functions with a clear verb-first pattern that describes what they do (e.g., `fetchUsers`, `validateInput`, `calculateTotal`). For event handlers, use the `on{Event}` prefix (e.g., `onClick`, `onSubmit`). Avoid vague names like `handleData`, `processStuff`, or single-word names like `update`.
 
 ### Versioning
-Version bumps are handled automatically by the husky `commit-msg` hook on every commit. Use conventional commit prefixes:
+The `commit-msg` hook validates conventional commit format. Version bumps happen automatically in the release workflow when `dev` merges to `master`:
   - `feat: ...` → **MINOR** bump
   - `fix: ...` / `refactor: ...` / etc → **PATCH** bump
   - **MAJOR** bumps are reserved — only bump manually when explicitly told to.
+
+Do not manually edit the version in `package.json`.
 
 ### Branching
 - `master` — protected, releases only via PR from `dev`. Merging auto-tags and publishes to npm.
