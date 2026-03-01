@@ -1,3 +1,11 @@
+## Knowledge Index
+Use MCP tool `read` with the note path to fetch full details on demand.
+🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references
+
+| T  | Title                                     | Path                                         | ~Tok |
+|----|-------------------------------------------|----------------------------------------------|------|
+| 🟢 | ccm Git Workflow                          | references/ccm-git-workflow.md               | ~340 |
+
 ## Conventions:
 - Name functions with a clear verb-first pattern that describes what they do (e.g., `fetchUsers`, `validateInput`, `calculateTotal`). For event handlers, use the `on{Event}` prefix (e.g., `onClick`, `onSubmit`). Avoid vague names like `handleData`, `processStuff`, or single-word names like `update`.
 
