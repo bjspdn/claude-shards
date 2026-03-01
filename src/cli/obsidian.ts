@@ -73,3 +73,19 @@ export async function registerVaultWithObsidian(
 
   return { registered: true, vaultId }
 }
+
+export async function unregisterVaultFromObsidian(
+  vaultPath: string,
+  configPath = DEFAULT_CONFIG_PATH,
+): Promise<boolean> {
+  const config = await loadObsidianConfig(configPath)
+  if (!config) return false
+
+  const vaultId = findVaultByPath(config, vaultPath)
+  if (!vaultId) return false
+
+  await copyFile(configPath, `${configPath}.backup`)
+  delete config.vaults[vaultId]
+  await writeFile(configPath, JSON.stringify(config, null, 2))
+  return true
+}

@@ -4,7 +4,7 @@ import { homedir } from "os"
 import { formatDate, C } from "../utils"
 import { buildSeedNotes } from "./seed"
 import { registerVaultWithObsidian } from "./obsidian"
-import { registerMcpServer } from "./claude-code"
+import { installGlobal, registerMcpServer } from "./claude-code"
 
 export const VAULT_PATH = join(homedir(), ".ccm", "knowledge-base")
 
@@ -64,6 +64,13 @@ export async function executeInit(): Promise<InitResult> {
       status: "skipped",
       detail: obsidianResult.reason,
     })
+  }
+
+  const installResult = await installGlobal()
+  if (installResult.success) {
+    steps.push({ name: "global install", status: "created", detail: "ccm binary installed" })
+  } else {
+    steps.push({ name: "global install", status: "failed", detail: installResult.error })
   }
 
   const mcpResult = await registerMcpServer()
