@@ -468,7 +468,7 @@ test("patch requires section param", async () => {
     tempVault,
   )
   expect(result.ok).toBe(false)
-  if (!result.ok) expect(result.error).toContain("requires body and section")
+  if (!result.ok) expect(result.error).toContain("requires section")
 })
 
 test("patch preserves created date and metadata", async () => {
@@ -491,5 +491,70 @@ test("patch preserves created date and metadata", async () => {
   expect(content).toContain("type: gotchas")
   expect(content).toContain("  - t1")
   expect(content).toContain("  - p1")
+})
+
+test("patch with no body deletes a middle section", async () => {
+  await executeWrite(
+    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Section A\n\ncontent A\n\n## Section B\n\ncontent B\n\n## Section C\n\ncontent C" },
+    entries,
+    tempVault,
+  )
+
+  const result = await executeWrite(
+    { path: "gotchas/note.md", mode: "patch", section: "Section B" },
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  expect(content).toContain("## Section A")
+  expect(content).toContain("content A")
+  expect(content).not.toContain("## Section B")
+  expect(content).not.toContain("content B")
+  expect(content).toContain("## Section C")
+  expect(content).toContain("content C")
+})
+
+test("patch with no body deletes the last section", async () => {
+  await executeWrite(
+    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## First\n\nkeep this\n\n## Last\n\nremove this" },
+    entries,
+    tempVault,
+  )
+
+  const result = await executeWrite(
+    { path: "gotchas/note.md", mode: "patch", section: "Last" },
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  expect(content).toContain("## First")
+  expect(content).toContain("keep this")
+  expect(content).not.toContain("## Last")
+  expect(content).not.toContain("remove this")
+})
+
+test("patch with empty string body deletes the section", async () => {
+  await executeWrite(
+    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Keep\n\nkept\n\n## Remove\n\ngone" },
+    entries,
+    tempVault,
+  )
+
+  const result = await executeWrite(
+    { path: "gotchas/note.md", mode: "patch", section: "Remove", body: "" },
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  expect(content).toContain("## Keep")
+  expect(content).toContain("kept")
+  expect(content).not.toContain("## Remove")
+  expect(content).not.toContain("gone")
 })
 

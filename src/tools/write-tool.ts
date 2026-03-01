@@ -96,8 +96,8 @@ export async function executeWrite(
     return { ok: false, error: "Mode 'append' requires body." }
   }
 
-  if ((mode === "patch") && (!args.body || !args.section)) {
-    return { ok: false, error: "Mode 'patch' requires body and section." }
+  if ((mode === "patch") && !args.section) {
+    return { ok: false, error: "Mode 'patch' requires section." }
   }
 
   const fileExists = await Bun.file(resolved).exists()
@@ -141,11 +141,16 @@ export async function executeWrite(
     const rest = existingContent.slice(afterHeading)
     const endMatch = endRegex.exec(rest)
 
-    let before = existingContent.slice(0, afterHeading)
-    let after = endMatch ? rest.slice(endMatch.index) : ""
+    const before = existingContent.slice(0, sectionStart)
+    const after = endMatch ? rest.slice(endMatch.index) : ""
 
-    const newSection = `\n\n${args.body}\n`
-    const rebuilt = before + newSection + (after ? "\n" + after : "")
+    let rebuilt: string
+    if (!args.body) {
+      rebuilt = before.trimEnd() + (after ? "\n\n" + after : "")
+    } else {
+      const heading = existingContent.slice(sectionStart, afterHeading)
+      rebuilt = before + heading + `\n\n${args.body}\n` + (after ? "\n" + after : "")
+    }
 
     const fm = buildFrontmatter({
       type: data.type,
@@ -212,14 +217,14 @@ export function registerWriteTool(
       description:
         "Create or update a note in the vault with structured frontmatter. " +
         "Modes: 'create' (default, fails if exists), 'replace' (full overwrite), " +
-        "'append' (add body to end), 'patch' (replace a section by heading). " +
+        "'append' (add body to end), 'patch' (replace or delete a section by heading). " +
         "To write a web page to the vault, first use the fetch-page tool.",
       inputSchema: z.object({
         path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
         mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
         type: NoteType.optional().describe("Note type (required for create/replace)"),
         title: z.string().optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
-        body: z.string().optional().describe("Markdown body content (required for all modes)"),
+        body: z.string().optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
         section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
         tags: z.array(z.string()).optional().describe("Searchable tags"),
         projects: z.array(z.string()).optional().describe("Project names this note relates to"),
