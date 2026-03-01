@@ -1,0 +1,5 @@
+#!/bin/sh
+
+[ "$CCM_SKIP_HOOKS" = "1" ] && exit 0
+
+bun test && bun run build
