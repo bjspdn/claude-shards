@@ -298,8 +298,7 @@ export const writeTool: ToolDefinition = {
   description:
     "Create or update a note in the vault with structured frontmatter. " +
     "Modes: 'create' (default, fails if exists), 'replace' (full overwrite), " +
-    "'append' (add body to end), 'patch' (replace or delete a section by heading). " +
-    "To write a web page to the vault, first use the fetch-page tool.",
+    "'append' (add body to end), 'patch' (replace or delete a section by heading).",
   inputSchema: z.object({
     path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
     mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
