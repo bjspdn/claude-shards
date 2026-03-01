@@ -1,3 +1,11 @@
+## 0.17.0
+
+- - Add animated spinner to `ccm --update` for visual progress feedback
+- Refactor tool registration: replace per-tool `register*` boilerplate with declarative `ToolDefinition` objects and a centralized `registerTools()` registry
+- Add JSDoc documentation to tool definitions, shared types, registry, and factory functions
+- Refactor `executeWrite` to use a discriminated union (`WriteCommand`) with factory functions, replacing flat optional args and eliminating non-null assertions
+
+
 ## 0.16.0
 
 - `ccm --logging` — real-time log viewer that tails MCP server activity with colored output
