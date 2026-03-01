@@ -25,7 +25,7 @@ jobs:
 
       - run: npm install -g npm@latest
       - run: bun install --frozen-lockfile
-      - run: bun run test
+      - run: bun test
       - run: bun run build
 
       - name: Tag and publish
