@@ -1,7 +1,6 @@
 import { join, resolve, relative } from "path"
 import { z } from "zod"
-import { getUpdateNotice } from "../update-checker"
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import type { ToolDefinition } from "./types"
 
 type ReadResult =
   | { ok: true; content: string }
@@ -34,27 +33,17 @@ export async function executeRead(
 
   return { ok: true, content: await file.text() }
 }
-/**
- * Register the `read` MCP tool.
- * @deprecated Prefer `registerResearchTool` which batches search+read into a single call.
- * @param server - MCP server instance to register on.
- * @param vaultPath - Absolute path to the vault directory.
- */
-export function registerReadTool(server: McpServer, vaultPath: string) {
-  server.registerTool(
-    "read",
-    {
-      description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Fetch full content of a vault note by its relative path",
-      inputSchema: z.object({
-        path: z.string().describe("Relative path within vault (e.g. gotchas/bevy-system-ordering.md)")
-      })
-    },
-    async ({ path }) => {
-      const result = await executeRead(path, vaultPath)
-      if (result.ok) {
-        return { content: [{ type: "text" as const, text: result.content + await getUpdateNotice() }] }
-      }
-      return { content: [{ type: "text" as const, text: result.error }], isError: true }
+export const readTool: ToolDefinition = {
+  name: "read",
+  description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Fetch full content of a vault note by its relative path",
+  inputSchema: z.object({
+    path: z.string().describe("Relative path within vault (e.g. gotchas/bevy-system-ordering.md)"),
+  }),
+  handler: async ({ path }, ctx) => {
+    const result = await executeRead(path, ctx.vaultPath)
+    if (result.ok) {
+      return { text: result.content }
     }
-  )
+    return { text: result.error, isError: true as const }
+  },
 }

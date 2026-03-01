@@ -5,8 +5,7 @@ import matter from "gray-matter"
 import { NoteType, NOTE_TYPE_PRIORITY, type NoteEntry } from "../vault/types"
 import { parseNote } from "../vault/parser"
 import { formatDate } from "../utils"
-import { getUpdateNotice } from "../update-checker"
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import type { ToolDefinition } from "./types"
 
 type WriteMode = "create" | "replace" | "append" | "patch"
 
@@ -200,44 +199,30 @@ export async function executeWrite(
   return { ok: true, path: rel, updated: mode !== "create" && fileExists }
 }
 
-/**
- * Register the `write` MCP tool (create / replace / append / patch).
- * @param server - MCP server instance to register on.
- * @param entries - Shared vault entries array (mutated on writes).
- * @param vaultPath - Absolute path to the vault directory.
- */
-export function registerWriteTool(
-  server: McpServer,
-  entries: NoteEntry[],
-  vaultPath: string,
-) {
-  server.registerTool(
-    "write",
-    {
-      description:
-        "Create or update a note in the vault with structured frontmatter. " +
-        "Modes: 'create' (default, fails if exists), 'replace' (full overwrite), " +
-        "'append' (add body to end), 'patch' (replace or delete a section by heading). " +
-        "To write a web page to the vault, first use the fetch-page tool.",
-      inputSchema: z.object({
-        path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
-        mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
-        type: NoteType.optional().describe("Note type (required for create/replace)"),
-        title: z.string().optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
-        body: z.string().optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
-        section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
-        tags: z.array(z.string()).optional().describe("Searchable tags"),
-        projects: z.array(z.string()).optional().describe("Project names this note relates to"),
-        overwrite: z.boolean().optional().describe("Deprecated — use mode 'replace' instead"),
-      }),
-    },
-    async (args) => {
-      const result = await executeWrite(args, entries, vaultPath)
-      if (result.ok) {
-        const verb = result.updated ? "Updated" : "Created"
-        return { content: [{ type: "text" as const, text: `${verb} note: ${result.path}` + await getUpdateNotice() }] }
-      }
-      return { content: [{ type: "text" as const, text: result.error }], isError: true }
-    },
-  )
+export const writeTool: ToolDefinition = {
+  name: "write",
+  description:
+    "Create or update a note in the vault with structured frontmatter. " +
+    "Modes: 'create' (default, fails if exists), 'replace' (full overwrite), " +
+    "'append' (add body to end), 'patch' (replace or delete a section by heading). " +
+    "To write a web page to the vault, first use the fetch-page tool.",
+  inputSchema: z.object({
+    path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
+    mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
+    type: NoteType.optional().describe("Note type (required for create/replace)"),
+    title: z.string().optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
+    body: z.string().optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
+    section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
+    tags: z.array(z.string()).optional().describe("Searchable tags"),
+    projects: z.array(z.string()).optional().describe("Project names this note relates to"),
+    overwrite: z.boolean().optional().describe("Deprecated — use mode 'replace' instead"),
+  }),
+  handler: async (args, ctx) => {
+    const result = await executeWrite(args, ctx.entries, ctx.vaultPath)
+    if (result.ok) {
+      const verb = result.updated ? "Updated" : "Created"
+      return { text: `${verb} note: ${result.path}` }
+    }
+    return { text: result.error, isError: true as const }
+  },
 }

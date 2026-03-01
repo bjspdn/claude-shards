@@ -1,9 +1,8 @@
 import pkg from "../../package.json" with { type: "json" }
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import type { NoteEntry, NoteType } from "../vault/types"
 import type { WatcherStats } from "../vault/watcher"
-import { getUpdateNotice } from "../update-checker"
 import { C } from "../utils"
+import type { ToolDefinition } from "./types"
 
 function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600)
@@ -58,24 +57,10 @@ export function executeDiagnostics(
   return lines.join("\n")
 }
 
-/**
- * Register the `diagnostics` MCP tool.
- * @param server - MCP server instance to register on.
- * @param entries - Shared vault entries array (read at call time).
- * @param watcherStats - Live watcher statistics reference.
- */
-export function registerDiagnosticsTool(
-  server: McpServer,
-  entries: NoteEntry[],
-  watcherStats: WatcherStats,
-) {
-  server.registerTool("diagnostics",
-    {
-      description: "Show live runtime diagnostics: vault stats, watcher activity, process metrics, and server version",
-    },
-    async () => {
-      const result = executeDiagnostics(entries, watcherStats)
-      return { content: [{ type: "text" as const, text: result + await getUpdateNotice() }] }
-    },
-  )
+export const diagnosticsTool: ToolDefinition = {
+  name: "diagnostics",
+  description: "Show live runtime diagnostics: vault stats, watcher activity, process metrics, and server version",
+  handler: (_args, ctx) => {
+    return { text: executeDiagnostics(ctx.entries, ctx.watcherStats) }
+  },
 }

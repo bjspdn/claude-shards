@@ -10,8 +10,7 @@ import {
   formatTokenCount,
   toIndexEntry,
 } from "../index-engine/index"
-import { getUpdateNotice } from "../update-checker"
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import type { ToolDefinition } from "./types"
 
 export const TECH_TAGS = new Set([
   "bash", "c", "clojure", "cpp", "csharp", "css", "dart", "elixir", "erlang",
@@ -190,29 +189,15 @@ export async function executeSync(
   }
 }
 
-/**
- * Register the `sync` MCP tool.
- * @param server - MCP server instance to register on.
- * @param entries - Shared vault entries array (read at call time).
- * @param vaultPath - Absolute path to the vault directory.
- */
-export function registerSyncTool(
-  server: McpServer,
-  entries: NoteEntry[],
-  vaultPath: string,
-) {
-    server.registerTool(
-        "sync",
-        {
-            description: "Generate or update the Knowledge Index section in a project's CLAUDE.md",
-            inputSchema: z.object({
-                targetDir: z.string().optional().describe("Project directory (defaults to server CWD)")
-            })
-        },
-        async ({ targetDir }) => {
-            const dir = targetDir ?? process.cwd()
-            const result = await executeSync(dir, entries, vaultPath)
-            return { content: [{ type: "text" as const, text: result.summary + await getUpdateNotice() }] }
-        },
-    )
+export const syncTool: ToolDefinition = {
+  name: "sync",
+  description: "Generate or update the Knowledge Index section in a project's CLAUDE.md",
+  inputSchema: z.object({
+    targetDir: z.string().optional().describe("Project directory (defaults to server CWD)"),
+  }),
+  handler: async ({ targetDir }, ctx) => {
+    const dir = targetDir ?? process.cwd()
+    const result = await executeSync(dir, ctx.entries, ctx.vaultPath)
+    return { text: result.summary }
+  },
 }
