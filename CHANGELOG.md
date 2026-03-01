@@ -1,6 +1,7 @@
 ## Unreleased
 
 - CI now enforces changelog updates on PRs to `dev`
+- Fix release workflow failing to push version bump to protected `master`
 
 ## 0.13.0
 
