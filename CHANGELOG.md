@@ -1,8 +1,7 @@
 ## Unreleased
 
-- Version bumping moved from per-commit husky hooks to the GitHub release workflow
-- Simplified `commit-msg` hook to validation-only — no more automatic `package.json` amendments on each commit
-- Fix release workflow `feat:` detection regex to anchor against `git log --oneline` format
+- CI now enforces changelog updates on PRs to `dev`
+- Fix release workflow failing to push version bump to protected `master`
 
 ## 0.13.0
 
