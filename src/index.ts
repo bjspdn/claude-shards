@@ -12,12 +12,14 @@ import { registerSyncTool } from "./tools/sync-tool"
 import { registerWriteTool } from "./tools/write-tool"
 import { registerFetchPageTool } from "./tools/fetch-page-tool"
 import { registerResearchTool } from "./tools/research-tool"
-import { spawn } from "child_process"
-import { SERVER_CMD } from "./cli/claude-code"
-import { executeInit, formatInitSummary } from "./cli/init"
+import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
+import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
+import { unregisterVaultFromObsidian } from "./cli/obsidian"
 import { C } from "./utils"
+import { rm } from "fs/promises"
+import { createInterface } from "readline"
 
-type CliCommand = "init" | "serve" | "version" | "update" | "help"
+type CliCommand = "init" | "serve" | "version" | "update" | "uninstall" | "help"
 
 const VAULT_PATH = join(homedir(), ".ccm", "knowledge-base")
 
@@ -25,8 +27,10 @@ function parseCliArgs(): CliCommand {
   const args = process.argv.slice(2)
   if (args.includes("--version") || args.includes("-v")) return "version"
   if (args.includes("--update")) return "update"
+  if (args.includes("--uninstall")) return "uninstall"
   if (args.includes("--init")) return "init"
   if (args.includes("--stdio")) return "serve"
+  if (!process.stdin.isTTY) return "serve"
   return "help"
 }
 
@@ -34,9 +38,13 @@ function printHelp() {
   console.log(`${C.bold}claude-code-memory${C.reset} ${C.dim}(ccm)${C.reset} — Persistent memory for Claude Code
 
 ${C.bold}Usage:${C.reset}
-  ${C.cyan}bunx @bennys001/claude-code-memory --init${C.reset}    Set up vault and register MCP server
-  ${C.cyan}ccm --update${C.reset}                                  Update to the latest version
-  ${C.cyan}ccm --version${C.reset}                                 Show installed version
+  ${C.cyan}ccm --init${C.reset}        Set up vault and register MCP server
+  ${C.cyan}ccm --update${C.reset}      Update to the latest version
+  ${C.cyan}ccm --uninstall${C.reset}   Remove ccm, MCP server, and optionally the vault
+  ${C.cyan}ccm --version${C.reset}     Show installed version
+
+${C.bold}First-time install:${C.reset}
+  ${C.cyan}bun install -g @bennys001/claude-code-memory && ccm --init${C.reset}
 
 ${C.dim}Vault:${C.reset} ~/.ccm/knowledge-base/
 ${C.dim}Docs:${C.reset}  https://github.com/bennys001/claude-code-memory`)
@@ -47,17 +55,6 @@ async function fetchLatestVersion(): Promise<string> {
   if (!res.ok) throw new Error(`npm registry returned ${res.status}`)
   const data = (await res.json()) as { version: string }
   return data.version
-}
-
-function runCommand(cmd: string, args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args, { stdio: "inherit" })
-    proc.on("error", reject)
-    proc.on("close", (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`${cmd} ${args.join(" ")} exited with code ${code}`))
-    })
-  })
 }
 
 async function runUpdate() {
@@ -71,11 +68,55 @@ async function runUpdate() {
 
   console.log(`${C.dim}v${pkg.version}${C.reset} → ${C.green}v${latest}${C.reset}\n`)
 
-  await runCommand("bun", ["pm", "cache", "rm"])
-  await runCommand("claude", ["mcp", "remove", "ccm"])
-  await runCommand("claude", ["mcp", "add", "--transport", "stdio", "--scope", "user", "ccm", "--", ...SERVER_CMD])
+  const installResult = await installGlobal()
+  if (!installResult.success) {
+    throw new Error(`Global install failed: ${installResult.error}`)
+  }
+
+  const mcpResult = await registerMcpServer()
+  if (!mcpResult.success) {
+    throw new Error(`MCP registration failed: ${mcpResult.error}`)
+  }
 
   console.log(`\n${C.green}Updated to v${latest}${C.reset}`)
+}
+
+function promptConfirm(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close()
+      resolve(answer.toLowerCase() === "y")
+    })
+  })
+}
+
+async function runUninstall() {
+  console.log(`${C.bold}ccm uninstall${C.reset}\n`)
+
+  await removeMcpServer()
+  console.log(`  ${C.green}+${C.reset} Removed MCP server`)
+
+  await unregisterVaultFromObsidian(INIT_VAULT_PATH)
+  console.log(`  ${C.green}+${C.reset} Unregistered Obsidian vault`)
+
+  const ccmDir = join(homedir(), ".ccm")
+  const deleteVault = await promptConfirm(`  Delete vault at ${C.dim}${INIT_VAULT_PATH}${C.reset}? ${C.dim}(y/N)${C.reset} `)
+  if (deleteVault) {
+    await rm(ccmDir, { recursive: true, force: true })
+    console.log(`  ${C.green}+${C.reset} Deleted vault`)
+  } else {
+    console.log(`  ${C.yellow}-${C.reset} Kept vault`)
+  }
+
+  const uninstallResult = await uninstallGlobal()
+  if (uninstallResult.success) {
+    console.log(`  ${C.green}+${C.reset} Uninstalled ccm binary`)
+  } else {
+    console.log(`  ${C.red}!${C.reset} Failed to uninstall: ${uninstallResult.error}`)
+  }
+
+  console.log(`\n${C.green}Done${C.reset}`)
 }
 
 async function runInit() {
@@ -126,6 +167,11 @@ if (cli === "version") {
   process.exit(0)
 } else if (cli === "update") {
   runUpdate().catch((err) => {
+    console.error("Fatal:", err)
+    process.exit(1)
+  })
+} else if (cli === "uninstall") {
+  runUninstall().catch((err) => {
     console.error("Fatal:", err)
     process.exit(1)
   })
