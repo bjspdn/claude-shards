@@ -4,6 +4,7 @@ import { z } from "zod"
 import { NoteType, NOTE_TYPE_PRIORITY, type NoteEntry } from "../vault/types"
 import { parseNote } from "../vault/parser"
 import { formatDate } from "../utils"
+import { getUpdateNotice } from "../update-checker"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 type WriteResult =
@@ -129,7 +130,7 @@ export function registerWriteTool(
       const result = await executeWrite(args, entries, vaultPath)
       if (result.ok) {
         const verb = result.updated ? "Updated" : "Created"
-        return { content: [{ type: "text" as const, text: `${verb} note: ${result.path}` }] }
+        return { content: [{ type: "text" as const, text: `${verb} note: ${result.path}` + getUpdateNotice() }] }
       }
       return { content: [{ type: "text" as const, text: result.error }], isError: true }
     },

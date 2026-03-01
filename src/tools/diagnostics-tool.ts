@@ -2,6 +2,7 @@ import pkg from "../../package.json" with { type: "json" }
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import type { NoteEntry, NoteType } from "../vault/types"
 import type { WatcherStats } from "../vault/watcher"
+import { getUpdateNotice } from "../update-checker"
 import { C } from "../utils"
 
 function formatUptime(seconds: number): string {
@@ -63,7 +64,7 @@ export function registerDiagnosticsTool(
     },
     async () => {
       const result = executeDiagnostics(entries, watcherStats)
-      return { content: [{ type: "text" as const, text: result }] }
+      return { content: [{ type: "text" as const, text: result + getUpdateNotice() }] }
     },
   )
 }

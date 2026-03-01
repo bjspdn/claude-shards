@@ -3,6 +3,7 @@ import { NoteType, NOTE_TYPE_ICONS, type NoteEntry } from "../vault/types"
 import { formatTokenCount } from "../index-engine/index"
 import { executeSearch } from "./search-tool"
 import { executeRead } from "./read-tool"
+import { getUpdateNotice } from "../update-checker"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 interface ResearchArgs {
@@ -108,9 +109,9 @@ export function registerResearchTool(
     async (args) => {
       const result = await executeResearch(args, entries, vaultPath)
       if (result.notes.length === 0) {
-        return { content: [{ type: "text" as const, text: "No notes match that query." }] }
+        return { content: [{ type: "text" as const, text: "No notes match that query." + getUpdateNotice() }] }
       }
-      return { content: [{ type: "text" as const, text: buildResearchOutput(result) }] }
+      return { content: [{ type: "text" as const, text: buildResearchOutput(result) + getUpdateNotice() }] }
     },
   )
 }
