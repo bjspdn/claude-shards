@@ -1,23 +1,15 @@
 #!/bin/sh
 
-[ "$CCM_SKIP_HOOKS" = "1" ] && exit 0
-
 COMMIT_MSG=$(head -1 "$1")
 
 if echo "$COMMIT_MSG" | grep -qE '^Merge '; then
   exit 0
 fi
 
-if echo "$COMMIT_MSG" | grep -qE '^feat(\(.+\))?!?:'; then
-  BUMP="minor"
-elif echo "$COMMIT_MSG" | grep -qE '^(fix|refactor|perf|style|test|chore|build|ci|docs)(\(.+\))?!?:'; then
-  BUMP="patch"
-else
+if ! echo "$COMMIT_MSG" | grep -qE '^(feat|fix|refactor|perf|style|test|chore|build|ci|docs)(\(.+\))?!?:'; then
   echo "Error: commits must use conventional commit format"
   echo "  feat: ...     → minor bump"
   echo "  fix: ...      → patch bump"
   echo "  refactor: ... → patch bump"
   exit 1
 fi
-
-echo "$BUMP" > .husky/.pending_bump

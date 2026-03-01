@@ -102,6 +102,13 @@ interface SyncOptions {
   globalClaudeDir?: string
 }
 
+/**
+ * Sync the Knowledge Index section into a project's CLAUDE.md (and the global ~/.claude/CLAUDE.md).
+ * @param targetDir - Project directory containing the target CLAUDE.md.
+ * @param allEntries - All loaded vault note entries.
+ * @param vaultPath - Absolute path to the vault directory.
+ * @param options.globalClaudeDir - Override for ~/.claude (used in tests).
+ */
 export async function executeSync(
   targetDir: string,
   allEntries: NoteEntry[],
@@ -183,6 +190,12 @@ export async function executeSync(
   }
 }
 
+/**
+ * Register the `sync` MCP tool.
+ * @param server - MCP server instance to register on.
+ * @param entries - Shared vault entries array (read at call time).
+ * @param vaultPath - Absolute path to the vault directory.
+ */
 export function registerSyncTool(
   server: McpServer,
   entries: NoteEntry[],

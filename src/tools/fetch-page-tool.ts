@@ -12,6 +12,11 @@ type FetchPageResult =
 
 type Fetcher = (url: string) => Promise<ParsedPage>
 
+/**
+ * Fetch a web page, convert it to markdown, and write it to a temp file.
+ * @param url - URL of the page to fetch.
+ * @param fetcher - Fetch implementation (defaults to `fetchPageAsMarkdown`, overridable for tests).
+ */
 export async function executeFetchPage(
   url: string,
   fetcher: Fetcher = fetchPageAsMarkdown,
@@ -37,6 +42,10 @@ export async function executeFetchPage(
   }
 }
 
+/**
+ * Register the `fetch-page` MCP tool.
+ * @param server - MCP server instance to register on.
+ */
 export function registerFetchPageTool(server: McpServer) {
   server.registerTool(
     "fetch-page",
