@@ -36,7 +36,7 @@ export function registerIndexTool(
     }, 
     async (args) => {
       const result = executeIndex(args, entries)
-      return { content: [{ type: "text" as const, text: result + getUpdateNotice() }] }
+      return { content: [{ type: "text" as const, text: result + await getUpdateNotice() }] }
     }
   )
 }

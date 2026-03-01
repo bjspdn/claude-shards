@@ -5,6 +5,7 @@ const CHANGELOG_URL = "https://raw.githubusercontent.com/Ben-Spn/claude-code-mem
 
 let latestVersion: string | null = null
 let releaseNotes: string[] = []
+let checkDone: Promise<void> = Promise.resolve()
 
 export async function fetchLatestVersion(): Promise<string> {
   const res = await fetch(NPM_URL)
@@ -38,7 +39,7 @@ export async function fetchReleaseNotes(version: string): Promise<string[]> {
 }
 
 export function initUpdateCheck(): void {
-  fetchLatestVersion()
+  const done = fetchLatestVersion()
     .then(async (v) => {
       latestVersion = v
       if (v !== pkg.version) {
@@ -46,9 +47,21 @@ export function initUpdateCheck(): void {
       }
     })
     .catch(() => {})
+
+  checkDone = Promise.race([
+    done,
+    new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+  ])
 }
 
-export function getUpdateNotice(): string {
+export function _resetForTesting(): void {
+  latestVersion = null
+  releaseNotes = []
+  checkDone = Promise.resolve()
+}
+
+export async function getUpdateNotice(): Promise<string> {
+  await checkDone
   if (!latestVersion || latestVersion === pkg.version) return ""
   const lines = [`\n\n---\nUpdate available: v${pkg.version} → v${latestVersion}`]
   if (releaseNotes.length > 0) {

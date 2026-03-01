@@ -109,9 +109,9 @@ export function registerResearchTool(
     async (args) => {
       const result = await executeResearch(args, entries, vaultPath)
       if (result.notes.length === 0) {
-        return { content: [{ type: "text" as const, text: "No notes match that query." + getUpdateNotice() }] }
+        return { content: [{ type: "text" as const, text: "No notes match that query." + await getUpdateNotice() }] }
       }
-      return { content: [{ type: "text" as const, text: buildResearchOutput(result) + getUpdateNotice() }] }
+      return { content: [{ type: "text" as const, text: buildResearchOutput(result) + await getUpdateNotice() }] }
     },
   )
 }

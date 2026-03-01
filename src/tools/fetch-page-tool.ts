@@ -59,7 +59,7 @@ export function registerFetchPageTool(server: McpServer) {
         ]
         if (result.excerpt) parts.push(`Excerpt: ${result.excerpt}`)
         if (result.siteName) parts.push(`Site: ${result.siteName}`)
-        return { content: [{ type: "text" as const, text: parts.join("\n") + getUpdateNotice() }] }
+        return { content: [{ type: "text" as const, text: parts.join("\n") + await getUpdateNotice() }] }
       }
       return { content: [{ type: "text" as const, text: result.error }], isError: true }
     },

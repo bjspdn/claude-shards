@@ -3,6 +3,7 @@
 - Real-time file sync — vault changes in Obsidian, or editors are picked up automatically
 - Diagnostics MCP tool for runtime health (vault stats, watcher activity, process metrics)
 - Update notifier in MCP tool responses and CLI help
+- Fix update notifier race condition — changelog now reliably appears when a new version is available
 
 ## 0.11.0
 

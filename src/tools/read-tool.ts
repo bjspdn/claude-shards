@@ -44,7 +44,7 @@ export function registerReadTool(server: McpServer, vaultPath: string) {
     async ({ path }) => {
       const result = await executeRead(path, vaultPath)
       if (result.ok) {
-        return { content: [{ type: "text" as const, text: result.content + getUpdateNotice() }] }
+        return { content: [{ type: "text" as const, text: result.content + await getUpdateNotice() }] }
       }
       return { content: [{ type: "text" as const, text: result.error }], isError: true }
     }

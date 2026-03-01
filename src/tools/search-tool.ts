@@ -94,7 +94,7 @@ export function registerSearchTool(
     async (args) => {
       const results = executeSearch(args, entries)
       if (results.length === 0) {
-        return { content: [{ type: "text" as const, text: "No notes match that query." + getUpdateNotice() }] }
+        return { content: [{ type: "text" as const, text: "No notes match that query." + await getUpdateNotice() }] }
       }
       const table = [
         "| T | Title | Path | ~Tok | Score |",
@@ -103,7 +103,7 @@ export function registerSearchTool(
           (r) => `| ${r.icon} | ${r.title} | ${r.relativePath} | ${r.tokenDisplay} | ${r.score} |`,
         ),
       ].join("\n")
-      return { content: [{ type: "text" as const, text: table + getUpdateNotice() }] }
+      return { content: [{ type: "text" as const, text: table + await getUpdateNotice() }] }
     },
   )
 }

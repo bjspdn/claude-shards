@@ -43,7 +43,7 @@ async function printHelp() {
     const latest = await fetchLatestVersion()
     if (latest !== pkg.version) {
       const notes = await fetchReleaseNotes(latest)
-      const parts = [`\n${C.yellow}Update available:${C.reset} v${pkg.version} → ${C.green}v${latest}${C.reset}`]
+      const parts = [`\n\n${C.yellow}Update available:${C.reset} v${pkg.version} → ${C.green}v${latest}${C.reset}`]
       if (notes.length > 0) {
         parts.push(`${C.bold}What's new:${C.reset}`)
         for (const note of notes) parts.push(`  ${C.dim}-${C.reset} ${note}`)
@@ -65,7 +65,7 @@ ${C.bold}First-time install:${C.reset}
   ${C.cyan}bun install -g @bennys001/claude-code-memory && ccm --init${C.reset}
 
 ${C.dim}Vault:${C.reset} ~/.ccm/knowledge-base/
-${C.dim}Docs:${C.reset}  https://github.com/bennys001/claude-code-memory${updateLine}`)
+${C.dim}Docs:${C.reset}  https://github.com/Ben-Spn/claude-code-memory${updateLine}`)
 }
 
 async function runUpdate() {

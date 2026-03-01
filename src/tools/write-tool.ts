@@ -130,7 +130,7 @@ export function registerWriteTool(
       const result = await executeWrite(args, entries, vaultPath)
       if (result.ok) {
         const verb = result.updated ? "Updated" : "Created"
-        return { content: [{ type: "text" as const, text: `${verb} note: ${result.path}` + getUpdateNotice() }] }
+        return { content: [{ type: "text" as const, text: `${verb} note: ${result.path}` + await getUpdateNotice() }] }
       }
       return { content: [{ type: "text" as const, text: result.error }], isError: true }
     },
