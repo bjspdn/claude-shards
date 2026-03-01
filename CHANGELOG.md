@@ -1,3 +1,11 @@
+## Unreleased
+
+## 0.15.0
+
+- Add `prepare-release` script to bump version and changelog on `dev` before merging to `master`
+- Simplify release workflow to tag + publish only (no more commits on `master`)
+- Add `release-ready` CI check on PRs to `master` to catch missing version bumps
+
 ## 0.14.0
 
 - CI now enforces changelog updates on PRs to `dev`

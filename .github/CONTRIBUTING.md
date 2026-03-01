@@ -23,8 +23,8 @@ This installs dependencies and sets up husky git hooks automatically.
 feature-branch → dev → master
 ```
 
-- **`master`** — protected, releases only. Merging to `master` auto-tags and publishes to npm.
-- **`dev`** — protected, integration branch. All contributions target this branch.
+- **`master`** — protected, releases only. Merging to `master` tags and publishes to npm.
+- **`dev`** — protected, integration branch. All contributions target this branch. Version bumps happen here via `bun run prepare-release` before merging to `master`.
 - **Feature branches** — create from `dev`, PR back to `dev`.
 
 ### Workflow
@@ -63,7 +63,7 @@ All commits must use [Conventional Commits](https://www.conventionalcommits.org/
 | `build:`    | patch        | Build system changes                       |
 | `style:`    | patch        | Code style/formatting                      |
 
-Version bumps are handled automatically by the GitHub release workflow when `dev` merges to `master` — you don't need to touch `package.json` manually.
+Before merging `dev` to `master`, run `bun run prepare-release` on `dev`. This bumps the version in `package.json`, updates `CHANGELOG.md`, and commits. The release workflow then tags and publishes on merge.
 
 ### Examples
 
