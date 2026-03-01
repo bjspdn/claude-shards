@@ -1,41 +1,28 @@
 import { spawn } from "child_process"
-import { resolve as resolvePath } from "path"
 
 export type McpRegisterResult =
   | { success: true; output: string }
   | { success: false; error: string; manualCommand: string }
 
-function buildServerCommand(): string[] {
-  const runtime = resolvePath(process.argv[0]!)
-  const script = resolvePath(process.argv[1]!)
-  return [runtime, script, "--stdio"]
-}
+export const SERVER_CMD = ["bunx", "@bennys001/claude-code-memory", "--stdio"]
 
-function buildRegisterArgs(serverCmd: string[]): string[] {
-  return [
-    "mcp", "add",
-    "--transport", "stdio",
-    "--scope", "user",
-    "ccm",
-    "--",
-    ...serverCmd,
-  ]
-}
+const REGISTER_ARGS = [
+  "mcp", "add",
+  "--transport", "stdio",
+  "--scope", "user",
+  "ccm",
+  "--",
+  ...SERVER_CMD,
+]
 
-function formatManualCommand(serverCmd: string[]): string {
-  return `claude mcp add --transport stdio --scope user ccm -- ${serverCmd.join(" ")}`
-}
+const MANUAL_COMMAND = `claude mcp add --transport stdio --scope user ccm -- ${SERVER_CMD.join(" ")}`
 
 export function registerMcpServer(): Promise<McpRegisterResult> {
-  const serverCmd = buildServerCommand()
-  const registerArgs = buildRegisterArgs(serverCmd)
-  const manualCommand = formatManualCommand(serverCmd)
-
   return new Promise((resolve) => {
     let stdout = ""
     let stderr = ""
 
-    const proc = spawn("claude", registerArgs, { stdio: "pipe" })
+    const proc = spawn("claude", REGISTER_ARGS, { stdio: "pipe" })
 
     proc.stdout.on("data", (data: Buffer) => { stdout += data.toString() })
     proc.stderr.on("data", (data: Buffer) => { stderr += data.toString() })
@@ -45,13 +32,13 @@ export function registerMcpServer(): Promise<McpRegisterResult> {
         resolve({
           success: false,
           error: "Claude CLI not found in PATH",
-          manualCommand,
+          manualCommand: MANUAL_COMMAND,
         })
       } else {
         resolve({
           success: false,
           error: err.message,
-          manualCommand,
+          manualCommand: MANUAL_COMMAND,
         })
       }
     })
@@ -63,7 +50,7 @@ export function registerMcpServer(): Promise<McpRegisterResult> {
         resolve({
           success: false,
           error: (stderr || stdout).trim() || `Process exited with code ${code}`,
-          manualCommand,
+          manualCommand: MANUAL_COMMAND,
         })
       }
     })
