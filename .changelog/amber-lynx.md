@@ -1,0 +1,1 @@
+- Add animated spinner to `ccm --update` for visual progress feedback

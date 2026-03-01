@@ -13,6 +13,7 @@ import {
   type ToolContext,
 } from "./tools"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
+import { spinner } from "./cli/spinner"
 import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
 import { C } from "./utils"
@@ -72,25 +73,31 @@ ${C.dim}Docs:${C.reset}  https://github.com/Ben-Spn/claude-code-memory${updateLi
 }
 
 async function runUpdate() {
-  console.log(`${C.dim}Checking for updates...${C.reset}`)
+  let s = spinner("Checking for updates")
   const latest = await fetchLatestVersion()
 
   if (latest === pkg.version) {
-    console.log(`Already on the latest version: ${C.green}v${pkg.version}${C.reset}`)
+    s.succeed(`Already on latest: ${C.green}v${pkg.version}${C.reset}`)
     return
   }
 
-  console.log(`${C.dim}v${pkg.version}${C.reset} → ${C.green}v${latest}${C.reset}\n`)
+  s.succeed(`${C.dim}v${pkg.version}${C.reset} → ${C.green}v${latest}${C.reset}`)
 
+  s = spinner("Installing")
   const installResult = await installGlobal()
   if (!installResult.success) {
+    s.fail("Install failed")
     throw new Error(`Global install failed: ${installResult.error}`)
   }
+  s.succeed("Installed package")
 
+  s = spinner("Registering MCP server")
   const mcpResult = await registerMcpServer()
   if (!mcpResult.success) {
+    s.fail("Registration failed")
     throw new Error(`MCP registration failed: ${mcpResult.error}`)
   }
+  s.succeed("Registered MCP server")
 
   console.log(`\n${C.green}Updated to v${latest}${C.reset}`)
 }
