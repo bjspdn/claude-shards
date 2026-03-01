@@ -8,6 +8,11 @@ interface IndexArgs {
   project?: string
 }
 
+/**
+ * Build the compressed knowledge index table, optionally filtered by project.
+ * @param args.project - Optional project name to filter entries.
+ * @param entries - All loaded vault note entries.
+ */
 export function executeIndex(
   args: IndexArgs,
   entries: NoteEntry[],
@@ -23,6 +28,11 @@ export function executeIndex(
   return buildIndexTable(filtered)
 }
 
+/**
+ * Register the `index` MCP tool.
+ * @param server - MCP server instance to register on.
+ * @param entries - Shared vault entries array (read at call time).
+ */
 export function registerIndexTool(
   server: McpServer,
   entries: NoteEntry[],

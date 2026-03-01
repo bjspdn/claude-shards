@@ -7,6 +7,11 @@ type ReadResult =
   | { ok: true; content: string }
   | { ok: false; error: string }
 
+/**
+ * Read a single vault note by its relative path.
+ * @param notePath - Path relative to the vault root (e.g. `gotchas/my-note.md`).
+ * @param vaultPath - Absolute path to the vault directory.
+ */
 export async function executeRead(
   notePath: string,
   vaultPath: string,
@@ -30,7 +35,10 @@ export async function executeRead(
   return { ok: true, content: await file.text() }
 }
 /**
+ * Register the `read` MCP tool.
  * @deprecated Prefer `registerResearchTool` which batches search+read into a single call.
+ * @param server - MCP server instance to register on.
+ * @param vaultPath - Absolute path to the vault directory.
  */
 export function registerReadTool(server: McpServer, vaultPath: string) {
   server.registerTool(

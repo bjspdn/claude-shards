@@ -16,6 +16,11 @@ function formatMB(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+/**
+ * Collect vault stats, watcher activity, process metrics, and server version into a formatted string.
+ * @param entries - All loaded vault note entries.
+ * @param watcherStats - Live file-watcher statistics.
+ */
 export function executeDiagnostics(
   entries: NoteEntry[],
   watcherStats: WatcherStats,
@@ -53,6 +58,12 @@ export function executeDiagnostics(
   return lines.join("\n")
 }
 
+/**
+ * Register the `diagnostics` MCP tool.
+ * @param server - MCP server instance to register on.
+ * @param entries - Shared vault entries array (read at call time).
+ * @param watcherStats - Live watcher statistics reference.
+ */
 export function registerDiagnosticsTool(
   server: McpServer,
   entries: NoteEntry[],

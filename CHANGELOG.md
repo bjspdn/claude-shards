@@ -1,5 +1,15 @@
+## Unreleased
+
+- Version bumping moved from per-commit husky hooks to the GitHub release workflow
+- Simplified `commit-msg` hook to validation-only — no more automatic `package.json` amendments on each commit
+- Fix release workflow `feat:` detection regex to anchor against `git log --oneline` format
+
 ## 0.13.0
 
+- Write tool now supports `append` and `patch` modes for incremental note updates without rewriting the entire file
+- New `section` parameter for `patch` mode — replace a single section by its heading
+- Legacy `overwrite` parameter still works but is deprecated in favor of `mode: "replace"`
+- JSDoc on all exported tool functions
 - Real-time file sync — vault changes in Obsidian, or editors are picked up automatically
 - Diagnostics MCP tool for runtime health (vault stats, watcher activity, process metrics)
 - Update notifier in MCP tool responses and CLI help
