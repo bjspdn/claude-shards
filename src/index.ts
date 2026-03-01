@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { homedir } from "os"
 import { join } from "path"
 import { loadVault } from "./vault/loader"
+import { watchVault } from "./vault/watcher"
 import { registerIndexTool } from "./tools/index-tool"
 import { registerReadTool } from "./tools/read-tool"
 import { registerSearchTool } from "./tools/search-tool"
@@ -12,10 +13,12 @@ import { registerSyncTool } from "./tools/sync-tool"
 import { registerWriteTool } from "./tools/write-tool"
 import { registerFetchPageTool } from "./tools/fetch-page-tool"
 import { registerResearchTool } from "./tools/research-tool"
+import { registerDiagnosticsTool } from "./tools/diagnostics-tool"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
 import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
 import { C } from "./utils"
+import { fetchLatestVersion, fetchReleaseNotes, initUpdateCheck } from "./update-checker"
 import { rm } from "fs/promises"
 import { createInterface } from "readline"
 
@@ -34,7 +37,22 @@ function parseCliArgs(): CliCommand {
   return "help"
 }
 
-function printHelp() {
+async function printHelp() {
+  let updateLine = ""
+  try {
+    const latest = await fetchLatestVersion()
+    if (latest !== pkg.version) {
+      const notes = await fetchReleaseNotes(latest)
+      const parts = [`\n${C.yellow}Update available:${C.reset} v${pkg.version} → ${C.green}v${latest}${C.reset}`]
+      if (notes.length > 0) {
+        parts.push(`${C.bold}What's new:${C.reset}`)
+        for (const note of notes) parts.push(`  ${C.dim}-${C.reset} ${note}`)
+      }
+      parts.push(`Run ${C.cyan}ccm --update${C.reset} to upgrade`)
+      updateLine = parts.join("\n")
+    }
+  } catch {}
+
   console.log(`${C.bold}claude-code-memory${C.reset} ${C.dim}(ccm)${C.reset} — Persistent memory for Claude Code
 
 ${C.bold}Usage:${C.reset}
@@ -47,14 +65,7 @@ ${C.bold}First-time install:${C.reset}
   ${C.cyan}bun install -g @bennys001/claude-code-memory && ccm --init${C.reset}
 
 ${C.dim}Vault:${C.reset} ~/.ccm/knowledge-base/
-${C.dim}Docs:${C.reset}  https://github.com/bennys001/claude-code-memory`)
-}
-
-async function fetchLatestVersion(): Promise<string> {
-  const res = await fetch("https://registry.npmjs.org/@bennys001/claude-code-memory/latest")
-  if (!res.ok) throw new Error(`npm registry returned ${res.status}`)
-  const data = (await res.json()) as { version: string }
-  return data.version
+${C.dim}Docs:${C.reset}  https://github.com/bennys001/claude-code-memory${updateLine}`)
 }
 
 async function runUpdate() {
@@ -129,7 +140,9 @@ async function runInit() {
 
 async function runServer() {
   const entries = await loadVault(VAULT_PATH)
+  const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries)
 
+  initUpdateCheck()
   console.error(`Loaded ${entries.length} notes from ${VAULT_PATH}`)
 
   const server = new McpServer({
@@ -144,11 +157,13 @@ async function runServer() {
   registerWriteTool(server, entries, VAULT_PATH)
   registerFetchPageTool(server)
   registerResearchTool(server, entries, VAULT_PATH)
+  registerDiagnosticsTool(server, entries, watcherStats)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
 
   const shutdown = async () => {
+    stopWatcher()
     await server.close()
     process.exit(0)
   }
@@ -163,8 +178,7 @@ if (cli === "version") {
   console.log(pkg.version)
   process.exit(0)
 } else if (cli === "help") {
-  printHelp()
-  process.exit(0)
+  printHelp().then(() => process.exit(0)).catch(() => process.exit(0))
 } else if (cli === "update") {
   runUpdate().catch((err) => {
     console.error("Fatal:", err)

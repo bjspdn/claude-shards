@@ -34,6 +34,10 @@ If `--init` can't reach the `claude` CLI, register manually:
 claude mcp add --transport stdio --scope user ccm -- ccm --stdio
 ```
 
+## Real-Time Sync
+
+The server watches the vault directory for changes while running. Edits made outside Claude — in Obsidian or your editor — are picked up automatically. New and modified `.md` files are re-parsed, deleted files are removed from the index, and new subdirectories are watched on creation. No restart required.
+
 ## MCP Tools
 
 ### `research`
@@ -76,6 +80,10 @@ Generates/updates a `## Knowledge Index` section in a project's `CLAUDE.md`. Inj
 | Param       | Type   | Required | Description                         |
 |-------------|--------|----------|-------------------------------------|
 | `targetDir` | string | No       | Project directory (defaults to CWD) |
+
+### `diagnostics`
+
+Live runtime diagnostics — vault stats (entry counts by type, total tokens), file watcher activity (flushes, upserts, removes), process metrics (uptime, RSS, heap), and server version. No parameters.
 
 ### `fetch-page`
 

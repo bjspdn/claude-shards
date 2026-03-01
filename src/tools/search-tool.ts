@@ -5,6 +5,7 @@ import {
   type NoteEntry,
 } from "../vault/types"
 import { formatTokenCount } from "../index-engine/index"
+import { getUpdateNotice } from "../update-checker"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 interface SearchArgs {
@@ -93,7 +94,7 @@ export function registerSearchTool(
     async (args) => {
       const results = executeSearch(args, entries)
       if (results.length === 0) {
-        return { content: [{ type: "text" as const, text: "No notes match that query." }] }
+        return { content: [{ type: "text" as const, text: "No notes match that query." + getUpdateNotice() }] }
       }
       const table = [
         "| T | Title | Path | ~Tok | Score |",
@@ -102,7 +103,7 @@ export function registerSearchTool(
           (r) => `| ${r.icon} | ${r.title} | ${r.relativePath} | ${r.tokenDisplay} | ${r.score} |`,
         ),
       ].join("\n")
-      return { content: [{ type: "text" as const, text: table }] }
+      return { content: [{ type: "text" as const, text: table + getUpdateNotice() }] }
     },
   )
 }

@@ -1,5 +1,6 @@
 import { join, resolve, relative } from "path"
 import { z } from "zod"
+import { getUpdateNotice } from "../update-checker"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 type ReadResult =
@@ -43,7 +44,7 @@ export function registerReadTool(server: McpServer, vaultPath: string) {
     async ({ path }) => {
       const result = await executeRead(path, vaultPath)
       if (result.ok) {
-        return { content: [{ type: "text" as const, text: result.content }] }
+        return { content: [{ type: "text" as const, text: result.content + getUpdateNotice() }] }
       }
       return { content: [{ type: "text" as const, text: result.error }], isError: true }
     }

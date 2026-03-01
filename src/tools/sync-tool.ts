@@ -10,6 +10,7 @@ import {
   formatTokenCount,
   toIndexEntry,
 } from "../index-engine/index"
+import { getUpdateNotice } from "../update-checker"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 export const TECH_TAGS = new Set([
@@ -198,7 +199,7 @@ export function registerSyncTool(
         async ({ targetDir }) => {
             const dir = targetDir ?? process.cwd()
             const result = await executeSync(dir, entries, vaultPath)
-            return { content: [{ type: "text" as const, text: result.summary }] }
+            return { content: [{ type: "text" as const, text: result.summary + getUpdateNotice() }] }
         },
     )
 }
