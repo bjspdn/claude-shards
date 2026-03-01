@@ -1,6 +1,7 @@
 import { z } from "zod"
 import type { NoteEntry } from "../vault/types"
 import { buildIndexTable } from "../index-engine/index"
+import { getUpdateNotice } from "../update-checker"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 interface IndexArgs {
@@ -35,7 +36,7 @@ export function registerIndexTool(
     }, 
     async (args) => {
       const result = executeIndex(args, entries)
-      return { content: [{ type: "text" as const, text: result }] }
+      return { content: [{ type: "text" as const, text: result + getUpdateNotice() }] }
     }
   )
 }

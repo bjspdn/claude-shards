@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from "fs/promises"
 import { tmpdir } from "os"
 import { z } from "zod"
 import { fetchPageAsMarkdown, type ParsedPage } from "../web/fetcher"
+import { getUpdateNotice } from "../update-checker"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 type FetchPageResult =
@@ -58,7 +59,7 @@ export function registerFetchPageTool(server: McpServer) {
         ]
         if (result.excerpt) parts.push(`Excerpt: ${result.excerpt}`)
         if (result.siteName) parts.push(`Site: ${result.siteName}`)
-        return { content: [{ type: "text" as const, text: parts.join("\n") }] }
+        return { content: [{ type: "text" as const, text: parts.join("\n") + getUpdateNotice() }] }
       }
       return { content: [{ type: "text" as const, text: result.error }], isError: true }
     },
