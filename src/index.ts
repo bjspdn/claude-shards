@@ -9,7 +9,7 @@ import { watchVault } from "./vault/watcher"
 import {
   registerTools,
   indexTool, readTool, searchTool, syncTool,
-  writeTool, fetchPageTool, researchTool, diagnosticsTool,
+  writeTool, researchTool, diagnosticsTool,
   type ToolContext,
 } from "./tools"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
@@ -170,7 +170,7 @@ async function runServer() {
 
   registerTools(server, [
     indexTool, readTool, searchTool, syncTool,
-    writeTool, fetchPageTool, researchTool, diagnosticsTool,
+    writeTool, researchTool, diagnosticsTool,
   ], ctx)
 
   const transport = new StdioServerTransport()

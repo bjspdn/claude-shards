@@ -1,6 +1,7 @@
 ## 0.18.0
 
-- - Rename project from `claude-code-memory` / `ccm` to **Claude Shards** / `claude-shards` — new package name, binary, vault path (`~/.claude-shards/`), and MCP server name
+- Rename project from `claude-code-memory` / `ccm` to **Claude Shards** / `claude-shards` — new package name, binary, vault path (`~/.claude-shards/`), and MCP server name
+- Remove `fetch-page` tool — Claude Code's built-in `WebFetch` handles this natively
 
 
 ## 0.17.0
