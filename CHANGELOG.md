@@ -1,5 +1,3 @@
-## Unreleased
-
 ## 0.15.0
 
 - Add `prepare-release` script to bump version and changelog on `dev` before merging to `master`

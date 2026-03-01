@@ -19,10 +19,13 @@ import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from ".
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
 import { C } from "./utils"
 import { fetchLatestVersion, fetchReleaseNotes, initUpdateCheck } from "./update-checker"
+import { initLogFile, logInfo } from "./logger"
+import { instrumentToolLogging } from "./tool-logger"
+import { runLogViewer } from "./cli/logging"
 import { rm } from "fs/promises"
 import { createInterface } from "readline"
 
-type CliCommand = "init" | "serve" | "version" | "update" | "uninstall" | "help"
+type CliCommand = "init" | "serve" | "version" | "update" | "uninstall" | "logging" | "help"
 
 const VAULT_PATH = join(homedir(), ".ccm", "knowledge-base")
 
@@ -32,6 +35,7 @@ function parseCliArgs(): CliCommand {
   if (args.includes("--update")) return "update"
   if (args.includes("--uninstall")) return "uninstall"
   if (args.includes("--init")) return "init"
+  if (args.includes("--logging")) return "logging"
   if (args.includes("--stdio")) return "serve"
   if (!process.stdin.isTTY) return "serve"
   return "help"
@@ -60,6 +64,7 @@ ${C.bold}Usage:${C.reset}
   ${C.cyan}ccm --update${C.reset}      Update to the latest version
   ${C.cyan}ccm --uninstall${C.reset}   Remove ccm, MCP server, and optionally the vault
   ${C.cyan}ccm --version${C.reset}     Show installed version
+  ${C.cyan}ccm --logging${C.reset}     Tail the MCP server log
 
 ${C.bold}First-time install:${C.reset}
   ${C.cyan}bun install -g @bennys001/claude-code-memory && ccm --init${C.reset}
@@ -139,16 +144,22 @@ async function runInit() {
 }
 
 async function runServer() {
+  await initLogFile()
+  logInfo("server", "starting", { version: pkg.version })
+
   const entries = await loadVault(VAULT_PATH)
   const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries)
 
   initUpdateCheck()
+  logInfo("server", `loaded ${entries.length} notes`)
   console.error(`Loaded ${entries.length} notes from ${VAULT_PATH}`)
 
   const server = new McpServer({
     name: "ccm",
     version: pkg.version,
   })
+
+  instrumentToolLogging(server)
 
   registerIndexTool(server, entries)
   registerReadTool(server, VAULT_PATH)
@@ -161,8 +172,10 @@ async function runServer() {
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
+  logInfo("server", "connected")
 
   const shutdown = async () => {
+    logInfo("server", "shutting down")
     stopWatcher()
     await server.close()
     process.exit(0)
@@ -191,6 +204,11 @@ if (cli === "version") {
   })
 } else if (cli === "init") {
   runInit().catch((err) => {
+    console.error("Fatal:", err)
+    process.exit(1)
+  })
+} else if (cli === "logging") {
+  runLogViewer().catch((err) => {
     console.error("Fatal:", err)
     process.exit(1)
   })
