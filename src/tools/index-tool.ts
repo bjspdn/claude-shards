@@ -27,6 +27,7 @@ export function executeIndex(
   return buildIndexTable(filtered)
 }
 
+/** MCP tool: returns the compressed knowledge index table. */
 export const indexTool: ToolDefinition = {
   name: "index",
   description: "Return the compressed knowledge index table for the current project or vault",

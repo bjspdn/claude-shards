@@ -46,22 +46,32 @@ interface WritePatchCmd {
 
 export type WriteCommand = WriteCreateCmd | WriteReplaceCmd | WriteAppendCmd | WritePatchCmd
 
+/** @returns {WriteCreateCmd} A create command with mode discriminant set. */
 export function writeCreate(opts: Omit<WriteCreateCmd, "mode">): WriteCreateCmd {
   return { mode: "create", ...opts }
 }
 
+/** @returns {WriteReplaceCmd} A replace command with mode discriminant set. */
 export function writeReplace(opts: Omit<WriteReplaceCmd, "mode">): WriteReplaceCmd {
   return { mode: "replace", ...opts }
 }
 
+/** @returns {WriteAppendCmd} An append command with mode discriminant set. */
 export function writeAppend(opts: Omit<WriteAppendCmd, "mode">): WriteAppendCmd {
   return { mode: "append", ...opts }
 }
 
+/** @returns {WritePatchCmd} A patch command with mode discriminant set. */
 export function writePatch(opts: Omit<WritePatchCmd, "mode">): WritePatchCmd {
   return { mode: "patch", ...opts }
 }
 
+/**
+ * Bridge MCP's flat optional args to a typed {@link WriteCommand}.
+ * Validates mode-dependent required fields and maps deprecated `overwrite` to `"replace"`.
+ * @param args - Raw tool arguments from the MCP handler.
+ * @returns {WriteCommand | {error: string}} A validated command, or an error object.
+ */
 export function parseWriteArgs(args: {
   path: string
   type?: string
@@ -147,6 +157,15 @@ function buildSectionRegex(sectionTitle: string): RegExp {
   return new RegExp(`^(#{1,6})\\s+${escaped}$`, "m")
 }
 
+/**
+ * Create or update a vault note.
+ * Dispatches on {@link WriteCommand.mode} with full type narrowing — no runtime
+ * assertions needed.
+ * @param cmd - Discriminated write command (use factory functions or {@link parseWriteArgs}).
+ * @param entries - Shared vault entries array, mutated in-place on success.
+ * @param vaultPath - Absolute path to the vault directory.
+ * @returns {{ ok: true, path: string, updated: boolean } | { ok: false, error: string }}
+ */
 export async function executeWrite(
   cmd: WriteCommand,
   entries: NoteEntry[],
@@ -273,6 +292,7 @@ export async function executeWrite(
   return { ok: true, path: rel, updated: cmd.mode !== "create" && fileExists }
 }
 
+/** MCP tool: creates or updates vault notes (create, replace, append, patch modes). */
 export const writeTool: ToolDefinition = {
   name: "write",
   description:

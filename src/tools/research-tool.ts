@@ -97,6 +97,7 @@ export async function executeResearch(
   return { table, notes, totalTokens, truncated, maxTokenBudget: args.maxTokens }
 }
 
+/** MCP tool: batched search + read returning full note content in one call. */
 export const researchTool: ToolDefinition = {
   name: "research",
   description:

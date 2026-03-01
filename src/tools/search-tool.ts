@@ -80,6 +80,10 @@ export function executeSearch(
   return scored.slice(0, limit)
 }
 
+/**
+ * Render search results as a markdown table.
+ * @param results - Scored search results to format.
+ */
 export function formatSearchResults(results: SearchResult[]): string {
   return [
     "| T | Title | Path | ~Tok | Score |",
@@ -90,6 +94,7 @@ export function formatSearchResults(results: SearchResult[]): string {
   ].join("\n")
 }
 
+/** @deprecated Prefer {@link import("./research-tool").researchTool}. MCP tool: keyword search returning index entries only. */
 export const searchTool: ToolDefinition = {
   name: "search",
   description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Keyword search across vault notes. Returns index entries only.",
