@@ -62,16 +62,18 @@ Compressed markdown table of all vault notes (or filtered by project). Primary w
 
 ### `write`
 
-Creates a new note with structured frontmatter. Create-only — rejects existing paths.
+Creates or updates a note. Supports three modes: `create` (default) adds a new note with structured frontmatter and rejects existing paths, `append` adds content to the end of an existing note, and `patch` replaces a single section by heading in an existing note.
 
-| Param      | Type     | Required | Description                                     |
-|------------|----------|----------|-------------------------------------------------|
-| `path`     | string   | Yes      | Relative path for new note                      |
+| Param      | Type     | Required | Description                                         |
+|------------|----------|----------|-----------------------------------------------------|
+| `path`     | string   | Yes      | Relative path for the note                          |
 | `type`     | string   | Yes      | `gotchas`, `decisions`, `patterns`, or `references` |
-| `title`    | string   | Yes      | Note title (becomes H1)                         |
-| `body`     | string   | Yes      | Markdown body                                   |
-| `tags`     | string[] | No       | Searchable tags                                 |
-| `projects` | string[] | No       | Project names                                   |
+| `title`    | string   | Yes      | Note title (becomes H1)                             |
+| `body`     | string   | Yes      | Markdown body                                       |
+| `tags`     | string[] | No       | Searchable tags                                     |
+| `projects` | string[] | No       | Project names                                       |
+| `mode`     | string   | No       | `create` (default), `append`, or `patch`            |
+| `section`  | string   | No       | Heading text to match when using `patch` mode       |
 
 ### `sync`
 

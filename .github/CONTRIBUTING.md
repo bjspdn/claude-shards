@@ -44,7 +44,7 @@ Then open a PR targeting `dev`. PRs require:
 
 ## Commit Messages
 
-All commits must use [Conventional Commits](https://www.conventionalcommits.org/) format. This is enforced by a husky `commit-msg` hook.
+All commits must use [Conventional Commits](https://www.conventionalcommits.org/) format. The husky `commit-msg` hook validates the format on every commit.
 
 | Prefix      | Version Bump | Use for                                    |
 |-------------|--------------|--------------------------------------------|
@@ -59,7 +59,7 @@ All commits must use [Conventional Commits](https://www.conventionalcommits.org/
 | `build:`    | patch        | Build system changes                       |
 | `style:`    | patch        | Code style/formatting                      |
 
-Version bumps are handled automatically — you don't need to touch `package.json` manually.
+Version bumps are handled automatically by the GitHub release workflow when `dev` merges to `master` — you don't need to touch `package.json` manually.
 
 ### Examples
 

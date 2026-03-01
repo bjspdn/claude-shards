@@ -23,4 +23,4 @@ Do not manually edit the version in `package.json`.
 - Contributors create feature branches off `dev`, then PR back to `dev` (requires owner approval).
 
 ### Changelog
-When creating a PR to `dev`, update `CHANGELOG.md` under the next unreleased version heading with concise, user-facing bullet points summarizing what changed. Focus on what the end user gains — not implementation details or file-level diffs.
+When creating a PR to `dev`, add entries to `CHANGELOG.md` under the `## Unreleased` heading. The release workflow automatically replaces `## Unreleased` with the actual version number when `dev` merges to `master`. Keep bullet points concise and user-facing — focus on what the end user gains, not implementation details.
