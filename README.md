@@ -7,17 +7,31 @@ MCP server that gives Claude Code persistent memory via an Obsidian-compatible k
 Requires [Bun](https://bun.sh/) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 ```bash
-bunx @bennys001/claude-code-memory --init
+bun install -g @bennys001/claude-code-memory && ccm --init
 ```
 
-This scaffolds the vault at `~/.ccm/knowledge-base/`, registers it with Obsidian (if installed), and adds the MCP server to Claude Code.
+This installs the `ccm` binary globally, scaffolds the vault at `~/.ccm/knowledge-base/`, registers it with Obsidian (if installed), and adds the MCP server to Claude Code.
 
-### Manual setup
+### Update
+
+```bash
+ccm --update
+```
+
+### Uninstall
+
+```bash
+ccm --uninstall
+```
+
+Removes the MCP server registration, Obsidian vault registration, and the global binary. Prompts before deleting the vault.
+
+### Manual MCP setup
 
 If `--init` can't reach the `claude` CLI, register manually:
 
 ```bash
-claude mcp add --transport stdio --scope user ccm -- bunx @bennys001/claude-code-memory --stdio
+claude mcp add --transport stdio --scope user ccm -- ccm --stdio
 ```
 
 ## MCP Tools
