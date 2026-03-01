@@ -39,8 +39,12 @@ git push -u origin feat/your-feature
 ```
 
 Then open a PR targeting `dev`. PRs require:
-- CI build passing
+- CI build passing (includes changelog check — see below)
 - Owner approval (stale reviews are dismissed on new pushes)
+
+### Changelog
+
+Every PR to `dev` must add entries under `## Unreleased` in `CHANGELOG.md`. CI will fail if the file wasn't modified. Keep entries concise and user-facing — focus on what end users gain, not implementation details.
 
 ## Commit Messages
 
