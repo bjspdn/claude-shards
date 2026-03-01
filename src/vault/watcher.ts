@@ -3,6 +3,7 @@ import { resolve, relative, join } from "path"
 import { Glob } from "bun"
 import { NOTE_TYPE_PRIORITY, type NoteEntry } from "./types"
 import { parseNote } from "./parser"
+import { logInfo, logError } from "../logger"
 
 export interface WatcherStats {
   activeWatchers: number
@@ -60,12 +61,12 @@ export function watchVault(
       if (exists) {
         await upsertEntry(entries, abs, vaultPath)
         stats.totalUpserts++
-        console.error(`[watcher] upserted ${rel}`)
+        logInfo("watcher", `upserted ${rel}`)
       } else {
         const removed = removeEntry(entries, abs)
         if (removed) {
           stats.totalRemoves++
-          console.error(`[watcher] removed ${rel}`)
+          logInfo("watcher", `removed ${rel}`)
         }
       }
     }
@@ -123,7 +124,7 @@ export function watchVault(
       watchers.set(dirPath, w)
       stats.activeWatchers++
     } catch (err) {
-      console.error(`[watcher] failed to watch ${dirPath}: ${err}`)
+      logError("watcher", `failed to watch ${dirPath}`, { error: String(err) })
     }
   }
 

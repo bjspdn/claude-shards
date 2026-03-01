@@ -1,4 +1,5 @@
 import pkg from "../package.json" with { type: "json" }
+import { logInfo } from "./logger"
 
 const NPM_URL = "https://registry.npmjs.org/@bennys001/claude-code-memory/latest"
 const CHANGELOG_URL = "https://raw.githubusercontent.com/Ben-Spn/claude-code-memory/master/CHANGELOG.md"
@@ -43,6 +44,7 @@ export function initUpdateCheck(): void {
     .then(async (v) => {
       latestVersion = v
       if (v !== pkg.version) {
+        logInfo("update", `new version available: v${v}`, { current: pkg.version })
         releaseNotes = await fetchReleaseNotes(v)
       }
     })

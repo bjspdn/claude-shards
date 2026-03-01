@@ -27,10 +27,25 @@ fi
 npm version "$BUMP" --no-git-tag-version
 VERSION=$(node -p "require('./package.json').version")
 
-sed -i "s/^## Unreleased$/## $VERSION/" CHANGELOG.md
+FRAGMENTS=(.changelog/*.md)
+if [ ! -e "${FRAGMENTS[0]}" ]; then
+  echo "Error: no changelog fragments found in .changelog/"
+  exit 1
+fi
 
-sed -i "0,/^## $VERSION$/s//## Unreleased\n\n## $VERSION/" CHANGELOG.md
+SECTION="## $VERSION"$'\n'
+for f in "${FRAGMENTS[@]}"; do
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    SECTION+=$'\n'"- $line"
+  done < "$f"
+done
+SECTION+=$'\n'
 
+EXISTING=$(cat CHANGELOG.md)
+printf '%s\n\n%s\n' "$SECTION" "$EXISTING" > CHANGELOG.md
+
+git rm .changelog/*.md
 git add package.json CHANGELOG.md
 git commit -m "chore: bump version to $VERSION"
 
