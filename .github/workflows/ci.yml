@@ -27,3 +27,32 @@ jobs:
             echo "Add your changes under '## Unreleased' in CHANGELOG.md"
             exit 1
           fi
+
+  release-ready:
+    if: github.base_ref == 'master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version must be bumped
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          LATEST_VER="${LATEST_TAG#v}"
+
+          if [ "$CURRENT" = "$LATEST_VER" ]; then
+            echo "package.json version ($CURRENT) matches latest tag ($LATEST_TAG)"
+            echo "Run 'bun run prepare-release' on dev before merging to master"
+            exit 1
+          fi
+
+      - name: Changelog must have version heading
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if ! grep -q "^## $VERSION$" CHANGELOG.md; then
+            echo "CHANGELOG.md has no '## $VERSION' heading"
+            echo "Run 'bun run prepare-release' on dev before merging to master"
+            exit 1
+          fi

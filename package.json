@@ -19,7 +19,8 @@
   "scripts": {
     "prepare": "husky",
     "build": "bunup",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "prepare-release": "bash scripts/prepare-release.sh"
   },
   "bin": {
     "ccm": "dist/index.js"

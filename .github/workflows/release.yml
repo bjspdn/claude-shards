@@ -15,9 +15,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.RELEASE_TOKEN }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -27,26 +24,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - run: npm install -g npm@latest
-
-      - name: Bump version
-        run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -z "$LAST_TAG" ]; then
-            COMMITS=$(git log --oneline)
-          else
-            COMMITS=$(git log "$LAST_TAG"..HEAD --oneline)
-          fi
-
-          if echo "$COMMITS" | grep -qE '^[a-f0-9]+ feat(\(.+\))?!?:'; then
-            BUMP="minor"
-          else
-            BUMP="patch"
-          fi
-
-          npm version "$BUMP" --no-git-tag-version
-          VERSION=$(node -p "require('./package.json').version")
-          sed -i "s/^## Unreleased$/## $VERSION/" CHANGELOG.md
-          echo "Bumped to $VERSION ($BUMP)"
 
       - run: bun install --frozen-lockfile
       - run: bun test
@@ -61,10 +38,8 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json CHANGELOG.md
-          git commit -m "chore: bump version to $VERSION"
 
           git tag "$TAG"
-          git push origin HEAD "$TAG"
+          git push origin "$TAG"
           npm publish --access public
           echo "Released $TAG to npm"
