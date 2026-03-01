@@ -36,7 +36,7 @@ jobs:
             COMMITS=$(git log "$LAST_TAG"..HEAD --oneline)
           fi
 
-          if echo "$COMMITS" | grep -qE '\bfeat(\(.+\))?!?:'; then
+          if echo "$COMMITS" | grep -qE '^[a-f0-9]+ feat(\(.+\))?!?:'; then
             BUMP="minor"
           else
             BUMP="patch"
