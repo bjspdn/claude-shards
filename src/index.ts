@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { homedir } from "os"
 import { join } from "path"
 import { loadVault } from "./vault/loader"
+import { watchVault } from "./vault/watcher"
 import { registerIndexTool } from "./tools/index-tool"
 import { registerReadTool } from "./tools/read-tool"
 import { registerSearchTool } from "./tools/search-tool"
@@ -129,6 +130,7 @@ async function runInit() {
 
 async function runServer() {
   const entries = await loadVault(VAULT_PATH)
+  const stopWatcher = watchVault(VAULT_PATH, entries)
 
   console.error(`Loaded ${entries.length} notes from ${VAULT_PATH}`)
 
@@ -149,6 +151,7 @@ async function runServer() {
   await server.connect(transport)
 
   const shutdown = async () => {
+    stopWatcher()
     await server.close()
     process.exit(0)
   }
