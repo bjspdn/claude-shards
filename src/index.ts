@@ -6,15 +6,14 @@ import { homedir } from "os"
 import { join } from "path"
 import { loadVault } from "./vault/loader"
 import { watchVault } from "./vault/watcher"
-import { registerIndexTool } from "./tools/index-tool"
-import { registerReadTool } from "./tools/read-tool"
-import { registerSearchTool } from "./tools/search-tool"
-import { registerSyncTool } from "./tools/sync-tool"
-import { registerWriteTool } from "./tools/write-tool"
-import { registerFetchPageTool } from "./tools/fetch-page-tool"
-import { registerResearchTool } from "./tools/research-tool"
-import { registerDiagnosticsTool } from "./tools/diagnostics-tool"
+import {
+  registerTools,
+  indexTool, readTool, searchTool, syncTool,
+  writeTool, fetchPageTool, researchTool, diagnosticsTool,
+  type ToolContext,
+} from "./tools"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
+import { spinner } from "./cli/spinner"
 import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
 import { C } from "./utils"
@@ -74,25 +73,31 @@ ${C.dim}Docs:${C.reset}  https://github.com/Ben-Spn/claude-code-memory${updateLi
 }
 
 async function runUpdate() {
-  console.log(`${C.dim}Checking for updates...${C.reset}`)
+  let s = spinner("Checking for updates")
   const latest = await fetchLatestVersion()
 
   if (latest === pkg.version) {
-    console.log(`Already on the latest version: ${C.green}v${pkg.version}${C.reset}`)
+    s.succeed(`Already on latest: ${C.green}v${pkg.version}${C.reset}`)
     return
   }
 
-  console.log(`${C.dim}v${pkg.version}${C.reset} → ${C.green}v${latest}${C.reset}\n`)
+  s.succeed(`${C.dim}v${pkg.version}${C.reset} → ${C.green}v${latest}${C.reset}`)
 
+  s = spinner("Installing")
   const installResult = await installGlobal()
   if (!installResult.success) {
+    s.fail("Install failed")
     throw new Error(`Global install failed: ${installResult.error}`)
   }
+  s.succeed("Installed package")
 
+  s = spinner("Registering MCP server")
   const mcpResult = await registerMcpServer()
   if (!mcpResult.success) {
+    s.fail("Registration failed")
     throw new Error(`MCP registration failed: ${mcpResult.error}`)
   }
+  s.succeed("Registered MCP server")
 
   console.log(`\n${C.green}Updated to v${latest}${C.reset}`)
 }
@@ -161,14 +166,12 @@ async function runServer() {
 
   instrumentToolLogging(server)
 
-  registerIndexTool(server, entries)
-  registerReadTool(server, VAULT_PATH)
-  registerSearchTool(server, entries)
-  registerSyncTool(server, entries, VAULT_PATH)
-  registerWriteTool(server, entries, VAULT_PATH)
-  registerFetchPageTool(server)
-  registerResearchTool(server, entries, VAULT_PATH)
-  registerDiagnosticsTool(server, entries, watcherStats)
+  const ctx: ToolContext = { entries, vaultPath: VAULT_PATH, watcherStats }
+
+  registerTools(server, [
+    indexTool, readTool, searchTool, syncTool,
+    writeTool, fetchPageTool, researchTool, diagnosticsTool,
+  ], ctx)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)

@@ -5,8 +5,7 @@ import {
   type NoteEntry,
 } from "../vault/types"
 import { formatTokenCount } from "../index-engine/index"
-import { getUpdateNotice } from "../update-checker"
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import type { ToolDefinition } from "./types"
 
 interface SearchArgs {
   query: string
@@ -82,39 +81,34 @@ export function executeSearch(
 }
 
 /**
- * Register the `search` MCP tool.
- * @deprecated Prefer `registerResearchTool` which batches search+read into a single call.
- * @param server - MCP server instance to register on.
- * @param entries - Shared vault entries array (read at call time).
+ * Render search results as a markdown table.
+ * @param results - Scored search results to format.
  */
-export function registerSearchTool(
-  server: McpServer,
-  entries: NoteEntry[],
-) {
-  server.registerTool(
-    "search",
-    {
-      description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Keyword search across vault notes. Returns index entries only.",
-      inputSchema: z.object({
-        query: z.string().describe("Space-separated keywords to search for"),
-        types: z.array(NoteType).optional().describe("Filter to these note types"),
-        tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
-        limit: z.number().optional().describe("Max results (default 10)"),
-      })
-    },
-    async (args) => {
-      const results = executeSearch(args, entries)
-      if (results.length === 0) {
-        return { content: [{ type: "text" as const, text: "No notes match that query." + await getUpdateNotice() }] }
-      }
-      const table = [
-        "| T | Title | Path | ~Tok | Score |",
-        "|---|-------|------|------|-------|",
-        ...results.map(
-          (r) => `| ${r.icon} | ${r.title} | ${r.relativePath} | ${r.tokenDisplay} | ${r.score} |`,
-        ),
-      ].join("\n")
-      return { content: [{ type: "text" as const, text: table + await getUpdateNotice() }] }
-    },
-  )
+export function formatSearchResults(results: SearchResult[]): string {
+  return [
+    "| T | Title | Path | ~Tok | Score |",
+    "|---|-------|------|------|-------|",
+    ...results.map(
+      (r) => `| ${r.icon} | ${r.title} | ${r.relativePath} | ${r.tokenDisplay} | ${r.score} |`,
+    ),
+  ].join("\n")
+}
+
+/** @deprecated Prefer {@link import("./research-tool").researchTool}. MCP tool: keyword search returning index entries only. */
+export const searchTool: ToolDefinition = {
+  name: "search",
+  description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Keyword search across vault notes. Returns index entries only.",
+  inputSchema: z.object({
+    query: z.string().describe("Space-separated keywords to search for"),
+    types: z.array(NoteType).optional().describe("Filter to these note types"),
+    tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
+    limit: z.number().optional().describe("Max results (default 10)"),
+  }),
+  handler: (args, ctx) => {
+    const results = executeSearch(args, ctx.entries)
+    if (results.length === 0) {
+      return { text: "No notes match that query." }
+    }
+    return { text: formatSearchResults(results) }
+  },
 }

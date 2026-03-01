@@ -3,8 +3,7 @@ import { mkdtemp, writeFile } from "fs/promises"
 import { tmpdir } from "os"
 import { z } from "zod"
 import { fetchPageAsMarkdown, type ParsedPage } from "../web/fetcher"
-import { getUpdateNotice } from "../update-checker"
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import type { ToolDefinition } from "./types"
 
 type FetchPageResult =
   | { ok: true; tempPath: string; title: string; excerpt: string | null; siteName: string | null }
@@ -42,35 +41,28 @@ export async function executeFetchPage(
   }
 }
 
-/**
- * Register the `fetch-page` MCP tool.
- * @param server - MCP server instance to register on.
- */
-export function registerFetchPageTool(server: McpServer) {
-  server.registerTool(
-    "fetch-page",
-    {
-      description:
-        "Fetch a web page and convert it to markdown. " +
-        "Returns a temp file path containing the raw markdown. " +
-        "After calling this tool, read the temp file, clean up the markdown, " +
-        "pick appropriate title/tags/type, then call the write tool to save to the vault.",
-      inputSchema: z.object({
-        url: z.url().describe("URL of the web page to fetch"),
-      }),
-    },
-    async (args) => {
-      const result = await executeFetchPage(args.url)
-      if (result.ok) {
-        const parts = [
-          `Temp file: ${result.tempPath}`,
-          `Title: ${result.title}`,
-        ]
-        if (result.excerpt) parts.push(`Excerpt: ${result.excerpt}`)
-        if (result.siteName) parts.push(`Site: ${result.siteName}`)
-        return { content: [{ type: "text" as const, text: parts.join("\n") + await getUpdateNotice() }] }
-      }
-      return { content: [{ type: "text" as const, text: result.error }], isError: true }
-    },
-  )
+/** MCP tool: fetches a web page as markdown and writes it to a temp file for vault ingestion. */
+export const fetchPageTool: ToolDefinition = {
+  name: "fetch-page",
+  description:
+    "Fetch a web page and convert it to markdown. " +
+    "Returns a temp file path containing the raw markdown. " +
+    "After calling this tool, read the temp file, clean up the markdown, " +
+    "pick appropriate title/tags/type, then call the write tool to save to the vault.",
+  inputSchema: z.object({
+    url: z.url().describe("URL of the web page to fetch"),
+  }),
+  handler: async (args) => {
+    const result = await executeFetchPage(args.url)
+    if (result.ok) {
+      const parts = [
+        `Temp file: ${result.tempPath}`,
+        `Title: ${result.title}`,
+      ]
+      if (result.excerpt) parts.push(`Excerpt: ${result.excerpt}`)
+      if (result.siteName) parts.push(`Site: ${result.siteName}`)
+      return { text: parts.join("\n") }
+    }
+    return { text: result.error, isError: true as const }
+  },
 }
