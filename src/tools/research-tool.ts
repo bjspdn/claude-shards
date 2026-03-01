@@ -22,6 +22,10 @@ interface ResearchResult {
   maxTokenBudget?: number
 }
 
+/**
+ * Format a {@link ResearchResult} into a markdown string with index table and note bodies.
+ * @param result - The research result to render.
+ */
 export function buildResearchOutput(result: ResearchResult): string {
   const lines: string[] = []
 
@@ -38,6 +42,16 @@ export function buildResearchOutput(result: ResearchResult): string {
   return lines.join("\n")
 }
 
+/**
+ * Batched search + read: find matching notes and return their full content.
+ * @param args.query - Space-separated keywords.
+ * @param args.types - Optional note type filter.
+ * @param args.tags - Optional tag filter.
+ * @param args.limit - Max search results (default 10).
+ * @param args.maxTokens - Token budget; stops including bodies once exceeded.
+ * @param entries - All loaded vault note entries.
+ * @param vaultPath - Absolute path to the vault directory.
+ */
 export async function executeResearch(
   args: ResearchArgs,
   entries: NoteEntry[],
@@ -84,6 +98,12 @@ export async function executeResearch(
   return { table, notes, totalTokens, truncated, maxTokenBudget: args.maxTokens }
 }
 
+/**
+ * Register the `research` MCP tool (batched search + read).
+ * @param server - MCP server instance to register on.
+ * @param entries - Shared vault entries array (read at call time).
+ * @param vaultPath - Absolute path to the vault directory.
+ */
 export function registerResearchTool(
   server: McpServer,
   entries: NoteEntry[],

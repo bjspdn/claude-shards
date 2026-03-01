@@ -39,6 +39,14 @@ function scoreEntry(entry: NoteEntry, keywords: string[]): number {
   return score
 }
 
+/**
+ * Keyword search across vault notes, scored by title/tag/body matches.
+ * @param args.query - Space-separated keywords.
+ * @param args.types - Optional note type filter.
+ * @param args.tags - Optional tag filter.
+ * @param args.limit - Max results (default 10).
+ * @param entries - All loaded vault note entries.
+ */
 export function executeSearch(
   args: SearchArgs,
   entries: NoteEntry[],
@@ -74,7 +82,10 @@ export function executeSearch(
 }
 
 /**
+ * Register the `search` MCP tool.
  * @deprecated Prefer `registerResearchTool` which batches search+read into a single call.
+ * @param server - MCP server instance to register on.
+ * @param entries - Shared vault entries array (read at call time).
  */
 export function registerSearchTool(
   server: McpServer,
