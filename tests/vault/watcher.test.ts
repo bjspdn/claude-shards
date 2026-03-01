@@ -18,7 +18,7 @@ let stop: () => void
 beforeEach(async () => {
   tempVault = await mkdtemp(join(tmpdir(), "ccm-watcher-test-"))
   entries = []
-  stop = watchVault(tempVault, entries)
+  ;({ stop } = watchVault(tempVault, entries))
 })
 
 afterEach(async () => {

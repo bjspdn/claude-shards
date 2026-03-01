@@ -4,6 +4,13 @@ import { Glob } from "bun"
 import { NOTE_TYPE_PRIORITY, type NoteEntry } from "./types"
 import { parseNote } from "./parser"
 
+export interface WatcherStats {
+  activeWatchers: number
+  totalFlushes: number
+  totalUpserts: number
+  totalRemoves: number
+}
+
 function sortEntries(entries: NoteEntry[]): void {
   entries.sort(
     (a, b) =>
@@ -35,12 +42,14 @@ async function upsertEntry(
 export function watchVault(
   vaultPath: string,
   entries: NoteEntry[],
-): () => void {
+): { stop: () => void; stats: WatcherStats } {
   const watchers = new Map<string, FSWatcher>()
   const pending = new Set<string>()
   let timer: ReturnType<typeof setTimeout> | null = null
+  const stats: WatcherStats = { activeWatchers: 0, totalFlushes: 0, totalUpserts: 0, totalRemoves: 0 }
 
   const flush = async () => {
+    stats.totalFlushes++
     const paths = [...pending]
     pending.clear()
 
@@ -50,10 +59,14 @@ export function watchVault(
 
       if (exists) {
         await upsertEntry(entries, abs, vaultPath)
+        stats.totalUpserts++
         console.error(`[watcher] upserted ${rel}`)
       } else {
         const removed = removeEntry(entries, abs)
-        if (removed) console.error(`[watcher] removed ${rel}`)
+        if (removed) {
+          stats.totalRemoves++
+          console.error(`[watcher] removed ${rel}`)
+        }
       }
     }
   }
@@ -68,6 +81,7 @@ export function watchVault(
     if (w) {
       w.close()
       watchers.delete(dirPath)
+      stats.activeWatchers--
     }
   }
 
@@ -107,6 +121,7 @@ export function watchVault(
         }
       })
       watchers.set(dirPath, w)
+      stats.activeWatchers++
     } catch (err) {
       console.error(`[watcher] failed to watch ${dirPath}: ${err}`)
     }
@@ -125,9 +140,12 @@ export function watchVault(
 
   walkAndWatch(vaultPath)
 
-  return () => {
+  const stop = () => {
     if (timer) clearTimeout(timer)
     for (const w of watchers.values()) w.close()
     watchers.clear()
+    stats.activeWatchers = 0
   }
+
+  return { stop, stats }
 }

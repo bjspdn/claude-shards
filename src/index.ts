@@ -13,6 +13,7 @@ import { registerSyncTool } from "./tools/sync-tool"
 import { registerWriteTool } from "./tools/write-tool"
 import { registerFetchPageTool } from "./tools/fetch-page-tool"
 import { registerResearchTool } from "./tools/research-tool"
+import { registerDiagnosticsTool } from "./tools/diagnostics-tool"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
 import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
@@ -130,7 +131,7 @@ async function runInit() {
 
 async function runServer() {
   const entries = await loadVault(VAULT_PATH)
-  const stopWatcher = watchVault(VAULT_PATH, entries)
+  const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries)
 
   console.error(`Loaded ${entries.length} notes from ${VAULT_PATH}`)
 
@@ -146,6 +147,7 @@ async function runServer() {
   registerWriteTool(server, entries, VAULT_PATH)
   registerFetchPageTool(server)
   registerResearchTool(server, entries, VAULT_PATH)
+  registerDiagnosticsTool(server, entries, watcherStats)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
