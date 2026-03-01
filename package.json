@@ -1,7 +1,7 @@
 {
   "name": "@bennys001/claude-code-memory",
   "publishConfig": { "access": "public" },
-  "version": "0.12.4",
+  "version": "0.12.5",
   "description": "MCP server that gives Claude Code persistent memory via an Obsidian knowledge vault",
   "module": "dist/index.js",
   "main": "dist/index.js",

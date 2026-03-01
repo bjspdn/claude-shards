@@ -199,7 +199,7 @@ export function registerSyncTool(
         async ({ targetDir }) => {
             const dir = targetDir ?? process.cwd()
             const result = await executeSync(dir, entries, vaultPath)
-            return { content: [{ type: "text" as const, text: result.summary + getUpdateNotice() }] }
+            return { content: [{ type: "text" as const, text: result.summary + await getUpdateNotice() }] }
         },
     )
 }
