@@ -44,6 +44,7 @@ jobs:
 
           npm version "$BUMP" --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
+          sed -i "s/^## Unreleased$/## $VERSION/" CHANGELOG.md
           echo "Bumped to $VERSION ($BUMP)"
 
       - run: bun install --frozen-lockfile
@@ -59,7 +60,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
+          git add package.json CHANGELOG.md
           git commit -m "chore: bump version to $VERSION"
 
           git tag "$TAG"
