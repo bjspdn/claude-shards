@@ -1,3 +1,11 @@
+## 0.16.0
+
+- `ccm --logging` — real-time log viewer that tails MCP server activity with colored output
+- Structured logging to `~/.ccm/ccm.log` for all tool calls, watcher events, and server lifecycle
+- Automatic tool call instrumentation — every MCP tool logs name, args, duration, and errors
+- `patch` mode now supports section deletion — omit `body` to remove a section by heading
+
+
 ## 0.15.0
 
 - Add `prepare-release` script to bump version and changelog on `dev` before merging to `master`
