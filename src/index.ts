@@ -18,7 +18,7 @@ import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } fr
 import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
 import { C } from "./utils"
-import { fetchLatestVersion, initUpdateCheck } from "./update-checker"
+import { fetchLatestVersion, fetchReleaseNotes, initUpdateCheck } from "./update-checker"
 import { rm } from "fs/promises"
 import { createInterface } from "readline"
 
@@ -42,7 +42,14 @@ async function printHelp() {
   try {
     const latest = await fetchLatestVersion()
     if (latest !== pkg.version) {
-      updateLine = `\n${C.yellow}Update available:${C.reset} v${pkg.version} → ${C.green}v${latest}${C.reset} — run ${C.cyan}ccm --update${C.reset}`
+      const notes = await fetchReleaseNotes(latest)
+      const parts = [`\n${C.yellow}Update available:${C.reset} v${pkg.version} → ${C.green}v${latest}${C.reset}`]
+      if (notes.length > 0) {
+        parts.push(`${C.bold}What's new:${C.reset}`)
+        for (const note of notes) parts.push(`  ${C.dim}-${C.reset} ${note}`)
+      }
+      parts.push(`Run ${C.cyan}ccm --update${C.reset} to upgrade`)
+      updateLine = parts.join("\n")
     }
   } catch {}
 
