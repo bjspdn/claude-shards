@@ -7,11 +7,117 @@ import { parseNote } from "../vault/parser"
 import { formatDate } from "../utils"
 import type { ToolDefinition } from "./types"
 
-type WriteMode = "create" | "replace" | "append" | "patch"
-
 type WriteResult =
   | { ok: true; path: string; updated: boolean }
   | { ok: false; error: string }
+
+interface WriteCreateCmd {
+  mode: "create"
+  path: string
+  type: string
+  title: string
+  body: string
+  tags?: string[]
+  projects?: string[]
+}
+
+interface WriteReplaceCmd {
+  mode: "replace"
+  path: string
+  type: string
+  title: string
+  body: string
+  tags?: string[]
+  projects?: string[]
+}
+
+interface WriteAppendCmd {
+  mode: "append"
+  path: string
+  body: string
+}
+
+interface WritePatchCmd {
+  mode: "patch"
+  path: string
+  section: string
+  body?: string
+}
+
+export type WriteCommand = WriteCreateCmd | WriteReplaceCmd | WriteAppendCmd | WritePatchCmd
+
+export function writeCreate(opts: Omit<WriteCreateCmd, "mode">): WriteCreateCmd {
+  return { mode: "create", ...opts }
+}
+
+export function writeReplace(opts: Omit<WriteReplaceCmd, "mode">): WriteReplaceCmd {
+  return { mode: "replace", ...opts }
+}
+
+export function writeAppend(opts: Omit<WriteAppendCmd, "mode">): WriteAppendCmd {
+  return { mode: "append", ...opts }
+}
+
+export function writePatch(opts: Omit<WritePatchCmd, "mode">): WritePatchCmd {
+  return { mode: "patch", ...opts }
+}
+
+export function parseWriteArgs(args: {
+  path: string
+  type?: string
+  title?: string
+  body?: string
+  tags?: string[]
+  projects?: string[]
+  overwrite?: boolean
+  mode?: string
+  section?: string
+}): WriteCommand | { error: string } {
+  const mode = args.mode ?? (args.overwrite ? "replace" : "create")
+
+  if (args.section && mode !== "patch") {
+    return { error: "The 'section' parameter is only valid with mode 'patch'." }
+  }
+
+  if ((mode === "create" || mode === "replace") && (!args.type || !args.title || !args.body)) {
+    return { error: `Mode '${mode}' requires type, title, and body.` }
+  }
+
+  if (mode === "append" && !args.body) {
+    return { error: "Mode 'append' requires body." }
+  }
+
+  if (mode === "patch" && !args.section) {
+    return { error: "Mode 'patch' requires section." }
+  }
+
+  switch (mode) {
+    case "create":
+      return writeCreate({
+        path: args.path,
+        type: args.type!,
+        title: args.title!,
+        body: args.body!,
+        tags: args.tags,
+        projects: args.projects,
+      })
+    case "replace":
+      return writeReplace({
+        path: args.path,
+        type: args.type!,
+        title: args.title!,
+        body: args.body!,
+        tags: args.tags,
+        projects: args.projects,
+      })
+    case "append":
+      return writeAppend({ path: args.path, body: args.body! })
+    case "patch":
+      return writePatch({ path: args.path, section: args.section!, body: args.body })
+    default:
+      return { error: `Unknown mode: '${mode}'` }
+  }
+}
 
 function buildFrontmatter(args: {
   type: string
@@ -41,144 +147,112 @@ function buildSectionRegex(sectionTitle: string): RegExp {
   return new RegExp(`^(#{1,6})\\s+${escaped}$`, "m")
 }
 
-/**
- * Create or update a vault note.
- * @param args.path - Relative path within the vault.
- * @param args.mode - `"create"` (default), `"replace"`, `"append"`, or `"patch"`.
- * @param args.type - Note type (required for create/replace).
- * @param args.title - H1 heading (required for create/replace).
- * @param args.body - Markdown body (required for all modes).
- * @param args.section - Section heading to replace (required for patch).
- * @param args.tags - Searchable tags.
- * @param args.projects - Associated project names.
- * @param args.overwrite - @deprecated Use `mode: "replace"` instead.
- * @param entries - Shared vault entries array, mutated in-place on success.
- * @param vaultPath - Absolute path to the vault directory.
- */
 export async function executeWrite(
-  args: {
-    path: string
-    type?: string
-    title?: string
-    body?: string
-    tags?: string[]
-    projects?: string[]
-    overwrite?: boolean
-    mode?: WriteMode
-    section?: string
-  },
+  cmd: WriteCommand,
   entries: NoteEntry[],
   vaultPath: string,
 ): Promise<WriteResult> {
-  const mode: WriteMode = args.mode ?? (args.overwrite ? "replace" : "create")
-
-  if (args.path.startsWith("/")) {
+  if (cmd.path.startsWith("/")) {
     return { ok: false, error: "Absolute paths not allowed. Use paths relative to vault root." }
   }
 
-  const resolved = resolve(vaultPath, args.path)
+  const resolved = resolve(vaultPath, cmd.path)
   const rel = relative(vaultPath, resolved)
 
   if (rel.startsWith("..")) {
     return { ok: false, error: "Path resolves outside vault. Use paths relative to vault root." }
   }
 
-  if (args.section && mode !== "patch") {
-    return { ok: false, error: "The 'section' parameter is only valid with mode 'patch'." }
-  }
-
-  if ((mode === "create" || mode === "replace") && (!args.type || !args.title || !args.body)) {
-    return { ok: false, error: `Mode '${mode}' requires type, title, and body.` }
-  }
-
-  if ((mode === "append") && !args.body) {
-    return { ok: false, error: "Mode 'append' requires body." }
-  }
-
-  if ((mode === "patch") && !args.section) {
-    return { ok: false, error: "Mode 'patch' requires section." }
-  }
-
   const fileExists = await Bun.file(resolved).exists()
 
-  if (mode === "create" && fileExists) {
-    return { ok: false, error: `File already exists: ${args.path}. Use mode 'replace', 'append', or 'patch' to modify it.` }
+  if (cmd.mode === "create" && fileExists) {
+    return { ok: false, error: `File already exists: ${cmd.path}. Use mode 'replace', 'append', or 'patch' to modify it.` }
   }
 
-  if ((mode === "append" || mode === "patch") && !fileExists) {
-    return { ok: false, error: `File not found: ${args.path}. Use mode 'create' to create a new note.` }
+  if ((cmd.mode === "append" || cmd.mode === "patch") && !fileExists) {
+    return { ok: false, error: `File not found: ${cmd.path}. Use mode 'create' to create a new note.` }
   }
 
   const today = formatDate(new Date())
   let content: string
 
-  if (mode === "append") {
-    const raw = await Bun.file(resolved).text()
-    const { data, content: existingContent } = matter(raw)
-    const fm = buildFrontmatter({
-      type: data.type,
-      tags: data.tags,
-      projects: data.projects,
-      created: formatDate(new Date(data.created)),
-      updated: today,
-    })
-    content = `${fm}\n${existingContent.trimEnd()}\n\n${args.body}\n`
-  } else if (mode === "patch") {
-    const raw = await Bun.file(resolved).text()
-    const { data, content: existingContent } = matter(raw)
-    const regex = buildSectionRegex(args.section!)
-    const match = regex.exec(existingContent)
-    if (!match) {
-      return { ok: false, error: `Section not found: "${args.section}"` }
+  switch (cmd.mode) {
+    case "append": {
+      const raw = await Bun.file(resolved).text()
+      const { data, content: existingContent } = matter(raw)
+      const fm = buildFrontmatter({
+        type: data.type,
+        tags: data.tags,
+        projects: data.projects,
+        created: formatDate(new Date(data.created)),
+        updated: today,
+      })
+      content = `${fm}\n${existingContent.trimEnd()}\n\n${cmd.body}\n`
+      break
     }
 
-    const headingLevel = match[1]!.length
-    const sectionStart = match.index!
-    const afterHeading = sectionStart + match[0].length
-
-    const endRegex = new RegExp(`^#{1,${headingLevel}}\\s`, "m")
-    const rest = existingContent.slice(afterHeading)
-    const endMatch = endRegex.exec(rest)
-
-    const before = existingContent.slice(0, sectionStart)
-    const after = endMatch ? rest.slice(endMatch.index) : ""
-
-    let rebuilt: string
-    if (!args.body) {
-      rebuilt = before.trimEnd() + (after ? "\n\n" + after : "")
-    } else {
-      const heading = existingContent.slice(sectionStart, afterHeading)
-      rebuilt = before + heading + `\n\n${args.body}\n` + (after ? "\n" + after : "")
-    }
-
-    const fm = buildFrontmatter({
-      type: data.type,
-      tags: data.tags,
-      projects: data.projects,
-      created: formatDate(new Date(data.created)),
-      updated: today,
-    })
-    content = `${fm}\n${rebuilt.trimEnd()}\n`
-  } else {
-    let createdDate = today
-    if (fileExists) {
-      const existing = entries.find((e) => e.filePath === resolved)
-      if (existing) {
-        createdDate = formatDate(existing.frontmatter.created)
-      } else {
-        const parsed = await parseNote(resolved, vaultPath)
-        if (parsed) createdDate = formatDate(parsed.frontmatter.created)
+    case "patch": {
+      const raw = await Bun.file(resolved).text()
+      const { data, content: existingContent } = matter(raw)
+      const regex = buildSectionRegex(cmd.section)
+      const match = regex.exec(existingContent)
+      if (!match) {
+        return { ok: false, error: `Section not found: "${cmd.section}"` }
       }
+
+      const headingLevel = match[1]!.length
+      const sectionStart = match.index!
+      const afterHeading = sectionStart + match[0].length
+
+      const endRegex = new RegExp(`^#{1,${headingLevel}}\\s`, "m")
+      const rest = existingContent.slice(afterHeading)
+      const endMatch = endRegex.exec(rest)
+
+      const before = existingContent.slice(0, sectionStart)
+      const after = endMatch ? rest.slice(endMatch.index) : ""
+
+      let rebuilt: string
+      if (!cmd.body) {
+        rebuilt = before.trimEnd() + (after ? "\n\n" + after : "")
+      } else {
+        const heading = existingContent.slice(sectionStart, afterHeading)
+        rebuilt = before + heading + `\n\n${cmd.body}\n` + (after ? "\n" + after : "")
+      }
+
+      const fm = buildFrontmatter({
+        type: data.type,
+        tags: data.tags,
+        projects: data.projects,
+        created: formatDate(new Date(data.created)),
+        updated: today,
+      })
+      content = `${fm}\n${rebuilt.trimEnd()}\n`
+      break
     }
 
-    const fm = buildFrontmatter({
-      type: args.type!,
-      tags: args.tags,
-      projects: args.projects,
-      created: createdDate,
-      updated: today,
-    })
-    content = `${fm}\n\n# ${args.title}\n\n${args.body}\n`
+    case "create":
+    case "replace": {
+      let createdDate = today
+      if (fileExists) {
+        const existing = entries.find((e) => e.filePath === resolved)
+        if (existing) {
+          createdDate = formatDate(existing.frontmatter.created)
+        } else {
+          const parsed = await parseNote(resolved, vaultPath)
+          if (parsed) createdDate = formatDate(parsed.frontmatter.created)
+        }
+      }
+
+      const fm = buildFrontmatter({
+        type: cmd.type,
+        tags: cmd.tags,
+        projects: cmd.projects,
+        created: createdDate,
+        updated: today,
+      })
+      content = `${fm}\n\n# ${cmd.title}\n\n${cmd.body}\n`
+      break
+    }
   }
 
   await mkdir(dirname(resolved), { recursive: true })
@@ -196,7 +270,7 @@ export async function executeWrite(
     )
   }
 
-  return { ok: true, path: rel, updated: mode !== "create" && fileExists }
+  return { ok: true, path: rel, updated: cmd.mode !== "create" && fileExists }
 }
 
 export const writeTool: ToolDefinition = {
@@ -218,7 +292,11 @@ export const writeTool: ToolDefinition = {
     overwrite: z.boolean().optional().describe("Deprecated — use mode 'replace' instead"),
   }),
   handler: async (args, ctx) => {
-    const result = await executeWrite(args, ctx.entries, ctx.vaultPath)
+    const parsed = parseWriteArgs(args)
+    if ("error" in parsed) {
+      return { text: parsed.error, isError: true as const }
+    }
+    const result = await executeWrite(parsed, ctx.entries, ctx.vaultPath)
     if (result.ok) {
       const verb = result.updated ? "Updated" : "Created"
       return { text: `${verb} note: ${result.path}` }
