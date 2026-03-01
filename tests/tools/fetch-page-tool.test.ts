@@ -26,7 +26,7 @@ test("returns temp file path and metadata on success", async () => {
   if (!result.ok) return
 
   tempDirs.push(dirname(result.tempPath))
-  expect(result.tempPath).toContain("ccm-fetch-")
+  expect(result.tempPath).toContain("claude-shards-fetch-")
   expect(result.tempPath).toEndWith("/page.md")
   expect(result.title).toBe("Test Page")
   expect(result.excerpt).toBe("A short excerpt")

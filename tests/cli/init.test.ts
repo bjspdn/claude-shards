@@ -8,7 +8,7 @@ import { formatInitSummary, type InitResult } from "../../src/cli/init"
 let tempDir: string
 
 beforeEach(async () => {
-  tempDir = await mkdtemp(join(tmpdir(), "ccm-init-test-"))
+  tempDir = await mkdtemp(join(tmpdir(), "claude-shards-init-test-"))
 })
 
 afterEach(async () => {
@@ -31,9 +31,9 @@ test("buildSeedNotes returns expected files with date injected", () => {
 
 test("formatInitSummary produces readable output", () => {
   const result: InitResult = {
-    vaultPath: "/home/user/.ccm/knowledge-base",
+    vaultPath: "/home/user/.claude-shards/knowledge-base",
     steps: [
-      { name: "vault directory", status: "created", detail: "/home/user/.ccm/knowledge-base" },
+      { name: "vault directory", status: "created", detail: "/home/user/.claude-shards/knowledge-base" },
       { name: "subdirectories", status: "created", detail: "gotchas, decisions" },
       { name: "patterns/ofm.md", status: "skipped", detail: "already exists" },
       { name: "Claude Code MCP", status: "failed", detail: "CLI not found" },
@@ -41,7 +41,7 @@ test("formatInitSummary produces readable output", () => {
   }
 
   const summary = formatInitSummary(result)
-  expect(summary).toContain("ccm init")
+  expect(summary).toContain("claude-shards init")
   expect(summary).toContain("vault directory")
   expect(summary).toContain("patterns/ofm.md")
   expect(summary).toContain("Claude Code MCP")

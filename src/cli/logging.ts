@@ -96,7 +96,7 @@ function waitForLogFile(): Promise<void> {
     console.log(`${C.dim}Waiting for log file...${C.reset}`)
     const dir = dirname(LOG_PATH)
     const w = watch(dir, (_, filename) => {
-      if (filename === "ccm.log" && existsSync(LOG_PATH)) {
+      if (filename === "claude-shards.log" && existsSync(LOG_PATH)) {
         w.close()
         resolve()
       }
@@ -105,7 +105,7 @@ function waitForLogFile(): Promise<void> {
 }
 
 export async function runLogViewer(): Promise<void> {
-  console.log(`${C.bold}ccm${C.reset} ${C.dim}log viewer${C.reset}\n`)
+  console.log(`${C.bold}claude-shards${C.reset} ${C.dim}log viewer${C.reset}\n`)
 
   await waitForLogFile()
 
@@ -113,7 +113,7 @@ export async function runLogViewer(): Promise<void> {
 
   const dir = dirname(LOG_PATH)
   watch(dir, async (_, filename) => {
-    if (filename !== "ccm.log") return
+    if (filename !== "claude-shards.log") return
 
     try {
       const s = statSync(LOG_PATH)

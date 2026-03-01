@@ -6,7 +6,7 @@ import { buildSeedNotes } from "./seed"
 import { registerVaultWithObsidian } from "./obsidian"
 import { installGlobal, registerMcpServer } from "./claude-code"
 
-export const VAULT_PATH = join(homedir(), ".ccm", "knowledge-base")
+export const VAULT_PATH = join(homedir(), ".claude-shards", "knowledge-base")
 
 const SUBDIRS = ["gotchas", "decisions", "patterns", "references", "_templates"]
 
@@ -68,7 +68,7 @@ export async function executeInit(): Promise<InitResult> {
 
   const installResult = await installGlobal()
   if (installResult.success) {
-    steps.push({ name: "global install", status: "created", detail: "ccm binary installed" })
+    steps.push({ name: "global install", status: "created", detail: "claude-shards binary installed" })
   } else {
     steps.push({ name: "global install", status: "failed", detail: installResult.error })
   }
@@ -99,7 +99,7 @@ function formatStep(step: InitStep): string {
 
 export function formatInitSummary(result: InitResult): string {
   const lines = [
-    `${C.bold}ccm init${C.reset}`,
+    `${C.bold}claude-shards init${C.reset}`,
     `${C.dim}vault:${C.reset} ${result.vaultPath}`,
     "",
     ...result.steps.map(formatStep),

@@ -1,8 +1,8 @@
 import pkg from "../package.json" with { type: "json" }
 import { logInfo } from "./logger"
 
-const NPM_URL = "https://registry.npmjs.org/@bennys001/claude-code-memory/latest"
-const CHANGELOG_URL = "https://raw.githubusercontent.com/Ben-Spn/claude-code-memory/master/CHANGELOG.md"
+const NPM_URL = "https://registry.npmjs.org/claude-shards/latest"
+const CHANGELOG_URL = "https://raw.githubusercontent.com/0xspdn/claude-shards/master/CHANGELOG.md"
 
 let latestVersion: string | null = null
 let releaseNotes: string[] = []
@@ -70,6 +70,6 @@ export async function getUpdateNotice(): Promise<string> {
     lines.push("What's new:")
     for (const note of releaseNotes) lines.push(`  - ${note}`)
   }
-  lines.push("Run `ccm --update` to upgrade")
+  lines.push("Run `claude-shards --update` to upgrade")
   return lines.join("\n")
 }

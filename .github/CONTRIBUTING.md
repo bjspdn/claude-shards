@@ -1,4 +1,4 @@
-# Contributing to claude-code-memory
+# Contributing to Claude Shards
 
 Thanks for your interest in contributing! This guide covers everything you need to get started.
 
@@ -10,8 +10,8 @@ Thanks for your interest in contributing! This guide covers everything you need 
 ## Setup
 
 ```bash
-git clone https://github.com/Ben-Spn/claude-code-memory.git
-cd claude-code-memory
+git clone https://github.com/0xspdn/claude-shards.git
+cd claude-shards
 bun install
 ```
 
@@ -92,4 +92,4 @@ Output goes to `dist/`. The bundler ([bunup](https://github.com/nicepkg/bunup)) 
 
 ## Questions?
 
-Open an [issue](https://github.com/Ben-Spn/claude-code-memory/issues) if something is unclear.
+Open an [issue](https://github.com/0xspdn/claude-shards/issues) if something is unclear.

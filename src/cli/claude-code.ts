@@ -8,13 +8,13 @@ export type GlobalInstallResult =
   | { success: true }
   | { success: false; error: string }
 
-export const SERVER_CMD = ["ccm", "--stdio"]
+export const SERVER_CMD = ["claude-shards", "--stdio"]
 
 export function installGlobal(): Promise<GlobalInstallResult> {
   return new Promise((resolve) => {
     let stderr = ""
 
-    const proc = spawn("bun", ["install", "-g", "@bennys001/claude-code-memory"], { stdio: ["ignore", "ignore", "pipe"] })
+    const proc = spawn("bun", ["install", "-g", "claude-shards"], { stdio: ["ignore", "ignore", "pipe"] })
 
     proc.stderr.on("data", (data: Buffer) => { stderr += data.toString() })
 
@@ -36,7 +36,7 @@ export function uninstallGlobal(): Promise<GlobalInstallResult> {
   return new Promise((resolve) => {
     let stderr = ""
 
-    const proc = spawn("bun", ["remove", "-g", "@bennys001/claude-code-memory"], { stdio: ["ignore", "ignore", "pipe"] })
+    const proc = spawn("bun", ["remove", "-g", "claude-shards"], { stdio: ["ignore", "ignore", "pipe"] })
 
     proc.stderr.on("data", (data: Buffer) => { stderr += data.toString() })
 
@@ -58,16 +58,16 @@ const REGISTER_ARGS = [
   "mcp", "add",
   "--transport", "stdio",
   "--scope", "user",
-  "ccm",
+  "claude-shards",
   "--",
   ...SERVER_CMD,
 ]
 
-const MANUAL_COMMAND = `claude mcp add --transport stdio --scope user ccm -- ${SERVER_CMD.join(" ")}`
+const MANUAL_COMMAND = `claude mcp add --transport stdio --scope user claude-shards -- ${SERVER_CMD.join(" ")}`
 
 export function removeMcpServer(): Promise<void> {
   return new Promise((resolve) => {
-    const proc = spawn("claude", ["mcp", "remove", "ccm"], { stdio: "ignore" })
+    const proc = spawn("claude", ["mcp", "remove", "claude-shards"], { stdio: "ignore" })
     proc.on("error", () => resolve())
     proc.on("close", () => resolve())
   })

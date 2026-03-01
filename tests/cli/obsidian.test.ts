@@ -12,7 +12,7 @@ import {
 let tempDir: string
 
 beforeEach(async () => {
-  tempDir = await mkdtemp(join(tmpdir(), "ccm-obsidian-test-"))
+  tempDir = await mkdtemp(join(tmpdir(), "claude-shards-obsidian-test-"))
 })
 
 afterEach(async () => {

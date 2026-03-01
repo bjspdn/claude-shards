@@ -16,7 +16,7 @@ let entries: NoteEntry[]
 let stop: () => void
 
 beforeEach(async () => {
-  tempVault = await mkdtemp(join(tmpdir(), "ccm-watcher-test-"))
+  tempVault = await mkdtemp(join(tmpdir(), "claude-shards-watcher-test-"))
   entries = []
   ;({ stop } = watchVault(tempVault, entries))
 })

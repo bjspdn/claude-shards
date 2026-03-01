@@ -26,7 +26,7 @@ import { createInterface } from "readline"
 
 type CliCommand = "init" | "serve" | "version" | "update" | "uninstall" | "logging" | "help"
 
-const VAULT_PATH = join(homedir(), ".ccm", "knowledge-base")
+const VAULT_PATH = join(homedir(), ".claude-shards", "knowledge-base")
 
 function parseCliArgs(): CliCommand {
   const args = process.argv.slice(2)
@@ -51,25 +51,25 @@ async function printHelp() {
         parts.push(`${C.bold}What's new:${C.reset}`)
         for (const note of notes) parts.push(`  ${C.dim}-${C.reset} ${note}`)
       }
-      parts.push(`Run ${C.cyan}ccm --update${C.reset} to upgrade`)
+      parts.push(`Run ${C.cyan}claude-shards --update${C.reset} to upgrade`)
       updateLine = parts.join("\n")
     }
   } catch {}
 
-  console.log(`${C.bold}claude-code-memory${C.reset} ${C.dim}(ccm)${C.reset} — Persistent memory for Claude Code
+  console.log(`${C.bold}Claude Shards${C.reset} — Persistent memory for Claude Code
 
 ${C.bold}Usage:${C.reset}
-  ${C.cyan}ccm --init${C.reset}        Set up vault and register MCP server
-  ${C.cyan}ccm --update${C.reset}      Update to the latest version
-  ${C.cyan}ccm --uninstall${C.reset}   Remove ccm, MCP server, and optionally the vault
-  ${C.cyan}ccm --version${C.reset}     Show installed version
-  ${C.cyan}ccm --logging${C.reset}     Tail the MCP server log
+  ${C.cyan}claude-shards --init${C.reset}        Set up vault and register MCP server
+  ${C.cyan}claude-shards --update${C.reset}      Update to the latest version
+  ${C.cyan}claude-shards --uninstall${C.reset}   Remove Claude Shards, MCP server, and optionally the vault
+  ${C.cyan}claude-shards --version${C.reset}     Show installed version
+  ${C.cyan}claude-shards --logging${C.reset}     Tail the MCP server log
 
 ${C.bold}First-time install:${C.reset}
-  ${C.cyan}bun install -g @bennys001/claude-code-memory && ccm --init${C.reset}
+  ${C.cyan}bun install -g claude-shards && claude-shards --init${C.reset}
 
-${C.dim}Vault:${C.reset} ~/.ccm/knowledge-base/
-${C.dim}Docs:${C.reset}  https://github.com/Ben-Spn/claude-code-memory${updateLine}`)
+${C.dim}Vault:${C.reset} ~/.claude-shards/knowledge-base/
+${C.dim}Docs:${C.reset}  https://github.com/0xspdn/claude-shards${updateLine}`)
 }
 
 async function runUpdate() {
@@ -113,7 +113,7 @@ function promptConfirm(question: string): Promise<boolean> {
 }
 
 async function runUninstall() {
-  console.log(`${C.bold}ccm uninstall${C.reset}\n`)
+  console.log(`${C.bold}claude-shards uninstall${C.reset}\n`)
 
   await removeMcpServer()
   console.log(`  ${C.green}+${C.reset} Removed MCP server`)
@@ -121,10 +121,10 @@ async function runUninstall() {
   await unregisterVaultFromObsidian(INIT_VAULT_PATH)
   console.log(`  ${C.green}+${C.reset} Unregistered Obsidian vault`)
 
-  const ccmDir = join(homedir(), ".ccm")
+  const shardsDir = join(homedir(), ".claude-shards")
   const deleteVault = await promptConfirm(`  Delete vault at ${C.dim}${INIT_VAULT_PATH}${C.reset}? ${C.dim}(y/N)${C.reset} `)
   if (deleteVault) {
-    await rm(ccmDir, { recursive: true, force: true })
+    await rm(shardsDir, { recursive: true, force: true })
     console.log(`  ${C.green}+${C.reset} Deleted vault`)
   } else {
     console.log(`  ${C.yellow}-${C.reset} Kept vault`)
@@ -132,7 +132,7 @@ async function runUninstall() {
 
   const uninstallResult = await uninstallGlobal()
   if (uninstallResult.success) {
-    console.log(`  ${C.green}+${C.reset} Uninstalled ccm binary`)
+    console.log(`  ${C.green}+${C.reset} Uninstalled claude-shards binary`)
   } else {
     console.log(`  ${C.red}!${C.reset} Failed to uninstall: ${uninstallResult.error}`)
   }
@@ -160,7 +160,7 @@ async function runServer() {
   console.error(`Loaded ${entries.length} notes from ${VAULT_PATH}`)
 
   const server = new McpServer({
-    name: "ccm",
+    name: "claude-shards",
     version: pkg.version,
   })
 
