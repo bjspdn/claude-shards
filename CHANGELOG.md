@@ -1,12 +1,9 @@
-## 0.14.0
+## 0.13.0
 
 - Write tool now supports `append` and `patch` modes for incremental note updates without rewriting the entire file
 - New `section` parameter for `patch` mode — replace a single section by its heading
 - Legacy `overwrite` parameter still works but is deprecated in favor of `mode: "replace"`
 - JSDoc on all exported tool functions
-
-## 0.13.0
-
 - Real-time file sync — vault changes in Obsidian, or editors are picked up automatically
 - Diagnostics MCP tool for runtime health (vault stats, watcher activity, process metrics)
 - Update notifier in MCP tool responses and CLI help
