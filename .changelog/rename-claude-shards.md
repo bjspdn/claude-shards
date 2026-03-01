@@ -1,1 +1,0 @@
-- Rename project from `claude-code-memory` / `ccm` to **Claude Shards** / `claude-shards` — new package name, binary, vault path (`~/.claude-shards/`), and MCP server name
