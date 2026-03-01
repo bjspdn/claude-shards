@@ -189,6 +189,7 @@ export async function executeSync(
   }
 }
 
+/** MCP tool: generates or updates the Knowledge Index section in CLAUDE.md files. */
 export const syncTool: ToolDefinition = {
   name: "sync",
   description: "Generate or update the Knowledge Index section in a project's CLAUDE.md",

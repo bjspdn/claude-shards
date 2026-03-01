@@ -41,6 +41,7 @@ export async function executeFetchPage(
   }
 }
 
+/** MCP tool: fetches a web page as markdown and writes it to a temp file for vault ingestion. */
 export const fetchPageTool: ToolDefinition = {
   name: "fetch-page",
   description:

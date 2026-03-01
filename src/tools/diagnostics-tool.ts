@@ -57,6 +57,7 @@ export function executeDiagnostics(
   return lines.join("\n")
 }
 
+/** MCP tool: shows live runtime diagnostics (vault stats, watcher, process, version). */
 export const diagnosticsTool: ToolDefinition = {
   name: "diagnostics",
   description: "Show live runtime diagnostics: vault stats, watcher activity, process metrics, and server version",
