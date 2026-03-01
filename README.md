@@ -1,4 +1,4 @@
-# claude-code-memory (ccm)
+# Claude Shards
 
 MCP server that gives Claude Code persistent memory via an Obsidian-compatible knowledge vault. Notes you write — gotchas, decisions, patterns, references — become queryable context across sessions without manual copy-pasting.
 
@@ -7,21 +7,21 @@ MCP server that gives Claude Code persistent memory via an Obsidian-compatible k
 Requires [Bun](https://bun.sh/) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 ```bash
-bun install -g @bennys001/claude-code-memory && ccm --init
+bun install -g claude-shards && claude-shards --init
 ```
 
-This installs the `ccm` binary globally, scaffolds the vault at `~/.ccm/knowledge-base/`, registers it with Obsidian (if installed), and adds the MCP server to Claude Code.
+This installs the `claude-shards` binary globally, scaffolds the vault at `~/.claude-shards/knowledge-base/`, registers it with Obsidian (if installed), and adds the MCP server to Claude Code.
 
 ### Update
 
 ```bash
-ccm --update
+claude-shards --update
 ```
 
 ### Uninstall
 
 ```bash
-ccm --uninstall
+claude-shards --uninstall
 ```
 
 Removes the MCP server registration, Obsidian vault registration, and the global binary. Prompts before deleting the vault.
@@ -31,7 +31,7 @@ Removes the MCP server registration, Obsidian vault registration, and the global
 If `--init` can't reach the `claude` CLI, register manually:
 
 ```bash
-claude mcp add --transport stdio --scope user ccm -- ccm --stdio
+claude mcp add --transport stdio --scope user claude-shards -- claude-shards --stdio
 ```
 
 ## Real-Time Sync
@@ -140,7 +140,7 @@ Add { cache: 'no-store' } or use revalidate to avoid stale data...
 Organize however you like. The server finds all `.md` files recursively, ignoring hidden dirs and `node_modules`.
 
 ```
-~/.ccm/knowledge-base/
+~/.claude-shards/knowledge-base/
   gotchas/
     nextjs-fetch-cache.md
   decisions/
@@ -205,8 +205,8 @@ Notes with no `projects` field are global — they sync to `~/.claude/CLAUDE.md`
 ## Development
 
 ```bash
-git clone https://github.com/bennys001/claude-code-memory.git
-cd claude-code-memory
+git clone https://github.com/0xspdn/claude-shards.git
+cd claude-shards
 bun install
 bun test
 ```

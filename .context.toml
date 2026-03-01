@@ -1,5 +1,5 @@
 [project]
-name = "claude-code-memory"
+name = "claude-shards"
 
 [filter]
 tags = ["typescript"]

@@ -1,6 +1,6 @@
 ## 0.17.0
 
-- - Add animated spinner to `ccm --update` for visual progress feedback
+- - Add animated spinner to `claude-shards --update` for visual progress feedback
 - Refactor tool registration: replace per-tool `register*` boilerplate with declarative `ToolDefinition` objects and a centralized `registerTools()` registry
 - Add JSDoc documentation to tool definitions, shared types, registry, and factory functions
 - Refactor `executeWrite` to use a discriminated union (`WriteCommand`) with factory functions, replacing flat optional args and eliminating non-null assertions
@@ -8,8 +8,8 @@
 
 ## 0.16.0
 
-- `ccm --logging` — real-time log viewer that tails MCP server activity with colored output
-- Structured logging to `~/.ccm/ccm.log` for all tool calls, watcher events, and server lifecycle
+- `claude-shards --logging` — real-time log viewer that tails MCP server activity with colored output
+- Structured logging to `~/.claude-shards/claude-shards.log` for all tool calls, watcher events, and server lifecycle
 - Automatic tool call instrumentation — every MCP tool logs name, args, duration, and errors
 - `patch` mode now supports section deletion — omit `body` to remove a section by heading
 
@@ -38,7 +38,7 @@
 
 ## 0.11.0
 
-- Global `ccm` binary with `--init`, `--update`, `--uninstall`, `--version` flags
+- Global `claude-shards` binary with `--init`, `--update`, `--uninstall`, `--version` flags
 - MCP server runs via global install instead of bunx
 
 ## 0.10.0

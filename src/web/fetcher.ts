@@ -50,7 +50,7 @@ export function convertHTMLToMarkdown(html: string, url: string): ParsedPage {
 export async function fetchPageAsMarkdown(url: string): Promise<ParsedPage> {
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "claude-code-memory/1.0 (vault note fetcher)",
+      "User-Agent": "claude-shards/1.0 (vault note fetcher)",
     },
   })
 

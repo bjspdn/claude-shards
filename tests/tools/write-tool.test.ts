@@ -10,7 +10,7 @@ let tempVault: string
 let entries: NoteEntry[]
 
 beforeEach(async () => {
-  tempVault = await mkdtemp(join(tmpdir(), "ccm-write-test-"))
+  tempVault = await mkdtemp(join(tmpdir(), "claude-shards-write-test-"))
   entries = []
 })
 

@@ -28,7 +28,7 @@ export async function executeFetchPage(
     return { ok: false, error: `Failed to fetch URL: ${msg}` }
   }
 
-  const tempDir = await mkdtemp(join(tmpdir(), "ccm-fetch-"))
+  const tempDir = await mkdtemp(join(tmpdir(), "claude-shards-fetch-"))
   const tempPath = join(tempDir, "page.md")
   await writeFile(tempPath, page.markdown)
 

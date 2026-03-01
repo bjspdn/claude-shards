@@ -2,7 +2,7 @@ import { homedir } from "os"
 import { join } from "path"
 import { appendFile, stat, writeFile, mkdir } from "fs/promises"
 
-export const LOG_PATH = join(homedir(), ".ccm", "ccm.log")
+export const LOG_PATH = join(homedir(), ".claude-shards", "claude-shards.log")
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024
 
@@ -76,7 +76,7 @@ export function logToolCall(
 }
 
 export async function initLogFile(): Promise<void> {
-  await mkdir(join(homedir(), ".ccm"), { recursive: true })
+  await mkdir(join(homedir(), ".claude-shards"), { recursive: true })
   try {
     const s = await stat(LOG_PATH)
     if (s.size > MAX_LOG_SIZE) {
