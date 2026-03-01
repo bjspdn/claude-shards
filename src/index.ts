@@ -6,14 +6,12 @@ import { homedir } from "os"
 import { join } from "path"
 import { loadVault } from "./vault/loader"
 import { watchVault } from "./vault/watcher"
-import { registerIndexTool } from "./tools/index-tool"
-import { registerReadTool } from "./tools/read-tool"
-import { registerSearchTool } from "./tools/search-tool"
-import { registerSyncTool } from "./tools/sync-tool"
-import { registerWriteTool } from "./tools/write-tool"
-import { registerFetchPageTool } from "./tools/fetch-page-tool"
-import { registerResearchTool } from "./tools/research-tool"
-import { registerDiagnosticsTool } from "./tools/diagnostics-tool"
+import {
+  registerTools,
+  indexTool, readTool, searchTool, syncTool,
+  writeTool, fetchPageTool, researchTool, diagnosticsTool,
+  type ToolContext,
+} from "./tools"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
 import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
@@ -161,14 +159,12 @@ async function runServer() {
 
   instrumentToolLogging(server)
 
-  registerIndexTool(server, entries)
-  registerReadTool(server, VAULT_PATH)
-  registerSearchTool(server, entries)
-  registerSyncTool(server, entries, VAULT_PATH)
-  registerWriteTool(server, entries, VAULT_PATH)
-  registerFetchPageTool(server)
-  registerResearchTool(server, entries, VAULT_PATH)
-  registerDiagnosticsTool(server, entries, watcherStats)
+  const ctx: ToolContext = { entries, vaultPath: VAULT_PATH, watcherStats }
+
+  registerTools(server, [
+    indexTool, readTool, searchTool, syncTool,
+    writeTool, fetchPageTool, researchTool, diagnosticsTool,
+  ], ctx)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)

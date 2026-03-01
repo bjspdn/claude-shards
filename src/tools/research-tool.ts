@@ -3,8 +3,7 @@ import { NoteType, NOTE_TYPE_ICONS, type NoteEntry } from "../vault/types"
 import { formatTokenCount } from "../index-engine/index"
 import { executeSearch } from "./search-tool"
 import { executeRead } from "./read-tool"
-import { getUpdateNotice } from "../update-checker"
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import type { ToolDefinition } from "./types"
 
 interface ResearchArgs {
   query: string
@@ -98,40 +97,26 @@ export async function executeResearch(
   return { table, notes, totalTokens, truncated, maxTokenBudget: args.maxTokens }
 }
 
-/**
- * Register the `research` MCP tool (batched search + read).
- * @param server - MCP server instance to register on.
- * @param entries - Shared vault entries array (read at call time).
- * @param vaultPath - Absolute path to the vault directory.
- */
-export function registerResearchTool(
-  server: McpServer,
-  entries: NoteEntry[],
-  vaultPath: string,
-) {
-  server.registerTool(
-    "research",
-    {
-      description:
-        "Batched search+read: finds matching notes and returns their full content in a single call. " +
-        "Use this instead of search → read chains to reduce round-trips.",
-      inputSchema: z.object({
-        query: z.string().describe("Space-separated keywords to search for"),
-        types: z.array(NoteType).optional().describe("Filter to these note types"),
-        tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
-        limit: z.number().optional().describe("Max results (default 10)"),
-        maxTokens: z
-          .number()
-          .optional()
-          .describe("Token budget — stops including note bodies once exceeded"),
-      }),
-    },
-    async (args) => {
-      const result = await executeResearch(args, entries, vaultPath)
-      if (result.notes.length === 0) {
-        return { content: [{ type: "text" as const, text: "No notes match that query." + await getUpdateNotice() }] }
-      }
-      return { content: [{ type: "text" as const, text: buildResearchOutput(result) + await getUpdateNotice() }] }
-    },
-  )
+export const researchTool: ToolDefinition = {
+  name: "research",
+  description:
+    "Batched search+read: finds matching notes and returns their full content in a single call. " +
+    "Use this instead of search → read chains to reduce round-trips.",
+  inputSchema: z.object({
+    query: z.string().describe("Space-separated keywords to search for"),
+    types: z.array(NoteType).optional().describe("Filter to these note types"),
+    tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
+    limit: z.number().optional().describe("Max results (default 10)"),
+    maxTokens: z
+      .number()
+      .optional()
+      .describe("Token budget — stops including note bodies once exceeded"),
+  }),
+  handler: async (args, ctx) => {
+    const result = await executeResearch(args, ctx.entries, ctx.vaultPath)
+    if (result.notes.length === 0) {
+      return { text: "No notes match that query." }
+    }
+    return { text: buildResearchOutput(result) }
+  },
 }

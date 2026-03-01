@@ -1,5 +1,5 @@
 import { test, expect, beforeEach, afterEach } from "bun:test"
-import { executeWrite } from "../../src/tools/write-tool"
+import { executeWrite, parseWriteArgs, writeCreate, writeReplace, writeAppend, writePatch } from "../../src/tools/write-tool"
 import { NOTE_TYPE_PRIORITY, type NoteEntry } from "../../src/vault/types"
 import { formatDate } from "../../src/utils"
 import { join } from "path"
@@ -20,7 +20,7 @@ afterEach(async () => {
 
 test("rejects absolute paths", async () => {
   const result = await executeWrite(
-    { path: "/etc/passwd", type: "gotchas", title: "Bad", body: "nope" },
+    writeCreate({ path: "/etc/passwd", type: "gotchas", title: "Bad", body: "nope" }),
     entries,
     tempVault,
   )
@@ -30,7 +30,7 @@ test("rejects absolute paths", async () => {
 
 test("rejects path traversal", async () => {
   const result = await executeWrite(
-    { path: "../etc/passwd", type: "gotchas", title: "Bad", body: "nope" },
+    writeCreate({ path: "../etc/passwd", type: "gotchas", title: "Bad", body: "nope" }),
     entries,
     tempVault,
   )
@@ -43,7 +43,7 @@ test("rejects write to existing file in create mode", async () => {
   await Bun.write(filePath, "already here")
 
   const result = await executeWrite(
-    { path: "existing.md", type: "gotchas", title: "Dup", body: "nope" },
+    writeCreate({ path: "existing.md", type: "gotchas", title: "Dup", body: "nope" }),
     entries,
     tempVault,
   )
@@ -53,14 +53,14 @@ test("rejects write to existing file in create mode", async () => {
 
 test("creates file with correct frontmatter and body", async () => {
   const result = await executeWrite(
-    {
+    writeCreate({
       path: "gotchas/test-note.md",
       type: "gotchas",
       title: "Test Title",
       body: "Some body content.",
       tags: ["rust", "bevy"],
       projects: ["my-project"],
-    },
+    }),
     entries,
     tempVault,
   )
@@ -83,7 +83,7 @@ test("creates file with correct frontmatter and body", async () => {
 
 test("creates parent directories if missing", async () => {
   const result = await executeWrite(
-    { path: "deep/nested/dir/note.md", type: "patterns", title: "Deep", body: "content" },
+    writeCreate({ path: "deep/nested/dir/note.md", type: "patterns", title: "Deep", body: "content" }),
     entries,
     tempVault,
   )
@@ -97,7 +97,7 @@ test("pushes new entry to entries array", async () => {
   expect(entries.length).toBe(0)
 
   await executeWrite(
-    { path: "gotchas/new.md", type: "gotchas", title: "New Note", body: "body" },
+    writeCreate({ path: "gotchas/new.md", type: "gotchas", title: "New Note", body: "body" }),
     entries,
     tempVault,
   )
@@ -110,17 +110,17 @@ test("pushes new entry to entries array", async () => {
 
 test("entries stay sorted by type priority after insert", async () => {
   await executeWrite(
-    { path: "references/ref.md", type: "references", title: "Ref", body: "ref body" },
+    writeCreate({ path: "references/ref.md", type: "references", title: "Ref", body: "ref body" }),
     entries,
     tempVault,
   )
   await executeWrite(
-    { path: "gotchas/gotcha.md", type: "gotchas", title: "Gotcha", body: "gotcha body" },
+    writeCreate({ path: "gotchas/gotcha.md", type: "gotchas", title: "Gotcha", body: "gotcha body" }),
     entries,
     tempVault,
   )
   await executeWrite(
-    { path: "patterns/pat.md", type: "patterns", title: "Pattern", body: "pat body" },
+    writeCreate({ path: "patterns/pat.md", type: "patterns", title: "Pattern", body: "pat body" }),
     entries,
     tempVault,
   )
@@ -133,15 +133,15 @@ test("entries stay sorted by type priority after insert", async () => {
   }
 })
 
-test("overwrites existing file when overwrite is true", async () => {
+test("replaces existing file in replace mode", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Original", body: "old body" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Original", body: "old body" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Updated", body: "new body", overwrite: true },
+    writeReplace({ path: "gotchas/note.md", type: "gotchas", title: "Updated", body: "new body" }),
     entries,
     tempVault,
   )
@@ -155,9 +155,9 @@ test("overwrites existing file when overwrite is true", async () => {
   expect(content).toContain("new body")
 })
 
-test("preserves original created date on overwrite", async () => {
+test("preserves original created date on replace", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Original", body: "old" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Original", body: "old" }),
     entries,
     tempVault,
   )
@@ -165,7 +165,7 @@ test("preserves original created date on overwrite", async () => {
   const originalCreated = entries[0]!.frontmatter.created
 
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Updated", body: "new", overwrite: true },
+    writeReplace({ path: "gotchas/note.md", type: "gotchas", title: "Updated", body: "new" }),
     entries,
     tempVault,
   )
@@ -176,9 +176,9 @@ test("preserves original created date on overwrite", async () => {
   expect(createdMatch![1]).toBe(formatDate(originalCreated))
 })
 
-test("creates normally when overwrite is true but file does not exist", async () => {
+test("replace creates normally when file does not exist", async () => {
   const result = await executeWrite(
-    { path: "gotchas/fresh.md", type: "gotchas", title: "Fresh", body: "body", overwrite: true },
+    writeReplace({ path: "gotchas/fresh.md", type: "gotchas", title: "Fresh", body: "body" }),
     entries,
     tempVault,
   )
@@ -189,19 +189,19 @@ test("creates normally when overwrite is true but file does not exist", async ()
   expect(entries.length).toBe(1)
 })
 
-test("no duplicate entries after overwrite", async () => {
+test("no duplicate entries after replace", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "V1", body: "v1" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "V1", body: "v1" }),
     entries,
     tempVault,
   )
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "V2", body: "v2", overwrite: true },
+    writeReplace({ path: "gotchas/note.md", type: "gotchas", title: "V2", body: "v2" }),
     entries,
     tempVault,
   )
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "V3", body: "v3", overwrite: true },
+    writeReplace({ path: "gotchas/note.md", type: "gotchas", title: "V3", body: "v3" }),
     entries,
     tempVault,
   )
@@ -211,20 +211,20 @@ test("no duplicate entries after overwrite", async () => {
   expect(matching[0]!.title).toBe("V3")
 })
 
-test("sort order maintained when type changes on overwrite", async () => {
+test("sort order maintained when type changes on replace", async () => {
   await executeWrite(
-    { path: "references/ref.md", type: "references", title: "Ref", body: "ref" },
+    writeCreate({ path: "references/ref.md", type: "references", title: "Ref", body: "ref" }),
     entries,
     tempVault,
   )
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Gotcha", body: "gotcha" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Gotcha", body: "gotcha" }),
     entries,
     tempVault,
   )
 
   await executeWrite(
-    { path: "gotchas/note.md", type: "references", title: "Now Ref", body: "changed", overwrite: true },
+    writeReplace({ path: "gotchas/note.md", type: "references", title: "Now Ref", body: "changed" }),
     entries,
     tempVault,
   )
@@ -237,64 +237,40 @@ test("sort order maintained when type changes on overwrite", async () => {
   }
 })
 
-test("overwrite: true still works as mode replace (backwards compat)", async () => {
-  await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "V1", body: "old" },
-    entries,
-    tempVault,
-  )
-  const result = await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "V2", body: "new", overwrite: true },
-    entries,
-    tempVault,
-  )
-  expect(result.ok).toBe(true)
-  if (!result.ok) return
-  expect(result.updated).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
-  expect(content).toContain("# V2")
-  expect(content).toContain("new")
+test("parseWriteArgs: overwrite: true maps to replace mode", () => {
+  const result = parseWriteArgs({ path: "gotchas/note.md", type: "gotchas", title: "T", body: "b", overwrite: true })
+  expect("error" in result).toBe(false)
+  if ("error" in result) return
+  expect(result.mode).toBe("replace")
 })
 
-test("create mode requires type, title, and body", async () => {
-  const result = await executeWrite(
-    { path: "gotchas/note.md", body: "only body" },
-    entries,
-    tempVault,
-  )
-  expect(result.ok).toBe(false)
-  if (!result.ok) expect(result.error).toContain("requires type, title, and body")
+test("parseWriteArgs: create mode requires type, title, and body", () => {
+  const result = parseWriteArgs({ path: "gotchas/note.md", body: "only body" })
+  expect("error" in result).toBe(true)
+  if ("error" in result) expect(result.error).toContain("requires type, title, and body")
 })
 
-test("replace mode requires type, title, and body", async () => {
-  const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "replace", body: "only body" },
-    entries,
-    tempVault,
-  )
-  expect(result.ok).toBe(false)
-  if (!result.ok) expect(result.error).toContain("requires type, title, and body")
+test("parseWriteArgs: replace mode requires type, title, and body", () => {
+  const result = parseWriteArgs({ path: "gotchas/note.md", mode: "replace", body: "only body" })
+  expect("error" in result).toBe(true)
+  if ("error" in result) expect(result.error).toContain("requires type, title, and body")
 })
 
-test("section rejected for non-patch modes", async () => {
-  const result = await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "T", body: "b", section: "Foo" },
-    entries,
-    tempVault,
-  )
-  expect(result.ok).toBe(false)
-  if (!result.ok) expect(result.error).toContain("only valid with mode 'patch'")
+test("parseWriteArgs: section rejected for non-patch modes", () => {
+  const result = parseWriteArgs({ path: "gotchas/note.md", type: "gotchas", title: "T", body: "b", section: "Foo" })
+  expect("error" in result).toBe(true)
+  if ("error" in result) expect(result.error).toContain("only valid with mode 'patch'")
 })
 
 test("append adds body to end and bumps updated date", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Original", body: "first paragraph", tags: ["tag1"], projects: ["proj1"] },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Original", body: "first paragraph", tags: ["tag1"], projects: ["proj1"] }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "append", body: "appended paragraph" },
+    writeAppend({ path: "gotchas/note.md", body: "appended paragraph" }),
     entries,
     tempVault,
   )
@@ -314,14 +290,14 @@ test("append adds body to end and bumps updated date", async () => {
 
 test("append preserves created date", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "T", body: "body" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "T", body: "body" }),
     entries,
     tempVault,
   )
   const createdBefore = entries[0]!.frontmatter.created
 
   await executeWrite(
-    { path: "gotchas/note.md", mode: "append", body: "more" },
+    writeAppend({ path: "gotchas/note.md", body: "more" }),
     entries,
     tempVault,
   )
@@ -334,13 +310,13 @@ test("append preserves created date", async () => {
 
 test("append does not require type or title", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "T", body: "body" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "T", body: "body" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "append", body: "extra" },
+    writeAppend({ path: "gotchas/note.md", body: "extra" }),
     entries,
     tempVault,
   )
@@ -349,7 +325,7 @@ test("append does not require type or title", async () => {
 
 test("append fails if file does not exist", async () => {
   const result = await executeWrite(
-    { path: "gotchas/missing.md", mode: "append", body: "nope" },
+    writeAppend({ path: "gotchas/missing.md", body: "nope" }),
     entries,
     tempVault,
   )
@@ -357,25 +333,21 @@ test("append fails if file does not exist", async () => {
   if (!result.ok) expect(result.error).toContain("File not found")
 })
 
-test("append requires body", async () => {
-  const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "append" },
-    entries,
-    tempVault,
-  )
-  expect(result.ok).toBe(false)
-  if (!result.ok) expect(result.error).toContain("requires body")
+test("parseWriteArgs: append requires body", () => {
+  const result = parseWriteArgs({ path: "gotchas/note.md", mode: "append" })
+  expect("error" in result).toBe(true)
+  if ("error" in result) expect(result.error).toContain("requires body")
 })
 
 test("patch replaces section by heading", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "intro\n\n## Section A\n\nold content A\n\n## Section B\n\nold content B" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "intro\n\n## Section A\n\nold content A\n\n## Section B\n\nold content B" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", section: "Section A", body: "new content A" },
+    writePatch({ path: "gotchas/note.md", section: "Section A", body: "new content A" }),
     entries,
     tempVault,
   )
@@ -394,13 +366,13 @@ test("patch replaces section by heading", async () => {
 
 test("patch handles last section with no following heading", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "intro\n\n## Only Section\n\nold content" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "intro\n\n## Only Section\n\nold content" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", section: "Only Section", body: "replaced content" },
+    writePatch({ path: "gotchas/note.md", section: "Only Section", body: "replaced content" }),
     entries,
     tempVault,
   )
@@ -414,13 +386,13 @@ test("patch handles last section with no following heading", async () => {
 
 test("patch respects heading level hierarchy", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Parent\n\nparent text\n\n### Child\n\nchild text\n\n## Sibling\n\nsibling text" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Parent\n\nparent text\n\n### Child\n\nchild text\n\n## Sibling\n\nsibling text" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", section: "Parent", body: "new parent\n\n### Child\n\nnew child" },
+    writePatch({ path: "gotchas/note.md", section: "Parent", body: "new parent\n\n### Child\n\nnew child" }),
     entries,
     tempVault,
   )
@@ -437,13 +409,13 @@ test("patch respects heading level hierarchy", async () => {
 
 test("patch fails if section not found", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Real Section\n\ncontent" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Real Section\n\ncontent" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", section: "Nonexistent", body: "nope" },
+    writePatch({ path: "gotchas/note.md", section: "Nonexistent", body: "nope" }),
     entries,
     tempVault,
   )
@@ -453,7 +425,7 @@ test("patch fails if section not found", async () => {
 
 test("patch fails if file does not exist", async () => {
   const result = await executeWrite(
-    { path: "gotchas/missing.md", mode: "patch", section: "Foo", body: "nope" },
+    writePatch({ path: "gotchas/missing.md", section: "Foo", body: "nope" }),
     entries,
     tempVault,
   )
@@ -461,26 +433,22 @@ test("patch fails if file does not exist", async () => {
   if (!result.ok) expect(result.error).toContain("File not found")
 })
 
-test("patch requires section param", async () => {
-  const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", body: "nope" },
-    entries,
-    tempVault,
-  )
-  expect(result.ok).toBe(false)
-  if (!result.ok) expect(result.error).toContain("requires section")
+test("parseWriteArgs: patch requires section param", () => {
+  const result = parseWriteArgs({ path: "gotchas/note.md", mode: "patch", body: "nope" })
+  expect("error" in result).toBe(true)
+  if ("error" in result) expect(result.error).toContain("requires section")
 })
 
 test("patch preserves created date and metadata", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Sec\n\nold", tags: ["t1"], projects: ["p1"] },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Sec\n\nold", tags: ["t1"], projects: ["p1"] }),
     entries,
     tempVault,
   )
   const createdBefore = entries[0]!.frontmatter.created
 
   await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", section: "Sec", body: "new" },
+    writePatch({ path: "gotchas/note.md", section: "Sec", body: "new" }),
     entries,
     tempVault,
   )
@@ -495,13 +463,13 @@ test("patch preserves created date and metadata", async () => {
 
 test("patch with no body deletes a middle section", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Section A\n\ncontent A\n\n## Section B\n\ncontent B\n\n## Section C\n\ncontent C" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Section A\n\ncontent A\n\n## Section B\n\ncontent B\n\n## Section C\n\ncontent C" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", section: "Section B" },
+    writePatch({ path: "gotchas/note.md", section: "Section B" }),
     entries,
     tempVault,
   )
@@ -518,13 +486,13 @@ test("patch with no body deletes a middle section", async () => {
 
 test("patch with no body deletes the last section", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## First\n\nkeep this\n\n## Last\n\nremove this" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## First\n\nkeep this\n\n## Last\n\nremove this" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", section: "Last" },
+    writePatch({ path: "gotchas/note.md", section: "Last" }),
     entries,
     tempVault,
   )
@@ -539,13 +507,13 @@ test("patch with no body deletes the last section", async () => {
 
 test("patch with empty string body deletes the section", async () => {
   await executeWrite(
-    { path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Keep\n\nkept\n\n## Remove\n\ngone" },
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Keep\n\nkept\n\n## Remove\n\ngone" }),
     entries,
     tempVault,
   )
 
   const result = await executeWrite(
-    { path: "gotchas/note.md", mode: "patch", section: "Remove", body: "" },
+    writePatch({ path: "gotchas/note.md", section: "Remove", body: "" }),
     entries,
     tempVault,
   )
