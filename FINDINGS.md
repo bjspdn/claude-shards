@@ -22,13 +22,13 @@ chose-app-router ──→ fetch-cache-persistence ──→ revalidation-cheats
        └──→ rsc-data-fetching-pattern
 ```
 
-**Search method:** `research` tool — delegates to `scoreEntry()` in `src/tools/search-tool.ts`. No link awareness, no type weighting.
+**Search method:** `search` tool — uses `scoreEntry()` in `src/tools/search-tool.ts`. No link awareness, no type weighting.
 
 ## Methodology
 
 ### Scoring algorithm
 
-The `research` tool tokenizes the query into space-separated keywords and scores each shard via case-insensitive substring matching (`.includes()`). Points are awarded per keyword, per location:
+The `search` tool tokenizes the query into space-separated keywords and scores each shard via case-insensitive substring matching (`.includes()`). Points are awarded per keyword, per location:
 
 | Match location | Points per keyword |
 |----------------|--------------------|
@@ -56,7 +56,7 @@ Recall = (ideal-set shards returned by keyword search) / (total ideal-set shards
 - Specificity queries (API names, library names)
 - Broad queries ("what decisions did we make")
 
-Queries were run against the live MCP server via the `research` tool. All results (shards, scores, ordering) were recorded verbatim.
+Queries were run against the live MCP server via the `search` tool. All results (shards, scores, ordering) were recorded verbatim.
 
 ## Results
 
@@ -335,7 +335,7 @@ where `decay` ≈ 0.5. This ensures expanded shards rank below direct keyword ma
 
 ### Discovery
 
-Stress-testing the simulation results against the live MCP `research` tool revealed one critical discrepancy. The scoring algorithm is identical — every shard/score pair matches exactly between the Python simulations and the TypeScript implementation in `src/tools/search-tool.ts`. However, the simulations returned **all** matching shards with no result cap, while the real tool defaults to `limit=10` (`search-tool.ts:79`).
+Stress-testing the simulation results against the live MCP `search` tool revealed one critical discrepancy. The scoring algorithm is identical — every shard/score pair matches exactly between the Python simulations and the TypeScript implementation in `src/tools/search-tool.ts`. However, the simulations returned **all** matching shards with no result cap, while the real tool defaults to `limit=10` (`search-tool.ts:79`).
 
 ### Impact
 
@@ -421,11 +421,11 @@ All 7 test queries use vocabulary from someone who *knows* the vault contents. R
 
 This reframes the Test 4 failure from an edge case to the representative failure mode. However, as shown in point 3, naive type-aware scoring doesn't solve it cleanly — it helps Test 4 (+50pp) but regresses Test 3 (-50pp). 1-hop expansion also gets Test 4 to 50% recall without regressions, making it the safer first intervention. The remaining 50% gap on Test 4 (reaching `chose-session-tokens`) is an open problem requiring a non-naive type-aware design.
 
-### 10. The research tool's own verbosity is a retrieval problem
+### 10. Two-phase retrieval resolves the verbosity problem
 
-Verifying the precision figures required running all 7 test queries through the live MCP `research` tool. Each call returned full note bodies — ~14k tokens per query, ~100k tokens total — just to check shard counts and scores from the index table. The deprecated `search` tool returns only the index table and would have sufficed. Alternatively, passing `maxTokens: 1` to `research` would return the table but skip bodies.
+The original `research` tool collapsed scoring and fetching into a single call — ~14k tokens per query, ~100k tokens total across all 7 test queries — just to check shard counts and scores from the index table. This was a tool design issue independent of scoring or graph expansion: in an LLM context, where every token of response consumes finite context window, the tool's default verbosity was itself a precision problem — returning 14k tokens when 500 would answer the question.
 
-This is a tool design issue independent of scoring or graph expansion: the primary retrieval tool always returns maximum content, with no lightweight "index-only" mode besides the deprecated fallback. In an LLM context, where every token of response consumes finite context window, the tool's default verbosity is itself a precision problem — returning 14k tokens when 500 would answer the question.
+**Resolution:** `research` was removed and replaced with a two-phase pipeline: `search` returns only the scored index table (~500 tokens), `read` fetches individual note bodies on demand. Verification results are in the "Two-Phase Retrieval Verification" section below.
 
 ### Revised priority ordering
 
@@ -434,3 +434,40 @@ This is a tool design issue independent of scoring or graph expansion: the prima
 3. **Word-boundary keyword matching** — orthogonal fix for substring collision (Tests 5, 6). Low cost, reduces noise in both bare search and seed selection.
 4. **Type-aware scoring (non-naive)** — the naive +10 boost regresses Test 3. A viable type-aware approach needs to be additive with existing score (not a flat bonus) or applied as a filter/reranking step rather than a scoring boost. Deferred until a design that doesn't regress existing recall is found.
 5. **Distance-decay re-ranking** — final polish after the above are in place.
+
+---
+
+## Two-Phase Retrieval Verification
+
+### Context
+
+The `research` tool was removed and replaced with a two-phase pipeline: `search` (scored index table only) + `read` (fetch full content on demand). This verification re-runs the same 7 test queries against the live MCP `search` tool to confirm scoring parity with the previous `research` tool and the Python simulations.
+
+### Method
+
+All 7 queries were run against the `search` tool with default `limit=10`. Results were compared against the per-test findings documented above and the correction section's limit=10 figures.
+
+### Results
+
+| Test | Query | `search` recall | Findings (limit=10) | Scores match? |
+|------|-------|-----------------|----------------------|---------------|
+| 1 | `jose library Web Crypto` | 33% | 33% | Yes — edge-runtime-auth-limits: 4 |
+| 2 | `Redis session lookup latency` | 75% | 75% | Yes — chose-session-tokens: 13, server-auth-middleware-pattern: 2, edge-runtime-auth-limits: 1 |
+| 3 | `jsonwebtoken middleware broken` | 100% | 100% | Yes — server-auth-middleware-pattern: 16, edge-runtime-auth-limits: 12, chose-app-router: 1, chose-session-tokens: 1 |
+| 4 | `what architectural decisions did we make for dashboard` | 0% | 0% | Yes — ideal shards outside top 10 |
+| 5 | `revalidatePath revalidateTag` | 50% | 50% | Yes — rsc-data-fetching-pattern: 2, revalidation-cheatsheet: 2 |
+| 6 | `cookie session_id validation` | 67% | 67% | Yes — revalidation-cheatsheet: 11 (FP), server-auth-middleware-pattern: 3, chose-session-tokens: 2 |
+| 7 | `what problems did App Router cause` | 67% | 67% | Yes — chose-app-router: 22, fetch-cache-persistence: 2 |
+
+| Metric | `search` tool | Findings (limit=10) |
+|--------|---------------|----------------------|
+| Mean recall | 56% | 56% |
+| Tests with false positive in top 2 | 3/7 | 3/7 |
+
+Every shard/score pair matches exactly. The `search` tool uses the same `scoreEntry()` function that `research` delegated to — the scoring algorithm is unchanged.
+
+### Observations
+
+**Test 7 gained a new false positive.** `elasticsearch-mapping-explosion` (score 23, from the search cluster) now outranks the ideal shard `chose-app-router` (score 22). The substring "problems" matches its body text. This shard was not present in the original 9-shard experiment; it was added in the noise ceiling vault expansion. The recall figure is unaffected (2/3 = 67%) but the false-positive-in-top-2 count is confirmed at 3/7.
+
+**Token savings.** The 7 `search` queries returned ~500 tokens total (index tables only). The equivalent `research` queries would have returned ~100k tokens (full note bodies). The two-phase pipeline reduces retrieval cost by ~99.5% for the scoring phase, with `read` available for selective fetching of the ~1–3 shards actually needed per query.

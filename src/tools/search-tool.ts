@@ -94,10 +94,9 @@ export function formatSearchResults(results: SearchResult[]): string {
   ].join("\n")
 }
 
-/** @deprecated Prefer {@link import("./research-tool").researchTool}. MCP tool: keyword search returning index entries only. */
 export const searchTool: ToolDefinition = {
   name: "search",
-  description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Keyword search across vault notes. Returns index entries only.",
+  description: "Keyword search across vault notes, scored by title/tag/body matches. Returns a ranked results table — use the read tool to fetch full content of specific results.",
   inputSchema: z.object({
     query: z.string().describe("Space-separated keywords to search for"),
     types: z.array(NoteType).optional().describe("Filter to these note types"),
