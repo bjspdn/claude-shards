@@ -449,20 +449,20 @@ All 7 queries were run against the `search` tool with default `limit=10`. Result
 
 ### Results
 
-| Test | Query | `search` recall | Findings (limit=10) | Scores match? |
-|------|-------|-----------------|----------------------|---------------|
-| 1 | `jose library Web Crypto` | 33% | 33% | Yes — edge-runtime-auth-limits: 4 |
-| 2 | `Redis session lookup latency` | 75% | 75% | Yes — chose-session-tokens: 13, server-auth-middleware-pattern: 2, edge-runtime-auth-limits: 1 |
-| 3 | `jsonwebtoken middleware broken` | 100% | 100% | Yes — server-auth-middleware-pattern: 16, edge-runtime-auth-limits: 12, chose-app-router: 1, chose-session-tokens: 1 |
-| 4 | `what architectural decisions did we make for dashboard` | 0% | 0% | Yes — ideal shards outside top 10 |
-| 5 | `revalidatePath revalidateTag` | 50% | 50% | Yes — rsc-data-fetching-pattern: 2, revalidation-cheatsheet: 2 |
-| 6 | `cookie session_id validation` | 67% | 67% | Yes — revalidation-cheatsheet: 11 (FP), server-auth-middleware-pattern: 3, chose-session-tokens: 2 |
-| 7 | `what problems did App Router cause` | 67% | 67% | Yes — chose-app-router: 22, fetch-cache-persistence: 2 |
+| Test | Query                                                    | `search` recall | Findings (limit=10) | Scores match?                                                                                                        |
+|------|----------------------------------------------------------|-----------------|---------------------|----------------------------------------------------------------------------------------------------------------------|
+| 1    | `jose library Web Crypto`                                | 33%             | 33%                 | Yes — edge-runtime-auth-limits: 4                                                                                    |
+| 2    | `Redis session lookup latency`                           | 75%             | 75%                 | Yes — chose-session-tokens: 13, server-auth-middleware-pattern: 2, edge-runtime-auth-limits: 1                       |
+| 3    | `jsonwebtoken middleware broken`                         | 100%            | 100%                | Yes — server-auth-middleware-pattern: 16, edge-runtime-auth-limits: 12, chose-app-router: 1, chose-session-tokens: 1 |
+| 4    | `what architectural decisions did we make for dashboard` | 0%              | 0%                  | Yes — ideal shards outside top 10                                                                                    |
+| 5    | `revalidatePath revalidateTag`                           | 50%             | 50%                 | Yes — rsc-data-fetching-pattern: 2, revalidation-cheatsheet: 2                                                       |
+| 6    | `cookie session_id validation`                           | 67%             | 67%                 | Yes — revalidation-cheatsheet: 11 (FP), server-auth-middleware-pattern: 3, chose-session-tokens: 2                   |
+| 7    | `what problems did App Router cause`                     | 67%             | 67%                 | Yes — chose-app-router: 22, fetch-cache-persistence: 2                                                               |
 
-| Metric | `search` tool | Findings (limit=10) |
-|--------|---------------|----------------------|
-| Mean recall | 56% | 56% |
-| Tests with false positive in top 2 | 3/7 | 3/7 |
+| Metric                             | `search` tool | Findings (limit=10) |
+|------------------------------------|---------------|---------------------|
+| Mean recall                        | 56%           | 56%                 |
+| Tests with false positive in top 2 | 3/7           | 3/7                 |
 
 Every shard/score pair matches exactly. The `search` tool uses the same `scoreEntry()` function that `research` delegated to — the scoring algorithm is unchanged.
 
