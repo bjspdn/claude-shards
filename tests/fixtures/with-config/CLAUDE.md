@@ -4,5 +4,5 @@ Use MCP tool `read` with the note path to fetch full details on demand.
 
 | T  | Title                                     | Path                            | ~Tok |
 |----|-------------------------------------------|---------------------------------|------|
+| 🔴 | Bevy render order depends on ECS schedule | linked-note.md                  | ~40  |
 | 🔴 | Bevy system ordering matters              | gotchas/bevy-system-ordering.md | ~70  |
-| 🔴 | Bevy render order depends on ECS schedule | gotchas/linked-note.md          | ~40  |

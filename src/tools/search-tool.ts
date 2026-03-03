@@ -7,7 +7,7 @@ import {
 } from "../vault/types"
 import { formatTokenCount } from "../index-engine/index"
 import type { ToolDefinition } from "./types"
-import { scoreBM25, type IdfTable } from "./bm25"
+import { scoreBM25, MIN_BM25_SCORE, type IdfTable } from "./bm25"
 
 interface SearchArgs {
   query: string
@@ -80,7 +80,7 @@ export function executeSearch(
         ? scoreBM25(entry, keywords, idf)
         : scoreEntry(entry, keywords),
     }))
-    .filter((r) => r.score > 0)
+    .filter((r) => r.score > (idf ? MIN_BM25_SCORE : 0))
     .sort((a, b) => b.score - a.score)
 
   const limit = args.limit ?? 10

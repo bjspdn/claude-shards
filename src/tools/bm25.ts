@@ -31,6 +31,8 @@ const W_TITLE = 10
 const W_TAG = 5
 const W_BODY = 1
 
+export const MIN_BM25_SCORE = 0.5
+
 /**
  * Split text into lowercase alphanumeric tokens.
  * @param {string} text - Raw text to tokenize.
