@@ -526,3 +526,48 @@ test("patch with empty string body deletes the section", async () => {
   expect(content).not.toContain("gone")
 })
 
+test("create mode with links emits links in frontmatter YAML", async () => {
+  const result = await executeWrite(
+    writeCreate({
+      path: "gotchas/linked.md",
+      type: "gotchas",
+      title: "Linked Note",
+      body: "Some body.",
+      links: ["decisions/chose-ecs-over-oop.md", "patterns/rust-error-handling.md"],
+    }),
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  const content = await Bun.file(join(tempVault, "gotchas/linked.md")).text()
+  expect(content).toContain("links:")
+  expect(content).toContain("  - decisions/chose-ecs-over-oop.md")
+  expect(content).toContain("  - patterns/rust-error-handling.md")
+})
+
+test("append mode preserves existing links", async () => {
+  await executeWrite(
+    writeCreate({
+      path: "gotchas/linked.md",
+      type: "gotchas",
+      title: "Linked",
+      body: "original",
+      links: ["decisions/chose-ecs-over-oop.md"],
+    }),
+    entries,
+    tempVault,
+  )
+
+  await executeWrite(
+    writeAppend({ path: "gotchas/linked.md", body: "appended" }),
+    entries,
+    tempVault,
+  )
+
+  const content = await Bun.file(join(tempVault, "gotchas/linked.md")).text()
+  expect(content).toContain("links:")
+  expect(content).toContain("  - decisions/chose-ecs-over-oop.md")
+  expect(content).toContain("appended")
+})
+

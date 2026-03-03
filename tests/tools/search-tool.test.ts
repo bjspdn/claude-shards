@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
 import { executeSearch } from "../../src/tools/search-tool"
-import { loadVault } from "../../src/vault/loader"
+import { loadVault, buildLinkGraph } from "../../src/vault/loader"
 import { join } from "path"
 
 const VAULT = join(import.meta.dir, "../fixtures/vault")
@@ -55,5 +55,28 @@ test("executeSearch returns empty array for no matches", async () => {
     entries,
   )
   expect(results).toEqual([])
+})
+
+test("executeSearch expands results via 1-hop graph links", async () => {
+  await setup
+  const graph = buildLinkGraph(entries)
+
+  const withoutGraph = executeSearch({ query: "render order ECS schedule" }, entries)
+  const withGraph = executeSearch({ query: "render order ECS schedule" }, entries, graph)
+
+  const withoutPaths = new Set(withoutGraph.map((r) => r.relativePath))
+  const withPaths = new Set(withGraph.map((r) => r.relativePath))
+
+  expect(withPaths.has("gotchas/linked-note.md")).toBe(true)
+
+  if (withoutPaths.has("gotchas/linked-note.md")) {
+    expect(withPaths.has("decisions/chose-ecs-over-oop.md")).toBe(true)
+  }
+})
+
+test("executeSearch without linkGraph preserves backward compat", async () => {
+  await setup
+  const results = executeSearch({ query: "bevy" }, entries)
+  expect(results.length).toBeGreaterThan(0)
 })
 

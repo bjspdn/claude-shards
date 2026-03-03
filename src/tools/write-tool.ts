@@ -19,6 +19,7 @@ interface WriteCreateCmd {
   body: string
   tags?: string[]
   projects?: string[]
+  links?: string[]
 }
 
 interface WriteReplaceCmd {
@@ -29,6 +30,7 @@ interface WriteReplaceCmd {
   body: string
   tags?: string[]
   projects?: string[]
+  links?: string[]
 }
 
 interface WriteAppendCmd {
@@ -79,6 +81,7 @@ export function parseWriteArgs(args: {
   body?: string
   tags?: string[]
   projects?: string[]
+  links?: string[]
   overwrite?: boolean
   mode?: string
   section?: string
@@ -110,6 +113,7 @@ export function parseWriteArgs(args: {
         body: args.body!,
         tags: args.tags,
         projects: args.projects,
+        links: args.links,
       })
     case "replace":
       return writeReplace({
@@ -119,6 +123,7 @@ export function parseWriteArgs(args: {
         body: args.body!,
         tags: args.tags,
         projects: args.projects,
+        links: args.links,
       })
     case "append":
       return writeAppend({ path: args.path, body: args.body! })
@@ -133,6 +138,7 @@ function buildFrontmatter(args: {
   type: string
   tags?: string[]
   projects?: string[]
+  links?: string[]
   created: string
   updated: string
 }): string {
@@ -146,6 +152,11 @@ function buildFrontmatter(args: {
   if (args.tags?.length) {
     lines.push("tags:")
     for (const t of args.tags) lines.push(`  - ${t}`)
+  }
+
+  if (args.links?.length) {
+    lines.push("links:")
+    for (const l of args.links) lines.push(`  - ${l}`)
   }
 
   lines.push(`created: ${args.created}`, `updated: ${args.updated}`, "---")
@@ -203,6 +214,7 @@ export async function executeWrite(
         type: data.type,
         tags: data.tags,
         projects: data.projects,
+        links: data.links,
         created: formatDate(new Date(data.created)),
         updated: today,
       })
@@ -242,6 +254,7 @@ export async function executeWrite(
         type: data.type,
         tags: data.tags,
         projects: data.projects,
+        links: data.links,
         created: formatDate(new Date(data.created)),
         updated: today,
       })
@@ -266,6 +279,7 @@ export async function executeWrite(
         type: cmd.type,
         tags: cmd.tags,
         projects: cmd.projects,
+        links: cmd.links,
         created: createdDate,
         updated: today,
       })
@@ -298,7 +312,10 @@ export const writeTool: ToolDefinition = {
   description:
     "Create or update a note in the vault with structured frontmatter. " +
     "Modes: 'create' (default, fails if exists), 'replace' (full overwrite), " +
-    "'append' (add body to end), 'patch' (replace or delete a section by heading).",
+    "'append' (add body to end), 'patch' (replace or delete a section by heading). " +
+    "When creating notes, populate 'links' with paths to related notes " +
+    "(gotchas → the decisions/patterns involved, patterns → the decisions " +
+    "they implement, references → patterns that use them).",
   inputSchema: z.object({
     path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
     mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
@@ -308,6 +325,7 @@ export const writeTool: ToolDefinition = {
     section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
     tags: z.array(z.string()).optional().describe("Searchable tags"),
     projects: z.array(z.string()).optional().describe("Project names this note relates to"),
+    links: z.array(z.string()).optional().describe("Relative paths to related notes (e.g. decisions/chose-x.md)"),
     overwrite: z.boolean().optional().describe("Deprecated — use mode 'replace' instead"),
   }),
   handler: async (args, ctx) => {
@@ -317,6 +335,7 @@ export const writeTool: ToolDefinition = {
     }
     const result = await executeWrite(parsed, ctx.entries, ctx.vaultPath)
     if (result.ok) {
+      ctx.rebuildLinkGraph()
       const verb = result.updated ? "Updated" : "Created"
       return { text: `${verb} note: ${result.path}` }
     }

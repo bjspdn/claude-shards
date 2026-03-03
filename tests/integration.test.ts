@@ -19,7 +19,7 @@ beforeAll(async () => {
 })
 
 test("full vault loads expected number of valid notes", () => {
-  expect(allEntries.length).toBe(10)
+  expect(allEntries.length).toBe(11)
 })
 
 test("index tool returns full table", () => {

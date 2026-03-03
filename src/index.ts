@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { homedir } from "os"
 import { join } from "path"
-import { loadVault } from "./vault/loader"
+import { loadVault, buildLinkGraph } from "./vault/loader"
 import { watchVault } from "./vault/watcher"
 import {
   registerTools,
@@ -153,7 +153,10 @@ async function runServer() {
   logInfo("server", "starting", { version: pkg.version })
 
   const entries = await loadVault(VAULT_PATH)
-  const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries)
+  let linkGraph = buildLinkGraph(entries)
+  const rebuildGraph = () => { linkGraph = buildLinkGraph(entries) }
+
+  const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries, rebuildGraph)
 
   initUpdateCheck()
   logInfo("server", `loaded ${entries.length} notes`)
@@ -166,7 +169,13 @@ async function runServer() {
 
   instrumentToolLogging(server)
 
-  const ctx: ToolContext = { entries, vaultPath: VAULT_PATH, watcherStats }
+  const ctx: ToolContext = {
+    entries,
+    vaultPath: VAULT_PATH,
+    watcherStats,
+    get linkGraph() { return linkGraph },
+    rebuildLinkGraph: rebuildGraph,
+  }
 
   registerTools(server, [
     indexTool, readTool, searchTool, syncTool,

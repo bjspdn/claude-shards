@@ -21,6 +21,7 @@ export const NoteFrontmatter = z.object({
   type: NoteType,
   projects: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
+  links: z.array(z.string()).default([]),
   created: z.coerce.date(),
   updated: z.coerce.date(),
   title: z.string().optional(),
@@ -34,6 +35,11 @@ export interface NoteEntry {
   title: string
   body: string
   tokenCount: number
+}
+
+export interface LinkGraph {
+  forward: Map<string, Set<string>>
+  reverse: Map<string, Set<string>>
 }
 
 export interface IndexEntry {

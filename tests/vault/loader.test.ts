@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { discoverFiles, loadVault, filterEntries } from "../../src/vault/loader"
+import { discoverFiles, loadVault, filterEntries, buildLinkGraph } from "../../src/vault/loader"
 import type { ProjectConfig } from "../../src/vault/types"
 import { join } from "path"
 
@@ -66,4 +66,46 @@ test("filterEntries with exclude patterns removes matching paths", async () => {
   }
   const filtered = filterEntries(entries, config)
   expect(filtered.some((e) => e.relativePath.startsWith("drafts/"))).toBe(false)
+})
+
+test("buildLinkGraph builds forward and reverse maps from frontmatter links", async () => {
+  const entries = await loadVault(VAULT)
+  const graph = buildLinkGraph(entries)
+
+  const linkedNote = entries.find((e) => e.relativePath === "gotchas/linked-note.md")
+  expect(linkedNote).toBeDefined()
+
+  const fwd = graph.forward.get("gotchas/linked-note.md")
+  expect(fwd).toBeDefined()
+  expect(fwd!.has("decisions/chose-ecs-over-oop.md")).toBe(true)
+  expect(fwd!.has("patterns/rust-error-handling.md")).toBe(true)
+
+  const revEcs = graph.reverse.get("decisions/chose-ecs-over-oop.md")
+  expect(revEcs).toBeDefined()
+  expect(revEcs!.has("gotchas/linked-note.md")).toBe(true)
+
+  const revRust = graph.reverse.get("patterns/rust-error-handling.md")
+  expect(revRust).toBeDefined()
+  expect(revRust!.has("gotchas/linked-note.md")).toBe(true)
+})
+
+test("buildLinkGraph excludes dangling links to non-existent paths", async () => {
+  const entries = await loadVault(VAULT)
+
+  const fakeEntry = {
+    ...entries[0]!,
+    relativePath: "gotchas/fake.md",
+    filePath: "/tmp/fake.md",
+    frontmatter: {
+      ...entries[0]!.frontmatter,
+      links: ["decisions/nonexistent.md", "decisions/chose-ecs-over-oop.md"],
+    },
+  }
+
+  const graph = buildLinkGraph([...entries, fakeEntry])
+
+  const fwd = graph.forward.get("gotchas/fake.md")
+  expect(fwd).toBeDefined()
+  expect(fwd!.has("decisions/chose-ecs-over-oop.md")).toBe(true)
+  expect(fwd!.has("decisions/nonexistent.md")).toBe(false)
 })

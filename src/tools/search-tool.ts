@@ -3,6 +3,7 @@ import {
   NoteType,
   NOTE_TYPE_ICONS,
   type NoteEntry,
+  type LinkGraph,
 } from "../vault/types"
 import { formatTokenCount } from "../index-engine/index"
 import type { ToolDefinition } from "./types"
@@ -49,6 +50,7 @@ function scoreEntry(entry: NoteEntry, keywords: string[]): number {
 export function executeSearch(
   args: SearchArgs,
   entries: NoteEntry[],
+  linkGraph?: LinkGraph,
 ): SearchResult[] {
   let filtered = entries.slice()
 
@@ -77,7 +79,48 @@ export function executeSearch(
     .sort((a, b) => b.score - a.score)
 
   const limit = args.limit ?? 10
-  return scored.slice(0, limit)
+
+  if (!linkGraph) return scored.slice(0, limit)
+
+  const topResults = scored.slice(0, limit)
+  const inResults = new Set(topResults.map((r) => r.relativePath))
+  const expanded: SearchResult[] = []
+
+  const entryByPath = new Map(entries.map((e) => [e.relativePath, e]))
+
+  for (const result of topResults) {
+    const neighbors = new Set<string>()
+    const fwd = linkGraph.forward.get(result.relativePath)
+    if (fwd) for (const n of fwd) neighbors.add(n)
+    const rev = linkGraph.reverse.get(result.relativePath)
+    if (rev) for (const n of rev) neighbors.add(n)
+
+    for (const neighborPath of neighbors) {
+      if (inResults.has(neighborPath)) continue
+
+      const entry = entryByPath.get(neighborPath)
+      if (!entry) continue
+
+      if (args.types?.length && !args.types.includes(entry.frontmatter.type)) continue
+      if (args.tags?.length && !entry.frontmatter.tags.some((t) => args.tags!.includes(t))) continue
+
+      const expandedScore = Math.max(Math.floor(result.score / 2), 1)
+      expanded.push({
+        icon: NOTE_TYPE_ICONS[entry.frontmatter.type],
+        title: entry.title,
+        type: entry.frontmatter.type,
+        relativePath: entry.relativePath,
+        tokenDisplay: formatTokenCount(entry.tokenCount),
+        score: expandedScore,
+      })
+      inResults.add(neighborPath)
+    }
+  }
+
+  const merged = [...topResults, ...expanded]
+    .sort((a, b) => b.score - a.score)
+
+  return merged.slice(0, limit)
 }
 
 /**
@@ -104,7 +147,7 @@ export const searchTool: ToolDefinition = {
     limit: z.number().optional().describe("Max results (default 10)"),
   }),
   handler: (args, ctx) => {
-    const results = executeSearch(args, ctx.entries)
+    const results = executeSearch(args, ctx.entries, ctx.linkGraph)
     if (results.length === 0) {
       return { text: "No notes match that query." }
     }
