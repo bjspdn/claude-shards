@@ -8,6 +8,7 @@ import {
 import { formatTokenCount } from "../index-engine/index"
 import type { ToolDefinition } from "./types"
 import { scoreBM25, MIN_BM25_SCORE, type IdfTable } from "./bm25"
+import type { EmbeddingIndex } from "../embeddings/types"
 
 interface SearchArgs {
   query: string
@@ -41,6 +42,19 @@ function scoreEntry(entry: NoteEntry, keywords: string[]): number {
   return score
 }
 
+export function dotProduct(a: Float32Array, b: Float32Array): number {
+  let sum = 0
+  for (let i = 0; i < a.length; i++) sum += a[i]! * b[i]!
+  return sum
+}
+
+function minMaxNormalize(values: number[]): number[] {
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  if (max === min) return values.map(() => 1)
+  return values.map((v) => (v - min) / (max - min))
+}
+
 /**
  * Keyword search across vault notes, scored by title/tag/body matches.
  * @param args.query - Space-separated keywords.
@@ -54,6 +68,8 @@ export function executeSearch(
   entries: NoteEntry[],
   linkGraph?: LinkGraph,
   idf?: IdfTable,
+  embeddingIndex?: EmbeddingIndex,
+  queryEmbedding?: Float32Array,
 ): SearchResult[] {
   let filtered = entries.slice()
 
@@ -85,33 +101,51 @@ export function executeSearch(
 
   const limit = args.limit ?? 10
 
-  if (!linkGraph) return scored.slice(0, limit)
+  if (linkGraph) {
+    const ALPHA = 0.3
+    const pathToScore = new Map(scored.map(r => [r.relativePath, r.score]))
 
-  const ALPHA = 0.3
-  const pathToScore = new Map(scored.map(r => [r.relativePath, r.score]))
+    for (const result of scored) {
+      let boost = 0
+      const rev = linkGraph.reverse.get(result.relativePath)
+      if (rev) {
+        for (const source of rev) {
+          const sourceScore = pathToScore.get(source) ?? 0
+          const outDegree = linkGraph.forward.get(source)?.size ?? 1
+          boost += sourceScore / outDegree
+        }
+      }
+      const fwd = linkGraph.forward.get(result.relativePath)
+      if (fwd) {
+        for (const target of fwd) {
+          const targetScore = pathToScore.get(target) ?? 0
+          const outDegree = linkGraph.forward.get(target)?.size ?? 1
+          boost += targetScore / outDegree
+        }
+      }
+      result.score += ALPHA * boost
+    }
 
-  for (const result of scored) {
-    let boost = 0
-    const rev = linkGraph.reverse.get(result.relativePath)
-    if (rev) {
-      for (const source of rev) {
-        const sourceScore = pathToScore.get(source) ?? 0
-        const outDegree = linkGraph.forward.get(source)?.size ?? 1
-        boost += sourceScore / outDegree
-      }
-    }
-    const fwd = linkGraph.forward.get(result.relativePath)
-    if (fwd) {
-      for (const target of fwd) {
-        const targetScore = pathToScore.get(target) ?? 0
-        const outDegree = linkGraph.forward.get(target)?.size ?? 1
-        boost += targetScore / outDegree
-      }
-    }
-    result.score += ALPHA * boost
+    scored.sort((a, b) => b.score - a.score)
   }
 
-  scored.sort((a, b) => b.score - a.score)
+  if (embeddingIndex && queryEmbedding && embeddingIndex.size > 0) {
+    const SEMANTIC_WEIGHT = 0.35
+    const bm25Scores = scored.map((r) => r.score)
+    const normBM25 = minMaxNormalize(bm25Scores)
+
+    const cosineScores = scored.map((r) => {
+      const entry = embeddingIndex.get(r.relativePath)
+      if (!entry) return 0
+      return dotProduct(queryEmbedding, entry.embedding)
+    })
+    const normCosine = minMaxNormalize(cosineScores)
+
+    for (let i = 0; i < scored.length; i++) {
+      scored[i]!.score = (1 - SEMANTIC_WEIGHT) * normBM25[i]! + SEMANTIC_WEIGHT * normCosine[i]!
+    }
+    scored.sort((a, b) => b.score - a.score)
+  }
 
   return scored.slice(0, limit)
 }
@@ -139,8 +173,12 @@ export const searchTool: ToolDefinition = {
     tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
     limit: z.number().optional().describe("Max results (default 10)"),
   }),
-  handler: (args, ctx) => {
-    const results = executeSearch(args, ctx.entries, ctx.linkGraph, ctx.idfTable)
+  handler: async (args, ctx) => {
+    let queryEmbedding: Float32Array | undefined
+    try {
+      if (ctx.embedQuery) queryEmbedding = await ctx.embedQuery(args.query)
+    } catch {}
+    const results = executeSearch(args, ctx.entries, ctx.linkGraph, ctx.idfTable, ctx.embeddingIndex, queryEmbedding)
     if (results.length === 0) {
       return { text: "No notes match that query." }
     }

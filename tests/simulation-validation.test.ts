@@ -3,6 +3,7 @@ import { loadVault, buildLinkGraph } from "../src/vault/loader"
 import { executeSearch } from "../src/tools/search-tool"
 import { buildIdfTable, type IdfTable } from "../src/tools/bm25"
 import type { NoteEntry, LinkGraph } from "../src/vault/types"
+import { warmup, encode, isReady, buildEmbeddingIndex, type EmbeddingIndex } from "../src/embeddings"
 import { homedir } from "os"
 import { join } from "path"
 
@@ -11,12 +12,17 @@ const VAULT = join(homedir(), ".claude-shards", "knowledge-base")
 let entries: NoteEntry[]
 let linkGraph: LinkGraph
 let idfTable: IdfTable
+let embeddingIndex: EmbeddingIndex | undefined
 
 beforeAll(async () => {
   entries = await loadVault(VAULT)
   linkGraph = buildLinkGraph(entries)
   idfTable = buildIdfTable(entries)
-})
+  try {
+    await warmup()
+    embeddingIndex = await buildEmbeddingIndex(entries, VAULT)
+  } catch {}
+}, 120_000)
 
 interface TestCase {
   id: number
@@ -381,10 +387,10 @@ describe("simulation validation against real MCP search", () => {
   })
 
   describe("result diagnostics — per-query breakdown", () => {
-    test("print full recall/precision table for all 17 queries", () => {
+    test("print full recall/precision table for all 17 queries", async () => {
       const rows: string[] = []
-      rows.push("| # | Query | KW Recall | Graph Recall | Precision | Found | Ideal | Missed |")
-      rows.push("|---|-------|-----------|--------------|-----------|-------|-------|--------|")
+      rows.push("| # | Query | KW Recall | Graph Recall | Sem P@5 | BM25 P@5 | Found | Ideal | Missed |")
+      rows.push("|---|-------|-----------|--------------|---------|----------|-------|-------|--------|")
 
       for (const tc of TESTS) {
         const kwResults = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
@@ -393,16 +399,56 @@ describe("simulation validation against real MCP search", () => {
         const graphNames = new Set(graphResults.map((r) => shardName(r.relativePath)))
         const rKw = recall(kwNames, tc.idealSet)
         const rGraph = recall(graphNames, tc.idealSet)
-        const p = precision(graphNames, tc.idealSet)
         const missed = [...tc.idealSet].filter((name) => !graphNames.has(name))
 
+        let semP5 = "N/A"
+        const bm25Top5 = executeSearch({ query: tc.query, limit: 5 }, entries, linkGraph, idfTable)
+        const bm25P5 = precision(new Set(bm25Top5.map((r) => shardName(r.relativePath))), tc.idealSet)
+
+        if (embeddingIndex && isReady()) {
+          try {
+            const qEmb = await encode(tc.query)
+            const semResults = executeSearch({ query: tc.query, limit: 5 }, entries, linkGraph, idfTable, embeddingIndex, qEmb)
+            const semNames = new Set(semResults.map((r) => shardName(r.relativePath)))
+            semP5 = `${(precision(semNames, tc.idealSet) * 100).toFixed(0)}%`
+          } catch {}
+        }
+
         rows.push(
-          `| ${tc.id} | ${tc.query} | ${(rKw * 100).toFixed(0)}% | ${(rGraph * 100).toFixed(0)}% | ${(p * 100).toFixed(0)}% | ${graphNames.size} | ${tc.idealSet.size} | ${missed.join(", ") || "—"} |`,
+          `| ${tc.id} | ${tc.query} | ${(rKw * 100).toFixed(0)}% | ${(rGraph * 100).toFixed(0)}% | ${semP5} | ${(bm25P5 * 100).toFixed(0)}% | ${graphNames.size} | ${tc.idealSet.size} | ${missed.join(", ") || "—"} |`,
         )
       }
 
       console.log("\n" + rows.join("\n") + "\n")
       expect(true).toBe(true)
+    })
+  })
+
+  describe("semantic re-ranking precision comparison", () => {
+    test("BM25+semantic top-5 precision ≥ BM25-only top-5 precision (when embedder available)", async () => {
+      if (!embeddingIndex || !isReady()) {
+        console.log("Embedder not available — skipping semantic precision test")
+        return
+      }
+
+      let bm25PrecisionTotal = 0
+      let semPrecisionTotal = 0
+
+      for (const tc of TESTS) {
+        const bm25Results = executeSearch({ query: tc.query, limit: 5 }, entries, linkGraph, idfTable)
+        const bm25Names = new Set(bm25Results.map((r) => shardName(r.relativePath)))
+        bm25PrecisionTotal += precision(bm25Names, tc.idealSet)
+
+        const qEmb = await encode(tc.query)
+        const semResults = executeSearch({ query: tc.query, limit: 5 }, entries, linkGraph, idfTable, embeddingIndex, qEmb)
+        const semNames = new Set(semResults.map((r) => shardName(r.relativePath)))
+        semPrecisionTotal += precision(semNames, tc.idealSet)
+      }
+
+      const meanBm25 = bm25PrecisionTotal / TESTS.length
+      const meanSem = semPrecisionTotal / TESTS.length
+      console.log(`Mean P@5 — BM25: ${(meanBm25 * 100).toFixed(1)}%, BM25+semantic: ${(meanSem * 100).toFixed(1)}%`)
+      expect(meanSem).toBeGreaterThanOrEqual(meanBm25)
     })
   })
 })

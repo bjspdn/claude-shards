@@ -1,7 +1,8 @@
 import { test, expect } from "bun:test"
-import { executeSearch } from "../../src/tools/search-tool"
+import { executeSearch, dotProduct } from "../../src/tools/search-tool"
 import { loadVault, buildLinkGraph } from "../../src/vault/loader"
 import { buildIdfTable } from "../../src/tools/bm25"
+import type { EmbeddingIndex } from "../../src/embeddings/types"
 import { join } from "path"
 
 const VAULT = join(import.meta.dir, "../fixtures/vault")
@@ -97,4 +98,33 @@ test("executeSearch without idf falls back to legacy scoring", async () => {
   const results = executeSearch({ query: "bevy" }, entries)
   expect(results.length).toBeGreaterThan(0)
   expect(results[0]!.title.toLowerCase()).toContain("bevy")
+})
+
+test("executeSearch with embeddingIndex applies score fusion", async () => {
+  await setup
+  const results = executeSearch({ query: "bevy" }, entries, undefined, idf)
+  if (results.length < 2) return
+
+  const dim = 384
+  const embeddingIndex: EmbeddingIndex = new Map()
+  results.forEach((r, i) => {
+    const vec = new Float32Array(dim)
+    vec[i % dim] = 1.0
+    embeddingIndex.set(r.relativePath, { contentHash: "test", embedding: vec })
+  })
+
+  const queryVec = new Float32Array(dim)
+  queryVec[0] = 1.0
+
+  const reranked = executeSearch({ query: "bevy" }, entries, undefined, idf, embeddingIndex, queryVec)
+  expect(reranked.length).toBe(results.length)
+
+  const allInRange = reranked.every((r) => r.score >= 0 && r.score <= 1)
+  expect(allInRange).toBe(true)
+})
+
+test("executeSearch without embeddingIndex preserves backward compat", async () => {
+  await setup
+  const results = executeSearch({ query: "bevy" }, entries, undefined, idf, undefined, undefined)
+  expect(results.length).toBeGreaterThan(0)
 })

@@ -12,13 +12,14 @@ import {
   writeTool, diagnosticsTool, buildIdfTable,
   type ToolContext,
 } from "./tools"
+import { warmup, encode, isReady, buildEmbeddingIndex, updateEmbeddings, type EmbeddingIndex } from "./embeddings"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
 import { spinner } from "./cli/spinner"
 import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
 import { C } from "./utils"
 import { fetchLatestVersion, fetchReleaseNotes, initUpdateCheck } from "./update-checker"
-import { initLogFile, logInfo } from "./logger"
+import { initLogFile, logInfo, logError } from "./logger"
 import { instrumentToolLogging } from "./tool-logger"
 import { runLogViewer } from "./cli/logging"
 import { rm } from "fs/promises"
@@ -160,8 +161,30 @@ async function runServer() {
     idfTable = buildIdfTable(entries)
   }
 
-  const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries, rebuildGraph)
+  let embeddingIndex: EmbeddingIndex | undefined
 
+  const initEmbeddings = async () => {
+    try {
+      await warmup()
+      embeddingIndex = await buildEmbeddingIndex(entries, VAULT_PATH)
+      logInfo("server", `embedding index ready: ${embeddingIndex.size} vectors`)
+    } catch (err) {
+      logError("server", "embedding init failed — falling back to BM25-only", { error: String(err) })
+    }
+  }
+
+  const onFlush = () => {
+    rebuildGraph()
+    if (embeddingIndex && isReady()) {
+      updateEmbeddings(embeddingIndex, entries, VAULT_PATH).catch((err) =>
+        logError("server", "embedding update failed", { error: String(err) }),
+      )
+    }
+  }
+
+  const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries, onFlush)
+
+  initEmbeddings()
   initUpdateCheck()
   logInfo("server", `loaded ${entries.length} notes`)
   console.error(`Loaded ${entries.length} notes from ${VAULT_PATH}`)
@@ -180,6 +203,8 @@ async function runServer() {
     get linkGraph() { return linkGraph },
     get idfTable() { return idfTable },
     rebuildLinkGraph: rebuildGraph,
+    get embeddingIndex() { return embeddingIndex },
+    get embedQuery() { return isReady() ? encode : undefined },
   }
 
   registerTools(server, [
