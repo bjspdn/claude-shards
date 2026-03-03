@@ -25,20 +25,37 @@ export async function loadVault(vaultPath: string): Promise<NoteEntry[]> {
     )
 }
 
+const LINK_CATEGORIES = ["decisions", "patterns", "gotchas", "references"] as const
+
+function resolveWikilink(raw: string): string | null {
+  const match = raw.match(/^\[\[(.+)\]\]$/)
+  return match ? match[1]! : null
+}
+
 export function buildLinkGraph(entries: NoteEntry[]): LinkGraph {
-  const existingPaths = new Set(entries.map((e) => e.relativePath))
+  const slugToPath = new Map<string, string>()
+  for (const entry of entries) {
+    const slug = entry.relativePath.replace(/\.md$/, "").split("/").pop()!
+    slugToPath.set(slug, entry.relativePath)
+  }
+
   const forward = new Map<string, Set<string>>()
   const reverse = new Map<string, Set<string>>()
 
   for (const entry of entries) {
-    const links = entry.frontmatter.links
-    if (!links.length) continue
+    const resolved: string[] = []
+    for (const cat of LINK_CATEGORIES) {
+      for (const raw of entry.frontmatter[cat]) {
+        const slug = resolveWikilink(raw)
+        if (!slug) continue
+        const target = slugToPath.get(slug)
+        if (target) resolved.push(target)
+      }
+    }
+    if (!resolved.length) continue
 
-    const validLinks = links.filter((l) => existingPaths.has(l))
-    if (!validLinks.length) continue
-
-    forward.set(entry.relativePath, new Set(validLinks))
-    for (const target of validLinks) {
+    forward.set(entry.relativePath, new Set(resolved))
+    for (const target of resolved) {
       let rev = reverse.get(target)
       if (!rev) {
         rev = new Set()

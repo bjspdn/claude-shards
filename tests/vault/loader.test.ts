@@ -72,24 +72,24 @@ test("buildLinkGraph builds forward and reverse maps from frontmatter links", as
   const entries = await loadVault(VAULT)
   const graph = buildLinkGraph(entries)
 
-  const linkedNote = entries.find((e) => e.relativePath === "gotchas/linked-note.md")
+  const linkedNote = entries.find((e) => e.relativePath === "linked-note.md")
   expect(linkedNote).toBeDefined()
 
-  const fwd = graph.forward.get("gotchas/linked-note.md")
+  const fwd = graph.forward.get("linked-note.md")
   expect(fwd).toBeDefined()
   expect(fwd!.has("decisions/chose-ecs-over-oop.md")).toBe(true)
   expect(fwd!.has("patterns/rust-error-handling.md")).toBe(true)
 
   const revEcs = graph.reverse.get("decisions/chose-ecs-over-oop.md")
   expect(revEcs).toBeDefined()
-  expect(revEcs!.has("gotchas/linked-note.md")).toBe(true)
+  expect(revEcs!.has("linked-note.md")).toBe(true)
 
   const revRust = graph.reverse.get("patterns/rust-error-handling.md")
   expect(revRust).toBeDefined()
-  expect(revRust!.has("gotchas/linked-note.md")).toBe(true)
+  expect(revRust!.has("linked-note.md")).toBe(true)
 })
 
-test("buildLinkGraph excludes dangling links to non-existent paths", async () => {
+test("buildLinkGraph excludes dangling wikilinks to non-existent notes", async () => {
   const entries = await loadVault(VAULT)
 
   const fakeEntry = {
@@ -98,7 +98,10 @@ test("buildLinkGraph excludes dangling links to non-existent paths", async () =>
     filePath: "/tmp/fake.md",
     frontmatter: {
       ...entries[0]!.frontmatter,
-      links: ["decisions/nonexistent.md", "decisions/chose-ecs-over-oop.md"],
+      decisions: ["[[nonexistent]]", "[[chose-ecs-over-oop]]"],
+      patterns: [],
+      gotchas: [],
+      references: [],
     },
   }
 
@@ -107,5 +110,5 @@ test("buildLinkGraph excludes dangling links to non-existent paths", async () =>
   const fwd = graph.forward.get("gotchas/fake.md")
   expect(fwd).toBeDefined()
   expect(fwd!.has("decisions/chose-ecs-over-oop.md")).toBe(true)
-  expect(fwd!.has("decisions/nonexistent.md")).toBe(false)
+  expect(fwd!.size).toBe(1)
 })

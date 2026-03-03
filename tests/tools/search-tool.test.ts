@@ -67,9 +67,9 @@ test("executeSearch expands results via 1-hop graph links", async () => {
   const withoutPaths = new Set(withoutGraph.map((r) => r.relativePath))
   const withPaths = new Set(withGraph.map((r) => r.relativePath))
 
-  expect(withPaths.has("gotchas/linked-note.md")).toBe(true)
+  expect(withPaths.has("linked-note.md")).toBe(true)
 
-  if (withoutPaths.has("gotchas/linked-note.md")) {
+  if (withoutPaths.has("linked-note.md")) {
     expect(withPaths.has("decisions/chose-ecs-over-oop.md")).toBe(true)
   }
 })

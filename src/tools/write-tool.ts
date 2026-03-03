@@ -2,7 +2,7 @@ import { resolve, relative, dirname } from "path"
 import { mkdir } from "fs/promises"
 import { z } from "zod"
 import matter from "gray-matter"
-import { NoteType, NOTE_TYPE_PRIORITY, type NoteEntry } from "../vault/types"
+import { NoteType, NOTE_TYPE_PRIORITY, flattenWikilinks, type NoteEntry } from "../vault/types"
 import { parseNote } from "../vault/parser"
 import { formatDate } from "../utils"
 import type { ToolDefinition } from "./types"
@@ -19,7 +19,10 @@ interface WriteCreateCmd {
   body: string
   tags?: string[]
   projects?: string[]
-  links?: string[]
+  decisions?: string[]
+  patterns?: string[]
+  gotchas?: string[]
+  references?: string[]
 }
 
 interface WriteReplaceCmd {
@@ -30,7 +33,10 @@ interface WriteReplaceCmd {
   body: string
   tags?: string[]
   projects?: string[]
-  links?: string[]
+  decisions?: string[]
+  patterns?: string[]
+  gotchas?: string[]
+  references?: string[]
 }
 
 interface WriteAppendCmd {
@@ -81,7 +87,10 @@ export function parseWriteArgs(args: {
   body?: string
   tags?: string[]
   projects?: string[]
-  links?: string[]
+  decisions?: string[]
+  patterns?: string[]
+  gotchas?: string[]
+  references?: string[]
   overwrite?: boolean
   mode?: string
   section?: string
@@ -113,7 +122,10 @@ export function parseWriteArgs(args: {
         body: args.body!,
         tags: args.tags,
         projects: args.projects,
-        links: args.links,
+        decisions: args.decisions,
+        patterns: args.patterns,
+        gotchas: args.gotchas,
+        references: args.references,
       })
     case "replace":
       return writeReplace({
@@ -123,7 +135,10 @@ export function parseWriteArgs(args: {
         body: args.body!,
         tags: args.tags,
         projects: args.projects,
-        links: args.links,
+        decisions: args.decisions,
+        patterns: args.patterns,
+        gotchas: args.gotchas,
+        references: args.references,
       })
     case "append":
       return writeAppend({ path: args.path, body: args.body! })
@@ -134,11 +149,16 @@ export function parseWriteArgs(args: {
   }
 }
 
+const LINK_CATEGORIES = ["decisions", "patterns", "gotchas", "references"] as const
+
 function buildFrontmatter(args: {
   type: string
   tags?: string[]
   projects?: string[]
-  links?: string[]
+  decisions?: string[]
+  patterns?: string[]
+  gotchas?: string[]
+  references?: string[]
   created: string
   updated: string
 }): string {
@@ -154,9 +174,12 @@ function buildFrontmatter(args: {
     for (const t of args.tags) lines.push(`  - ${t}`)
   }
 
-  if (args.links?.length) {
-    lines.push("links:")
-    for (const l of args.links) lines.push(`  - ${l}`)
+  for (const cat of LINK_CATEGORIES) {
+    const vals = args[cat]
+    if (vals?.length) {
+      lines.push(`${cat}:`)
+      for (const v of vals) lines.push(`  - "${v}"`)
+    }
   }
 
   lines.push(`created: ${args.created}`, `updated: ${args.updated}`, "---")
@@ -214,7 +237,10 @@ export async function executeWrite(
         type: data.type,
         tags: data.tags,
         projects: data.projects,
-        links: data.links,
+        decisions: flattenWikilinks(data.decisions),
+        patterns: flattenWikilinks(data.patterns),
+        gotchas: flattenWikilinks(data.gotchas),
+        references: flattenWikilinks(data.references),
         created: formatDate(new Date(data.created)),
         updated: today,
       })
@@ -254,7 +280,10 @@ export async function executeWrite(
         type: data.type,
         tags: data.tags,
         projects: data.projects,
-        links: data.links,
+        decisions: flattenWikilinks(data.decisions),
+        patterns: flattenWikilinks(data.patterns),
+        gotchas: flattenWikilinks(data.gotchas),
+        references: flattenWikilinks(data.references),
         created: formatDate(new Date(data.created)),
         updated: today,
       })
@@ -279,7 +308,10 @@ export async function executeWrite(
         type: cmd.type,
         tags: cmd.tags,
         projects: cmd.projects,
-        links: cmd.links,
+        decisions: cmd.decisions,
+        patterns: cmd.patterns,
+        gotchas: cmd.gotchas,
+        references: cmd.references,
         created: createdDate,
         updated: today,
       })
@@ -314,8 +346,8 @@ export const writeTool: ToolDefinition = {
     "Modes: 'create' (default, fails if exists), 'replace' (full overwrite), " +
     "'append' (add body to end), 'patch' (replace or delete a section by heading). " +
     "When creating notes, populate 'links' with paths to related notes " +
-    "(gotchas → the decisions/patterns involved, patterns → the decisions " +
-    "they implement, references → patterns that use them).",
+    "(gotchas \u2192 the decisions/patterns involved, patterns \u2192 the decisions " +
+    "they implement, references \u2192 patterns that use them).",
   inputSchema: z.object({
     path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
     mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
@@ -325,7 +357,10 @@ export const writeTool: ToolDefinition = {
     section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
     tags: z.array(z.string()).optional().describe("Searchable tags"),
     projects: z.array(z.string()).optional().describe("Project names this note relates to"),
-    links: z.array(z.string()).optional().describe("Relative paths to related notes (e.g. decisions/chose-x.md)"),
+    decisions: z.array(z.string()).optional().describe("Wikilinks to related decision notes (e.g. [[chose-x]])"),
+    patterns: z.array(z.string()).optional().describe("Wikilinks to related pattern notes (e.g. [[my-pattern]])"),
+    gotchas: z.array(z.string()).optional().describe("Wikilinks to related gotcha notes (e.g. [[my-gotcha]])"),
+    references: z.array(z.string()).optional().describe("Wikilinks to related reference notes (e.g. [[my-reference]])"),
     overwrite: z.boolean().optional().describe("Deprecated — use mode 'replace' instead"),
   }),
   handler: async (args, ctx) => {
