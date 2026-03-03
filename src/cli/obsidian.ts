@@ -18,6 +18,14 @@ export type RegisterResult =
   | { registered: true; vaultId: string }
   | { skipped: true; reason: string; vaultId?: string }
 
+function getObsidianPath() {
+  if (process.platform === "darwin") {
+    return join(homedir(), "Library", "Application Support", "obsidian", "obsidian.json")
+  } else {
+    return join(homedir(), ".config", "obsidian", "obsidian.json")
+  }
+}
+
 const DEFAULT_CONFIG_PATH = join(homedir(), ".config/obsidian/obsidian.json")
 
 export function generateVaultId(): string {
