@@ -9,7 +9,7 @@ import { watchVault } from "./vault/watcher"
 import {
   registerTools,
   indexTool, readTool, searchTool, syncTool,
-  writeTool, diagnosticsTool,
+  writeTool, diagnosticsTool, buildIdfTable,
   type ToolContext,
 } from "./tools"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
@@ -154,7 +154,11 @@ async function runServer() {
 
   const entries = await loadVault(VAULT_PATH)
   let linkGraph = buildLinkGraph(entries)
-  const rebuildGraph = () => { linkGraph = buildLinkGraph(entries) }
+  let idfTable = buildIdfTable(entries)
+  const rebuildGraph = () => {
+    linkGraph = buildLinkGraph(entries)
+    idfTable = buildIdfTable(entries)
+  }
 
   const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries, rebuildGraph)
 
@@ -174,6 +178,7 @@ async function runServer() {
     vaultPath: VAULT_PATH,
     watcherStats,
     get linkGraph() { return linkGraph },
+    get idfTable() { return idfTable },
     rebuildLinkGraph: rebuildGraph,
   }
 

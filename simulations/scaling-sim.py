@@ -1,9 +1,10 @@
 """
-Scaling simulation: generates synthetic vaults at 106 → 1k → 5k → 10k → 50k sizes
-and measures how the substring-based scorer degrades.
+Scaling simulation: generates synthetic vaults at 106 → 1k → 5k → 10k → 50k sizes.
+Compares the old substring scorer against the new BM25 multi-field scorer.
 
-No file I/O — all notes generated in memory. Replicates the TS scorer exactly:
-substring matching (Python `in` operator), case-insensitive, title=+10, tag=+5, body=+1.
+Substring scorer: Python `in` operator, case-insensitive, title=+10, tag=+5, body=+1.
+BM25 scorer: word-level tokenization, IDF weighting, TF saturation (k1=1.5, b=0.75),
+  field boosts title=10, tag=5, body=1.
 
 Validates Section 5 failure mode projections (FM-1 through FM-5) against empirical data.
 """
@@ -204,6 +205,93 @@ def score_entry(note: Note, keywords: list[str]) -> int:
         if kw_l in body_l:
             score += 1
     return score
+
+
+import re as _re
+
+_TOKEN_RE = _re.compile(r"[a-z0-9]+")
+K1 = 1.5
+B = 0.75
+W_TITLE = 10
+W_TAG = 5
+W_BODY = 1
+
+
+def tokenize(text: str) -> list[str]:
+    return _TOKEN_RE.findall(text.lower())
+
+
+def build_idf_table(notes: dict[str, Note]) -> dict:
+    N = len(notes)
+    df: dict[str, int] = {}
+    total_title_len = 0
+    total_tag_len = 0
+    total_body_len = 0
+
+    for note in notes.values():
+        title_tokens = tokenize(note.title)
+        tag_tokens = tokenize(" ".join(note.tags))
+        body_tokens = tokenize(note.body)
+        total_title_len += len(title_tokens)
+        total_tag_len += len(tag_tokens)
+        total_body_len += len(body_tokens)
+        for token in set(title_tokens + tag_tokens + body_tokens):
+            df[token] = df.get(token, 0) + 1
+
+    idf = {}
+    for token, freq in df.items():
+        idf[token] = math.log((N - freq + 0.5) / (freq + 0.5) + 1)
+
+    return {
+        "idf": idf,
+        "avg_title_len": total_title_len / N if N else 0,
+        "avg_tag_len": total_tag_len / N if N else 0,
+        "avg_body_len": total_body_len / N if N else 0,
+        "N": N,
+    }
+
+
+def tf_bm25(tf: int, field_len: int, avg_field_len: float) -> float:
+    if tf == 0:
+        return 0.0
+    norm = 1 - B + B * (field_len / (avg_field_len or 1))
+    return (tf * (K1 + 1)) / (tf + K1 * norm)
+
+
+def score_bm25(note: Note, keywords: list[str], idf_table: dict) -> float:
+    title_tokens = tokenize(note.title)
+    tag_tokens = tokenize(" ".join(note.tags))
+    body_tokens = tokenize(note.body)
+    idf = idf_table["idf"]
+
+    score = 0.0
+    for kw in keywords:
+        kw_l = kw.lower()
+        idf_val = idf.get(kw_l, 0)
+        if idf_val <= 0:
+            continue
+
+        title_tf = title_tokens.count(kw_l)
+        tag_tf = tag_tokens.count(kw_l)
+        body_tf = body_tokens.count(kw_l)
+
+        title_score = W_TITLE * tf_bm25(title_tf, len(title_tokens), idf_table["avg_title_len"])
+        tag_score = W_TAG * tf_bm25(tag_tf, len(tag_tokens), idf_table["avg_tag_len"])
+        body_score = W_BODY * tf_bm25(body_tf, len(body_tokens), idf_table["avg_body_len"])
+
+        score += idf_val * (title_score + tag_score + body_score)
+    return score
+
+
+def keyword_search_bm25(query: str, notes: dict[str, Note], idf_table: dict) -> list[tuple[str, float]]:
+    keywords = query.split()
+    results = []
+    for name, n in notes.items():
+        sc = score_bm25(n, keywords, idf_table)
+        if sc > 0:
+            results.append((name, sc))
+    results.sort(key=lambda x: -x[1])
+    return results
 
 
 def keyword_search(query: str, notes: dict[str, Note]) -> list[tuple[str, int]]:
@@ -816,6 +904,104 @@ def run_simulation():
         snr = imed / nmed if nmed > 0 else float("inf")
 
         print(f"| {r['actual_size']:>10,} | {imin:>9.1f} | {imed:>12.1f} | {imax:>9.1f} | {nmed:>12.1f} | {nmax:>9.1f} | {snr:>15.2f}x |")
+
+    # ── BM25 vs Substring Comparison ──
+    print(f"\n\n{'=' * 100}")
+    print("BM25 vs SUBSTRING — Side-by-Side Comparison")
+    print(f"{'=' * 100}")
+
+    print()
+    print("### Recall@10 Comparison")
+    print()
+    print("| Vault Size | Substring R@10 | BM25 R@10 | Δ |")
+    print("|------------|----------------|-----------|---|")
+
+    bm25_results = {}
+    for size in SCALE_POINTS:
+        notes = build_scaled_vault(size)
+        idf_table = build_idf_table(notes)
+
+        bm25_metrics = {
+            "recalls_at_10": [],
+            "recalls_at_50": [],
+            "notes_above_zero": [],
+            "score_stats": [],
+        }
+
+        for test in TESTS:
+            q = test["query"]
+            ideal = test["ideal_set"]
+
+            results = keyword_search_bm25(q, notes, idf_table)
+            found_at_10 = {n for n, _ in results[:10]}
+            found_at_50 = {n for n, _ in results[:50]}
+            r10 = recall(found_at_10, ideal)
+            r50 = recall(found_at_50, ideal)
+            bm25_metrics["recalls_at_10"].append(r10)
+            bm25_metrics["recalls_at_50"].append(r50)
+            bm25_metrics["notes_above_zero"].append(len(results))
+
+            stats = score_stats(results, ideal)
+            bm25_metrics["score_stats"].append(stats)
+
+        def mean(xs): return sum(xs) / len(xs) if xs else 0
+
+        bm25_r10 = mean(bm25_metrics["recalls_at_10"])
+        sub_r10 = all_results[size]["mean_recall_at_10"]
+        delta = bm25_r10 - sub_r10
+        sign = "+" if delta > 0 else ""
+        print(f"| {size:>10,} | {sub_r10:>14.0%} | {bm25_r10:>9.0%} | {sign}{delta:.0%} |")
+
+        bm25_results[size] = {
+            "mean_r10": bm25_r10,
+            "mean_r50": mean(bm25_metrics["recalls_at_50"]),
+            "mean_above_zero": mean(bm25_metrics["notes_above_zero"]),
+            "score_stats": bm25_metrics["score_stats"],
+            "metrics": bm25_metrics,
+        }
+
+    print()
+    print("### Notes Scoring > 0 Comparison")
+    print()
+    print("| Vault Size | Substring #>0 | BM25 #>0 | Reduction |")
+    print("|------------|---------------|----------|-----------|")
+
+    for size in SCALE_POINTS:
+        sub_n = all_results[size]["mean_above_zero"]
+        bm25_n = bm25_results[size]["mean_above_zero"]
+        reduction = (1 - bm25_n / sub_n) * 100 if sub_n > 0 else 0
+        print(f"| {size:>10,} | {sub_n:>13,.0f} | {bm25_n:>8,.0f} | {reduction:>8.0f}% |")
+
+    print()
+    print("### Signal-to-Noise Ratio Comparison")
+    print()
+    print("| Vault Size | Substring SNR | BM25 SNR | Improvement |")
+    print("|------------|---------------|----------|-------------|")
+
+    for size in SCALE_POINTS:
+        sub_stats = all_results[size]["metrics"]["score_stats"]
+        bm25_stats = bm25_results[size]["score_stats"]
+
+        sub_imed = [s["ideal_median"] for s in sub_stats if s["ideal_median"] > 0]
+        sub_nmed = [s["noise_median"] for s in sub_stats]
+        bm25_imed = [s["ideal_median"] for s in bm25_stats if s["ideal_median"] > 0]
+        bm25_nmed = [s["noise_median"] for s in bm25_stats]
+
+        sub_snr = (sum(sub_imed) / len(sub_imed)) / (sum(sub_nmed) / len(sub_nmed)) if sub_nmed and sum(sub_nmed) > 0 else 0
+        bm25_snr = (sum(bm25_imed) / len(bm25_imed)) / (sum(bm25_nmed) / len(bm25_nmed)) if bm25_nmed and sum(bm25_nmed) > 0 else float("inf")
+        improvement = f"{bm25_snr / sub_snr:.1f}x" if sub_snr > 0 else "inf"
+        print(f"| {size:>10,} | {sub_snr:>13.1f}x | {bm25_snr:>7.1f}x | {improvement:>11} |")
+
+    print()
+    print("### Per-Query R@10: BM25 vs Substring (N=10,000)")
+    print()
+    print("| # | Query | Substr R@10 | BM25 R@10 |")
+    print("|---|-------|-------------|-----------|")
+
+    for i, test in enumerate(TESTS):
+        sub_r = all_results[10_000]["metrics"]["recalls_at_10"][i]
+        bm25_r = bm25_results[10_000]["metrics"]["recalls_at_10"][i]
+        print(f"| {test['id']} | {test['query'][:44]:<44} | {sub_r:>11.0%} | {bm25_r:>9.0%} |")
 
     print()
 

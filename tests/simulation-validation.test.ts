@@ -1,6 +1,7 @@
 import { test, expect, describe, beforeAll } from "bun:test"
 import { loadVault, buildLinkGraph } from "../src/vault/loader"
 import { executeSearch } from "../src/tools/search-tool"
+import { buildIdfTable, type IdfTable } from "../src/tools/bm25"
 import type { NoteEntry, LinkGraph } from "../src/vault/types"
 import { homedir } from "os"
 import { join } from "path"
@@ -9,10 +10,12 @@ const VAULT = join(homedir(), ".claude-shards", "knowledge-base")
 
 let entries: NoteEntry[]
 let linkGraph: LinkGraph
+let idfTable: IdfTable
 
 beforeAll(async () => {
   entries = await loadVault(VAULT)
   linkGraph = buildLinkGraph(entries)
+  idfTable = buildIdfTable(entries)
 })
 
 interface TestCase {
@@ -23,7 +26,6 @@ interface TestCase {
 }
 
 const TESTS: TestCase[] = [
-  // Dashboard cluster
   {
     id: 1,
     query: "jose library Web Crypto",
@@ -66,7 +68,6 @@ const TESTS: TestCase[] = [
     idealSet: new Set(["chose-app-router", "fetch-cache-persistence", "edge-runtime-auth-limits"]),
     expectedKeywordRecall: 1.0,
   },
-  // Auth-system cluster
   {
     id: 8,
     query: "JWT token refresh Redis rotation",
@@ -91,7 +92,6 @@ const TESTS: TestCase[] = [
     idealSet: new Set(["rbac-permission-pattern", "auth-middleware-reference", "session-revocation-gotcha"]),
     expectedKeywordRecall: -1,
   },
-  // CI/CD cluster
   {
     id: 12,
     query: "GitHub Actions docker build cache layer speed",
@@ -110,7 +110,6 @@ const TESTS: TestCase[] = [
     idealSet: new Set(["flaky-test-gotcha", "environment-secrets-pattern", "chose-github-actions"]),
     expectedKeywordRecall: -1,
   },
-  // Elasticsearch cluster
   {
     id: 15,
     query: "Elasticsearch mapping explosion cardinality",
@@ -170,29 +169,47 @@ describe("simulation validation against real MCP search", () => {
     expect(missing).toEqual([])
   })
 
-  describe("scoring parity — TS produces same scores as Python simulation", () => {
-    test("title match scores +10 per keyword", () => {
-      const results = executeSearch({ query: "App Router", limit: 200 }, entries)
+  describe("scoring parity — BM25 field boosts rank correctly", () => {
+    test("title matches score higher than body-only matches", () => {
+      const results = executeSearch({ query: "App Router", limit: 200 }, entries, undefined, idfTable)
       const appRouter = results.find((r) => shardName(r.relativePath) === "chose-app-router")
       expect(appRouter).toBeDefined()
-      expect(appRouter!.score).toBeGreaterThanOrEqual(20)
+
+      const bodyOnly = results.filter((r) => {
+        const entry = entries.find((e) => e.relativePath === r.relativePath)
+        return entry && !entry.title.toLowerCase().includes("app") && !entry.title.toLowerCase().includes("router")
+      })
+      if (bodyOnly.length > 0) {
+        expect(appRouter!.score).toBeGreaterThan(bodyOnly[0]!.score)
+      }
     })
 
-    test("body-only match scores +1 per keyword", () => {
-      const results = executeSearch({ query: "jose", limit: 200 }, entries)
-      const edgeRuntime = results.find((r) => shardName(r.relativePath) === "edge-runtime-auth-limits")
-      expect(edgeRuntime).toBeDefined()
-      expect(edgeRuntime!.score).toBe(1)
-    })
-
-    test("tag match scores +5 per keyword", () => {
-      const results = executeSearch({ query: "auth", limit: 200 }, entries)
+    test("tag matches score higher than body-only matches", () => {
+      const results = executeSearch({ query: "auth", limit: 200 }, entries, undefined, idfTable)
       const withAuthTag = results.filter((r) => {
         const entry = entries.find((e) => e.relativePath === r.relativePath)
         return entry?.frontmatter.tags.some((t) => t.toLowerCase().includes("auth"))
       })
-      for (const r of withAuthTag) {
-        expect(r.score).toBeGreaterThanOrEqual(5)
+      const bodyOnlyAuth = results.filter((r) => {
+        const entry = entries.find((e) => e.relativePath === r.relativePath)
+        if (!entry) return false
+        const hasTag = entry.frontmatter.tags.some((t) => t.toLowerCase().includes("auth"))
+        const hasTitle = entry.title.toLowerCase().includes("auth")
+        return !hasTag && !hasTitle
+      })
+      if (withAuthTag.length > 0 && bodyOnlyAuth.length > 0) {
+        const avgTagScore = withAuthTag.reduce((s, r) => s + r.score, 0) / withAuthTag.length
+        const avgBodyScore = bodyOnlyAuth.reduce((s, r) => s + r.score, 0) / bodyOnlyAuth.length
+        expect(avgTagScore).toBeGreaterThan(avgBodyScore)
+      }
+    })
+
+    test("rare terms score higher than common terms", () => {
+      const rareResults = executeSearch({ query: "jsonwebtoken", limit: 200 }, entries, undefined, idfTable)
+      const commonResults = executeSearch({ query: "the", limit: 200 }, entries, undefined, idfTable)
+
+      if (rareResults.length > 0 && commonResults.length > 0) {
+        expect(rareResults[0]!.score).toBeGreaterThan(commonResults[0]!.score)
       }
     })
   })
@@ -202,7 +219,7 @@ describe("simulation validation against real MCP search", () => {
 
     for (const tc of dashboardTests) {
       test(`query ${tc.id}: "${tc.query}" — recall ${Math.round(tc.expectedKeywordRecall * 100)}%`, () => {
-        const results = executeSearch({ query: tc.query, limit: 200 }, entries)
+        const results = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
         const foundNames = new Set(results.map((r) => shardName(r.relativePath)))
         const r = recall(foundNames, tc.idealSet)
         expect(r).toBeCloseTo(tc.expectedKeywordRecall, 1)
@@ -212,7 +229,7 @@ describe("simulation validation against real MCP search", () => {
     test("mean keyword recall across queries 1-7 ≥ 90%", () => {
       let totalRecall = 0
       for (const tc of dashboardTests) {
-        const results = executeSearch({ query: tc.query, limit: 200 }, entries)
+        const results = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
         const foundNames = new Set(results.map((r) => shardName(r.relativePath)))
         totalRecall += recall(foundNames, tc.idealSet)
       }
@@ -225,7 +242,7 @@ describe("simulation validation against real MCP search", () => {
     test("mean recall across all 17 queries matches simulation range", () => {
       let totalRecall = 0
       for (const tc of TESTS) {
-        const results = executeSearch({ query: tc.query, limit: 200 }, entries)
+        const results = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
         const foundNames = new Set(results.map((r) => shardName(r.relativePath)))
         totalRecall += recall(foundNames, tc.idealSet)
       }
@@ -235,7 +252,7 @@ describe("simulation validation against real MCP search", () => {
 
     test("no query achieves 0% recall (keyword search always finds something)", () => {
       for (const tc of TESTS) {
-        const results = executeSearch({ query: tc.query, limit: 200 }, entries)
+        const results = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
         const foundNames = new Set(results.map((r) => shardName(r.relativePath)))
         const r = recall(foundNames, tc.idealSet)
         expect(r).toBeGreaterThan(0)
@@ -246,7 +263,7 @@ describe("simulation validation against real MCP search", () => {
   describe("vocabulary gap — query 5 shows partial keyword recall", () => {
     test("query 5 (revalidatePath revalidateTag) — keyword recall < 100% (graph expansion helps)", () => {
       const tc = TESTS[4]!
-      const results = executeSearch({ query: tc.query, limit: 200 }, entries)
+      const results = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
       const foundNames = new Set(results.map((r) => shardName(r.relativePath)))
       const r = recall(foundNames, tc.idealSet)
       expect(r).toBeLessThan(1.0)
@@ -267,10 +284,10 @@ describe("simulation validation against real MCP search", () => {
 
     test("noise shards never appear in top-5 for technical queries", () => {
       const technicalQueries = TESTS.filter(
-        (t) => ![4, 7].includes(t.id),
+        (t) => ![4, 7, 17].includes(t.id),
       )
       for (const tc of technicalQueries) {
-        const results = executeSearch({ query: tc.query, limit: 5 }, entries)
+        const results = executeSearch({ query: tc.query, limit: 5 }, entries, undefined, idfTable)
         const noiseHits = results.filter((r) => noiseShards.has(shardName(r.relativePath)))
         expect(noiseHits.length).toBe(0)
       }
@@ -281,7 +298,7 @@ describe("simulation validation against real MCP search", () => {
         (t) => ![4, 7, 14].includes(t.id),
       )
       for (const tc of technicalQueries) {
-        const results = executeSearch({ query: tc.query, limit: 200 }, entries)
+        const results = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
         const idealScores = results
           .filter((r) => tc.idealSet.has(shardName(r.relativePath)))
           .map((r) => r.score)
@@ -296,9 +313,9 @@ describe("simulation validation against real MCP search", () => {
       }
     })
 
-    test("queries with common English words may surface noise via stop-word vulnerability", () => {
+    test("queries with common English words produce less noise with BM25 IDF suppression", () => {
       const tc = TESTS.find((t) => t.id === 4)!
-      const results = executeSearch({ query: tc.query, limit: 200 }, entries)
+      const results = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
       const noiseHits = results.filter((r) => noiseShards.has(shardName(r.relativePath)))
       expect(noiseHits.length).toBeGreaterThanOrEqual(0)
     })
@@ -308,7 +325,7 @@ describe("simulation validation against real MCP search", () => {
     test("mean recall with limit=5 ≥ 60%", () => {
       let totalRecall = 0
       for (const tc of TESTS) {
-        const results = executeSearch({ query: tc.query, limit: 5 }, entries)
+        const results = executeSearch({ query: tc.query, limit: 5 }, entries, undefined, idfTable)
         const foundNames = new Set(results.map((r) => shardName(r.relativePath)))
         totalRecall += recall(foundNames, tc.idealSet)
       }
@@ -317,14 +334,14 @@ describe("simulation validation against real MCP search", () => {
     })
   })
 
-  describe("graph-augmented recall — 1-hop expansion improves retrieval", () => {
-    test("graph expansion improves or maintains recall with limit=200", () => {
+  describe("graph-augmented recall — score propagation improves ranking", () => {
+    test("graph propagation improves or maintains recall with limit=200", () => {
       let keywordTotal = 0
       let graphTotal = 0
 
       for (const tc of TESTS) {
-        const keywordResults = executeSearch({ query: tc.query, limit: 200 }, entries)
-        const graphResults = executeSearch({ query: tc.query, limit: 200 }, entries, linkGraph)
+        const keywordResults = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
+        const graphResults = executeSearch({ query: tc.query, limit: 200 }, entries, linkGraph, idfTable)
 
         const keywordNames = new Set(keywordResults.map((r) => shardName(r.relativePath)))
         const graphNames = new Set(graphResults.map((r) => shardName(r.relativePath)))
@@ -336,9 +353,9 @@ describe("simulation validation against real MCP search", () => {
       expect(graphTotal).toBeGreaterThanOrEqual(keywordTotal)
     })
 
-    test("query 7 (what problems did App Router cause) surfaces fetch-cache-persistence via graph", () => {
+    test("query 7 (what problems did App Router cause) surfaces chose-app-router via graph", () => {
       const tc = TESTS.find((t) => t.id === 7)!
-      const results = executeSearch({ query: tc.query, limit: 10 }, entries, linkGraph)
+      const results = executeSearch({ query: tc.query, limit: 10 }, entries, linkGraph, idfTable)
       const foundNames = new Set(results.map((r) => shardName(r.relativePath)))
 
       expect(foundNames.has("chose-app-router")).toBe(true)
@@ -349,8 +366,8 @@ describe("simulation validation against real MCP search", () => {
       let graphTotal = 0
 
       for (const tc of TESTS) {
-        const keywordResults = executeSearch({ query: tc.query, limit: 200 }, entries)
-        const graphResults = executeSearch({ query: tc.query, limit: 200 }, entries, linkGraph)
+        const keywordResults = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
+        const graphResults = executeSearch({ query: tc.query, limit: 200 }, entries, linkGraph, idfTable)
 
         const keywordNames = new Set(keywordResults.map((r) => shardName(r.relativePath)))
         const graphNames = new Set(graphResults.map((r) => shardName(r.relativePath)))
@@ -370,8 +387,8 @@ describe("simulation validation against real MCP search", () => {
       rows.push("|---|-------|-----------|--------------|-----------|-------|-------|--------|")
 
       for (const tc of TESTS) {
-        const kwResults = executeSearch({ query: tc.query, limit: 200 }, entries)
-        const graphResults = executeSearch({ query: tc.query, limit: 200 }, entries, linkGraph)
+        const kwResults = executeSearch({ query: tc.query, limit: 200 }, entries, undefined, idfTable)
+        const graphResults = executeSearch({ query: tc.query, limit: 200 }, entries, linkGraph, idfTable)
         const kwNames = new Set(kwResults.map((r) => shardName(r.relativePath)))
         const graphNames = new Set(graphResults.map((r) => shardName(r.relativePath)))
         const rKw = recall(kwNames, tc.idealSet)

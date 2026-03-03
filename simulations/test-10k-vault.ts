@@ -1,5 +1,6 @@
 import { loadVault, buildLinkGraph } from "../src/vault/loader"
 import { executeSearch, formatSearchResults } from "../src/tools/search-tool"
+import { buildIdfTable } from "../src/tools/bm25"
 import { executeIndex } from "../src/tools/index-tool"
 import { executeRead } from "../src/tools/read-tool"
 import { join } from "path"
@@ -40,31 +41,50 @@ async function main() {
   const fwdEdges = [...linkGraph.forward.values()].reduce((s, v) => s + v.size, 0)
   console.log(`Built link graph in ${graphMs.toFixed(0)} ms  (${linkGraph.forward.size} sources, ${fwdEdges} edges)`)
 
-  hr("SEARCH (with graph augmentation)")
+  const t1b = performance.now()
+  const idfTable = buildIdfTable(entries)
+  const idfMs = performance.now() - t1b
+  console.log(`Built IDF table in ${idfMs.toFixed(0)} ms  (${idfTable.idf.size} tokens, N=${idfTable.N})`)
+
+  hr("SEARCH — BM25 + graph propagation")
   for (const query of SEARCH_QUERIES) {
     const t = performance.now()
-    const results = executeSearch({ query, limit: 10 }, entries, linkGraph)
+    const results = executeSearch({ query, limit: 10 }, entries, linkGraph, idfTable)
     const ms = performance.now() - t
     console.log(`\n--- "${query}" --- (${results.length} results, ${ms.toFixed(1)} ms)`)
     if (results.length === 0) {
       console.log("  (no matches)")
     } else {
       for (const r of results.slice(0, 5)) {
-        console.log(`  [${r.score}] ${r.icon} ${r.title}  (${r.relativePath})`)
+        console.log(`  [${r.score.toFixed(2)}] ${r.icon} ${r.title}  (${r.relativePath})`)
       }
       if (results.length > 5) console.log(`  ... and ${results.length - 5} more`)
     }
   }
 
-  hr("SEARCH (keyword only, no graph)")
+  hr("SEARCH — BM25 keyword only (no graph)")
   for (const query of SEARCH_QUERIES) {
-    const results = executeSearch({ query, limit: 10 }, entries)
+    const results = executeSearch({ query, limit: 10 }, entries, undefined, idfTable)
     console.log(`\n--- "${query}" --- (${results.length} results)`)
     if (results.length === 0) {
       console.log("  (no matches)")
     } else {
       for (const r of results.slice(0, 5)) {
-        console.log(`  [${r.score}] ${r.icon} ${r.title}  (${r.relativePath})`)
+        console.log(`  [${r.score.toFixed(2)}] ${r.icon} ${r.title}  (${r.relativePath})`)
+      }
+      if (results.length > 5) console.log(`  ... and ${results.length - 5} more`)
+    }
+  }
+
+  hr("SEARCH — legacy substring scorer (baseline comparison)")
+  for (const query of SEARCH_QUERIES) {
+    const results = executeSearch({ query, limit: 10 }, entries, linkGraph)
+    console.log(`\n--- "${query}" --- (${results.length} results)`)
+    if (results.length === 0) {
+      console.log("  (no matches)")
+    } else {
+      for (const r of results.slice(0, 5)) {
+        console.log(`  [${r.score.toFixed(2)}] ${r.icon} ${r.title}  (${r.relativePath})`)
       }
       if (results.length > 5) console.log(`  ... and ${results.length - 5} more`)
     }
@@ -104,6 +124,7 @@ async function main() {
   console.log(`Notes:       ${entries.length}`)
   console.log(`Load time:   ${loadMs.toFixed(0)} ms`)
   console.log(`Graph build: ${graphMs.toFixed(0)} ms`)
+  console.log(`IDF build:   ${idfMs.toFixed(0)} ms  (${idfTable.idf.size} tokens)`)
   console.log(`Index size:  ${bytes(indexOutput)}`)
 }
 

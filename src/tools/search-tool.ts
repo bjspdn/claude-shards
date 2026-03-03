@@ -7,6 +7,7 @@ import {
 } from "../vault/types"
 import { formatTokenCount } from "../index-engine/index"
 import type { ToolDefinition } from "./types"
+import { scoreBM25, type IdfTable } from "./bm25"
 
 interface SearchArgs {
   query: string
@@ -24,6 +25,7 @@ interface SearchResult {
   score: number
 }
 
+/** @deprecated Use {@link scoreBM25} from ./bm25 — scheduled for removal. */
 function scoreEntry(entry: NoteEntry, keywords: string[]): number {
   let score = 0
   const titleLower = entry.title.toLowerCase()
@@ -51,6 +53,7 @@ export function executeSearch(
   args: SearchArgs,
   entries: NoteEntry[],
   linkGraph?: LinkGraph,
+  idf?: IdfTable,
 ): SearchResult[] {
   let filtered = entries.slice()
 
@@ -73,7 +76,9 @@ export function executeSearch(
       type: entry.frontmatter.type,
       relativePath: entry.relativePath,
       tokenDisplay: formatTokenCount(entry.tokenCount),
-      score: scoreEntry(entry, keywords),
+      score: idf
+        ? scoreBM25(entry, keywords, idf)
+        : scoreEntry(entry, keywords),
     }))
     .filter((r) => r.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -82,45 +87,33 @@ export function executeSearch(
 
   if (!linkGraph) return scored.slice(0, limit)
 
-  const topResults = scored.slice(0, limit)
-  const inResults = new Set(topResults.map((r) => r.relativePath))
-  const expanded: SearchResult[] = []
+  const ALPHA = 0.3
+  const pathToScore = new Map(scored.map(r => [r.relativePath, r.score]))
 
-  const entryByPath = new Map(entries.map((e) => [e.relativePath, e]))
-
-  for (const result of topResults) {
-    const neighbors = new Set<string>()
-    const fwd = linkGraph.forward.get(result.relativePath)
-    if (fwd) for (const n of fwd) neighbors.add(n)
+  for (const result of scored) {
+    let boost = 0
     const rev = linkGraph.reverse.get(result.relativePath)
-    if (rev) for (const n of rev) neighbors.add(n)
-
-    for (const neighborPath of neighbors) {
-      if (inResults.has(neighborPath)) continue
-
-      const entry = entryByPath.get(neighborPath)
-      if (!entry) continue
-
-      if (args.types?.length && !args.types.includes(entry.frontmatter.type)) continue
-      if (args.tags?.length && !entry.frontmatter.tags.some((t) => args.tags!.includes(t))) continue
-
-      const expandedScore = Math.max(Math.floor(result.score / 2), 1)
-      expanded.push({
-        icon: NOTE_TYPE_ICONS[entry.frontmatter.type],
-        title: entry.title,
-        type: entry.frontmatter.type,
-        relativePath: entry.relativePath,
-        tokenDisplay: formatTokenCount(entry.tokenCount),
-        score: expandedScore,
-      })
-      inResults.add(neighborPath)
+    if (rev) {
+      for (const source of rev) {
+        const sourceScore = pathToScore.get(source) ?? 0
+        const outDegree = linkGraph.forward.get(source)?.size ?? 1
+        boost += sourceScore / outDegree
+      }
     }
+    const fwd = linkGraph.forward.get(result.relativePath)
+    if (fwd) {
+      for (const target of fwd) {
+        const targetScore = pathToScore.get(target) ?? 0
+        const outDegree = linkGraph.forward.get(target)?.size ?? 1
+        boost += targetScore / outDegree
+      }
+    }
+    result.score += ALPHA * boost
   }
 
-  const merged = [...topResults, ...expanded]
-    .sort((a, b) => b.score - a.score)
+  scored.sort((a, b) => b.score - a.score)
 
-  return merged.slice(0, limit)
+  return scored.slice(0, limit)
 }
 
 /**
@@ -147,7 +140,7 @@ export const searchTool: ToolDefinition = {
     limit: z.number().optional().describe("Max results (default 10)"),
   }),
   handler: (args, ctx) => {
-    const results = executeSearch(args, ctx.entries, ctx.linkGraph)
+    const results = executeSearch(args, ctx.entries, ctx.linkGraph, ctx.idfTable)
     if (results.length === 0) {
       return { text: "No notes match that query." }
     }
