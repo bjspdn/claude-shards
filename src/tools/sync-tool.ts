@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { join, resolve } from "path"
-import { homedir } from "os"
 import type { NoteEntry } from "../vault/types"
 import { loadProjectConfig, createDefaultConfig } from "../vault/config"
 import { filterEntries } from "../vault/loader"
@@ -11,22 +10,10 @@ import {
   toIndexEntry,
 } from "../index-engine/index"
 import type { ToolDefinition } from "./types"
-
-export const TECH_TAGS = new Set([
-  "bash", "c", "clojure", "cpp", "csharp", "css", "dart", "elixir", "erlang",
-  "fsharp", "go", "haskell", "html", "java", "javascript", "kotlin", "lua",
-  "ocaml", "perl", "php", "python", "ruby", "rust", "scala", "sql", "swift",
-  "typescript", "zig",
-  "angular", "astro", "bevy", "django", "docker", "electron", "express",
-  "fastapi", "fastify", "flask", "flutter", "gatsby", "gin", "godot",
-  "htmx", "kubernetes", "laravel", "nestjs", "nextjs", "nuxt", "rails",
-  "react", "react-native", "remix", "solid", "spring", "svelte", "tailwind",
-  "tauri", "unity", "unreal", "vue",
-  "bun", "deno", "node", "nodejs",
-])
+import globalConfig from "../config"
 
 function hasTechTag(entry: NoteEntry): boolean {
-  return entry.frontmatter.tags.some((t) => TECH_TAGS.has(t))
+  return entry.frontmatter.tags.some((t) => globalConfig.discovery.techTags.has(t))
 }
 
 interface SyncResult {
@@ -36,12 +23,12 @@ interface SyncResult {
 }
 
 function extractTableEntries(content: string): string[] | null {
-  const sectionStart = content.indexOf("## Knowledge Index")
+  const sectionStart = content.indexOf(globalConfig.display.sectionTitle)
   if (sectionStart === -1) return null
 
   let sectionEnd = content.indexOf(
     "\n## ",
-    sectionStart + "## Knowledge Index".length,
+    sectionStart + globalConfig.display.sectionTitle.length,
   )
   const section =
     sectionEnd === -1
@@ -77,7 +64,7 @@ async function syncToFile(
   const existing = (await file.exists()) ? await file.text() : ""
 
   if (existing) {
-    const sectionAtTop = existing.trimStart().startsWith("## Knowledge Index")
+    const sectionAtTop = existing.trimStart().startsWith(globalConfig.display.sectionTitle)
     const existingEntries = extractTableEntries(existing)
     if (
       sectionAtTop &&
@@ -117,7 +104,7 @@ export async function executeSync(
   let config = await loadProjectConfig(targetDir)
   let autoCreated = false
 
-  const globalClaudeDir = options.globalClaudeDir ?? resolve(homedir(), ".claude")
+  const globalClaudeDir = options.globalClaudeDir ?? resolve(globalConfig.paths.globalClaudeDir)
   const isGlobalDir = resolve(targetDir) === resolve(globalClaudeDir)
 
   if (!config && !isGlobalDir) {

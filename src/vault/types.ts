@@ -1,21 +1,11 @@
 import { z } from "zod"
+import config from "../config"
 
 export const NoteType = z.enum(["gotchas", "decisions", "patterns", "references"])
 export type NoteType = z.infer<typeof NoteType>
 
-export const NOTE_TYPE_ICONS: Record<NoteType, string> = {
-  gotchas: "\uD83D\uDD34",
-  decisions: "\uD83D\uDFE4",
-  patterns: "\uD83D\uDD35",
-  references: "\uD83D\uDFE2",
-}
-
-export const NOTE_TYPE_PRIORITY: Record<NoteType, number> = {
-  gotchas: 0,
-  decisions: 1,
-  patterns: 2,
-  references: 3,
-}
+export const NOTE_TYPE_ICONS = config.noteTypeIcons as Record<NoteType, string>
+export const NOTE_TYPE_PRIORITY = config.noteTypePriority as Record<NoteType, number>
 
 export function flattenWikilinks(val: unknown): string[] {
   if (typeof val === "string") return [val.startsWith("[[") ? val : `[[${val}]]`]

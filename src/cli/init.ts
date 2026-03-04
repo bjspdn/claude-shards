@@ -1,14 +1,10 @@
 import { mkdir } from "fs/promises"
 import { join } from "path"
-import { homedir } from "os"
 import { formatDate, C } from "../utils"
 import { buildSeedNotes } from "./seed"
 import { registerVaultWithObsidian } from "./obsidian"
 import { installGlobal, registerMcpServer } from "./claude-code"
-
-export const VAULT_PATH = join(homedir(), ".claude-shards", "knowledge-base")
-
-const SUBDIRS = ["gotchas", "decisions", "patterns", "references", "_templates"]
+import config from "../config"
 
 export type StepStatus = "created" | "skipped" | "failed"
 
@@ -23,16 +19,18 @@ export type InitResult = {
   steps: InitStep[]
 }
 
-export async function executeInit(): Promise<InitResult> {
+export async function executeInit(vaultPathOverride?: string): Promise<InitResult> {
   const steps: InitStep[] = []
+  const VAULT_PATH = vaultPathOverride ?? config.paths.vaultPath
+  const subdirs = [...config.noteTypes, "_templates"]
 
   await mkdir(VAULT_PATH, { recursive: true })
   steps.push({ name: "vault directory", status: "created", detail: VAULT_PATH })
 
-  for (const sub of SUBDIRS) {
+  for (const sub of subdirs) {
     await mkdir(join(VAULT_PATH, sub), { recursive: true })
   }
-  steps.push({ name: "subdirectories", status: "created", detail: SUBDIRS.join(", ") })
+  steps.push({ name: "subdirectories", status: "created", detail: subdirs.join(", ") })
 
   const dotObsidian = join(VAULT_PATH, ".obsidian")
   await mkdir(dotObsidian, { recursive: true })

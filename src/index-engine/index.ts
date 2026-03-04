@@ -3,6 +3,7 @@ import {
   type NoteEntry,
   type IndexEntry,
 } from "../vault/types"
+import config from "../config"
 
 export function formatTokenCount(count: number): string {
   return `~${Math.round(count / 10) * 10}`
@@ -46,9 +47,9 @@ export function formatKnowledgeSection(entries: NoteEntry[]): string {
   const table = buildIndexTable(entries)
 
   return [
-    "## Knowledge Index",
-    "Use MCP tool `read` with the note path to fetch full details on demand.",
-    "🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
+    config.display.sectionTitle,
+    config.display.instructionLine,
+    config.display.iconLegend,
     "",
     table,
   ].join("\n")
@@ -59,7 +60,8 @@ export function injectKnowledgeSection(
   entries: NoteEntry[],
 ): string {
   const newSection = formatKnowledgeSection(entries)
-  const sectionStart = existingContent.indexOf("## Knowledge Index")
+  const sectionTitle = config.display.sectionTitle
+  const sectionStart = existingContent.indexOf(sectionTitle)
 
   if (sectionStart === -1) {
     return newSection + "\n\n" + existingContent.trimStart()
@@ -68,7 +70,7 @@ export function injectKnowledgeSection(
   const beforeSection = existingContent.substring(0, sectionStart)
   const afterSectionStart = existingContent.indexOf(
     "\n## ",
-    sectionStart + "## Knowledge Index".length,
+    sectionStart + sectionTitle.length,
   )
 
   const rest =
