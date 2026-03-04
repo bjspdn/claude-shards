@@ -33,10 +33,9 @@ export async function executeRead(
 
   return { ok: true, content: await file.text() }
 }
-/** @deprecated Prefer {@link import("./research-tool").researchTool}. MCP tool: reads a single vault note. */
 export const readTool: ToolDefinition = {
   name: "read",
-  description: "[Deprecated — prefer 'research' tool which returns full note content in one call] Fetch full content of a vault note by its relative path",
+  description: "Fetch full content of a vault note by its relative path",
   inputSchema: z.object({
     path: z.string().describe("Relative path within vault (e.g. gotchas/bevy-system-ordering.md)"),
   }),

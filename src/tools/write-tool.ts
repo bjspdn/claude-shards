@@ -2,7 +2,7 @@ import { resolve, relative, dirname } from "path"
 import { mkdir } from "fs/promises"
 import { z } from "zod"
 import matter from "gray-matter"
-import { NoteType, NOTE_TYPE_PRIORITY, type NoteEntry } from "../vault/types"
+import { NoteType, NOTE_TYPE_PRIORITY, flattenWikilinks, type NoteEntry } from "../vault/types"
 import { parseNote } from "../vault/parser"
 import { formatDate } from "../utils"
 import type { ToolDefinition } from "./types"
@@ -17,8 +17,13 @@ interface WriteCreateCmd {
   type: string
   title: string
   body: string
+  description?: string
   tags?: string[]
   projects?: string[]
+  decisions?: string[]
+  patterns?: string[]
+  gotchas?: string[]
+  references?: string[]
 }
 
 interface WriteReplaceCmd {
@@ -27,8 +32,13 @@ interface WriteReplaceCmd {
   type: string
   title: string
   body: string
+  description?: string
   tags?: string[]
   projects?: string[]
+  decisions?: string[]
+  patterns?: string[]
+  gotchas?: string[]
+  references?: string[]
 }
 
 interface WriteAppendCmd {
@@ -77,8 +87,13 @@ export function parseWriteArgs(args: {
   type?: string
   title?: string
   body?: string
+  description?: string
   tags?: string[]
   projects?: string[]
+  decisions?: string[]
+  patterns?: string[]
+  gotchas?: string[]
+  references?: string[]
   overwrite?: boolean
   mode?: string
   section?: string
@@ -108,8 +123,13 @@ export function parseWriteArgs(args: {
         type: args.type!,
         title: args.title!,
         body: args.body!,
+        description: args.description,
         tags: args.tags,
         projects: args.projects,
+        decisions: args.decisions,
+        patterns: args.patterns,
+        gotchas: args.gotchas,
+        references: args.references,
       })
     case "replace":
       return writeReplace({
@@ -117,8 +137,13 @@ export function parseWriteArgs(args: {
         type: args.type!,
         title: args.title!,
         body: args.body!,
+        description: args.description,
         tags: args.tags,
         projects: args.projects,
+        decisions: args.decisions,
+        patterns: args.patterns,
+        gotchas: args.gotchas,
+        references: args.references,
       })
     case "append":
       return writeAppend({ path: args.path, body: args.body! })
@@ -129,14 +154,25 @@ export function parseWriteArgs(args: {
   }
 }
 
+const LINK_CATEGORIES = ["decisions", "patterns", "gotchas", "references"] as const
+
 function buildFrontmatter(args: {
   type: string
+  description?: string
   tags?: string[]
   projects?: string[]
+  decisions?: string[]
+  patterns?: string[]
+  gotchas?: string[]
+  references?: string[]
   created: string
   updated: string
 }): string {
   const lines = ["---", `type: ${args.type}`]
+
+  if (args.description) {
+    lines.push(`description: "${args.description}"`)
+  }
 
   if (args.projects?.length) {
     lines.push("projects:")
@@ -146,6 +182,14 @@ function buildFrontmatter(args: {
   if (args.tags?.length) {
     lines.push("tags:")
     for (const t of args.tags) lines.push(`  - ${t}`)
+  }
+
+  for (const cat of LINK_CATEGORIES) {
+    const vals = args[cat]
+    if (vals?.length) {
+      lines.push(`${cat}:`)
+      for (const v of vals) lines.push(`  - "${v}"`)
+    }
   }
 
   lines.push(`created: ${args.created}`, `updated: ${args.updated}`, "---")
@@ -201,8 +245,13 @@ export async function executeWrite(
       const { data, content: existingContent } = matter(raw)
       const fm = buildFrontmatter({
         type: data.type,
+        description: data.description,
         tags: data.tags,
         projects: data.projects,
+        decisions: flattenWikilinks(data.decisions),
+        patterns: flattenWikilinks(data.patterns),
+        gotchas: flattenWikilinks(data.gotchas),
+        references: flattenWikilinks(data.references),
         created: formatDate(new Date(data.created)),
         updated: today,
       })
@@ -240,8 +289,13 @@ export async function executeWrite(
 
       const fm = buildFrontmatter({
         type: data.type,
+        description: data.description,
         tags: data.tags,
         projects: data.projects,
+        decisions: flattenWikilinks(data.decisions),
+        patterns: flattenWikilinks(data.patterns),
+        gotchas: flattenWikilinks(data.gotchas),
+        references: flattenWikilinks(data.references),
         created: formatDate(new Date(data.created)),
         updated: today,
       })
@@ -264,8 +318,13 @@ export async function executeWrite(
 
       const fm = buildFrontmatter({
         type: cmd.type,
+        description: cmd.description,
         tags: cmd.tags,
         projects: cmd.projects,
+        decisions: cmd.decisions,
+        patterns: cmd.patterns,
+        gotchas: cmd.gotchas,
+        references: cmd.references,
         created: createdDate,
         updated: today,
       })
@@ -298,16 +357,24 @@ export const writeTool: ToolDefinition = {
   description:
     "Create or update a note in the vault with structured frontmatter. " +
     "Modes: 'create' (default, fails if exists), 'replace' (full overwrite), " +
-    "'append' (add body to end), 'patch' (replace or delete a section by heading).",
+    "'append' (add body to end), 'patch' (replace or delete a section by heading). " +
+    "When creating notes, populate 'links' with paths to related notes " +
+    "(gotchas \u2192 the decisions/patterns involved, patterns \u2192 the decisions " +
+    "they implement, references \u2192 patterns that use them).",
   inputSchema: z.object({
     path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
     mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
     type: NoteType.optional().describe("Note type (required for create/replace)"),
     title: z.string().optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
+    description: z.string().optional().describe("One-line semantic summary for search"),
     body: z.string().optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
     section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
     tags: z.array(z.string()).optional().describe("Searchable tags"),
     projects: z.array(z.string()).optional().describe("Project names this note relates to"),
+    decisions: z.array(z.string()).optional().describe("Wikilinks to related decision notes (e.g. [[chose-x]])"),
+    patterns: z.array(z.string()).optional().describe("Wikilinks to related pattern notes (e.g. [[my-pattern]])"),
+    gotchas: z.array(z.string()).optional().describe("Wikilinks to related gotcha notes (e.g. [[my-gotcha]])"),
+    references: z.array(z.string()).optional().describe("Wikilinks to related reference notes (e.g. [[my-reference]])"),
     overwrite: z.boolean().optional().describe("Deprecated — use mode 'replace' instead"),
   }),
   handler: async (args, ctx) => {
@@ -317,6 +384,7 @@ export const writeTool: ToolDefinition = {
     }
     const result = await executeWrite(parsed, ctx.entries, ctx.vaultPath)
     if (result.ok) {
+      ctx.rebuildLinkGraph()
       const verb = result.updated ? "Updated" : "Created"
       return { text: `${verb} note: ${result.path}` }
     }

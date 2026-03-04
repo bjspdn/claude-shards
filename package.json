@@ -1,6 +1,6 @@
 {
   "name": "claude-shards",
-  "version": "0.18.0",
+  "version": "0.20.0",
   "description": "MCP server that gives Claude Code persistent memory via an Obsidian knowledge vault",
   "module": "dist/index.js",
   "main": "dist/index.js",
@@ -34,6 +34,7 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.5.1",
     "@modelcontextprotocol/sdk": "1.27.1",
     "globby": "16.1.1",
     "gray-matter": "4.0.3",

@@ -17,13 +17,26 @@ export const NOTE_TYPE_PRIORITY: Record<NoteType, number> = {
   references: 3,
 }
 
+export function flattenWikilinks(val: unknown): string[] {
+  if (typeof val === "string") return [val.startsWith("[[") ? val : `[[${val}]]`]
+  if (Array.isArray(val)) return val.flatMap(flattenWikilinks)
+  return []
+}
+
+const WikilinkArray = z.any().default([]).transform((val) => flattenWikilinks(val))
+
 export const NoteFrontmatter = z.object({
   type: NoteType,
   projects: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
+  decisions: WikilinkArray,
+  patterns: WikilinkArray,
+  gotchas: WikilinkArray,
+  references: WikilinkArray,
   created: z.coerce.date(),
   updated: z.coerce.date(),
   title: z.string().optional(),
+  description: z.string().optional(),
 })
 export type NoteFrontmatter = z.infer<typeof NoteFrontmatter>
 
@@ -34,6 +47,11 @@ export interface NoteEntry {
   title: string
   body: string
   tokenCount: number
+}
+
+export interface LinkGraph {
+  forward: Map<string, Set<string>>
+  reverse: Map<string, Set<string>>
 }
 
 export interface IndexEntry {

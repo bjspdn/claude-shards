@@ -1,12 +1,19 @@
 import type { z } from "zod"
-import type { NoteEntry } from "../vault/types"
+import type { NoteEntry, LinkGraph } from "../vault/types"
 import type { WatcherStats } from "../vault/watcher"
+import type { IdfTable } from "./bm25"
+import type { EmbeddingIndex } from "../embeddings/types"
 
 /** Shared runtime state injected into every tool handler. */
 export interface ToolContext {
   entries: NoteEntry[]
   vaultPath: string
   watcherStats: WatcherStats
+  linkGraph: LinkGraph
+  idfTable: IdfTable
+  rebuildLinkGraph: () => void
+  embeddingIndex?: EmbeddingIndex
+  embedQuery?: (text: string) => Promise<Float32Array>
 }
 
 /** Normalized response returned by tool handlers before MCP wrapping. */

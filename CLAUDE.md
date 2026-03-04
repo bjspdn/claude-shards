@@ -1,0 +1,2 @@
+- Always spawn sub-agents when conducting heavy tasks. 
+- DO NOT bloat the main context window

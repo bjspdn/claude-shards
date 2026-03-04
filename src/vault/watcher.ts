@@ -43,6 +43,7 @@ async function upsertEntry(
 export function watchVault(
   vaultPath: string,
   entries: NoteEntry[],
+  onFlush?: () => void,
 ): { stop: () => void; stats: WatcherStats } {
   const watchers = new Map<string, FSWatcher>()
   const pending = new Set<string>()
@@ -70,6 +71,8 @@ export function watchVault(
         }
       }
     }
+
+    onFlush?.()
   }
 
   const schedule = () => {

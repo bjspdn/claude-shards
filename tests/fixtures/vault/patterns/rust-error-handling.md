@@ -1,5 +1,6 @@
 ---
 type: patterns
+description: "Pattern for using thiserror for library errors and anyhow for application code"
 projects:
   - shared
 tags:
