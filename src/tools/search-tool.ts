@@ -9,6 +9,7 @@ import { formatTokenCount } from "../index-engine/index"
 import type { ToolDefinition } from "./types"
 import { scoreBM25, MIN_BM25_SCORE, type IdfTable } from "./bm25"
 import type { EmbeddingIndex } from "../embeddings/types"
+import config from "../config"
 
 interface SearchArgs {
   query: string
@@ -88,8 +89,8 @@ export function executeSearch(
   const keywords = args.query.split(/\s+/).filter(Boolean)
   if (keywords.length === 0) return []
 
-  const SEMANTIC_WEIGHT = 0.35
-  const CANDIDATE_K = 50
+  const SEMANTIC_WEIGHT = config.search.semanticWeight
+  const CANDIDATE_K = config.search.candidateK
 
   const bm25Scored = filtered.map((entry) => ({
     entry,
@@ -167,10 +168,10 @@ export function executeSearch(
     }))
   }
 
-  const limit = args.limit ?? 10
+  const limit = args.limit ?? config.search.defaultLimit
 
   if (linkGraph) {
-    const ALPHA = 0.3
+    const ALPHA = config.search.alpha
     const pathToScore = new Map(scored.map((r) => [r.relativePath, r.score]))
 
     for (const result of scored) {

@@ -4,8 +4,8 @@ import type { ToolDefinition } from "./types"
 import { executeSearch } from "./search-tool"
 import type { IdfTable } from "./bm25"
 import type { EmbeddingIndex } from "../embeddings/types"
-
-const SIMILARITY_THRESHOLD = 0.7
+import config from "../config"
+import { draftFolder } from "../vault/paths"
 
 interface SuggestCaptureArgs {
   topic: string
@@ -29,13 +29,14 @@ export function generateSlug(topic: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
-    .slice(0, 60)
+    .slice(0, config.similarity.slugMaxLen)
 }
 
 export function generateMotivation(context: string): string {
-  const trimmed = context.slice(0, 120)
+  const maxLen = config.similarity.contextMaxLen
+  const trimmed = context.slice(0, maxLen)
   const lastSpace = trimmed.lastIndexOf(" ")
-  return lastSpace > 80 ? trimmed.slice(0, lastSpace) : trimmed
+  return lastSpace > maxLen * 0.67 ? trimmed.slice(0, lastSpace) : trimmed
 }
 
 export function executeSuggestCapture(
@@ -56,7 +57,7 @@ export function executeSuggestCapture(
   )
 
   const slug = generateSlug(args.topic)
-  const draftPath = `${args.type}/${slug}.md`
+  const draftPath = `${draftFolder(args.tags)}/${slug}.md`
   const motivation = generateMotivation(args.context)
 
   const similarNotes = similarResults.map((r) => ({
@@ -66,7 +67,7 @@ export function executeSuggestCapture(
   }))
 
   const suggestUpdate =
-    similarNotes.length > 0 && similarNotes[0]!.score >= SIMILARITY_THRESHOLD
+    similarNotes.length > 0 && similarNotes[0]!.score >= config.similarity.threshold
       ? similarNotes[0]
       : undefined
 

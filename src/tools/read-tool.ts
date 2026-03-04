@@ -8,7 +8,7 @@ type ReadResult =
 
 /**
  * Read a single vault note by its relative path.
- * @param notePath - Path relative to the vault root (e.g. `gotchas/my-note.md`).
+ * @param notePath - Path relative to the vault root (e.g. `bevy/my-note.md`).
  * @param vaultPath - Absolute path to the vault directory.
  */
 export async function executeRead(
@@ -37,7 +37,7 @@ export const readTool: ToolDefinition = {
   name: "read",
   description: "Fetch full content of a vault note by its relative path",
   inputSchema: z.object({
-    path: z.string().describe("Relative path within vault (e.g. gotchas/bevy-system-ordering.md)"),
+    path: z.string().describe("Relative path within vault (e.g. bevy/system-ordering.md)"),
   }),
   handler: async ({ path }, ctx) => {
     const result = await executeRead(path, ctx.vaultPath)

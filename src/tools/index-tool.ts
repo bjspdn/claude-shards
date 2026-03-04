@@ -5,6 +5,7 @@ import type { NoteEntry } from "../vault/types"
 import { buildIndexTable } from "../index-engine/index"
 import { formatDate } from "../utils"
 import type { ToolDefinition } from "./types"
+import config from "../config"
 
 interface IndexArgs {
   project?: string
@@ -20,8 +21,8 @@ interface StaleResult {
 export async function markStaleNotes(
   entries: NoteEntry[],
   vaultPath: string,
-  staleDays = 30,
-  deleteDays = 14,
+  staleDays = config.lifecycle.staleDays,
+  deleteDays = config.lifecycle.deleteDays,
   now = new Date(),
 ): Promise<StaleResult> {
   const result: StaleResult = { staleCount: 0, activatedCount: 0, deletedCount: 0, deletedPaths: [] }

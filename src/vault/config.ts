@@ -2,40 +2,10 @@ import { parse, stringify } from "smol-toml"
 import { ProjectConfigSchema, type ProjectConfig, type NoteEntry } from "./types"
 import { join, basename, extname } from "path"
 import { Glob } from "bun"
-
-const EXT_TO_TAGS: Record<string, string[]> = {
-  rs: ["rust"],
-  ts: ["typescript"],
-  tsx: ["typescript", "react"],
-  js: ["javascript"],
-  jsx: ["javascript", "react"],
-  vue: ["vue"],
-  py: ["python"],
-  go: ["go"],
-  rb: ["ruby"],
-  java: ["java"],
-  kt: ["kotlin"],
-  scala: ["scala"],
-  cs: ["csharp"],
-  cpp: ["cpp"],
-  cc: ["cpp"],
-  cxx: ["cpp"],
-  c: ["c"],
-  h: ["c"],
-  swift: ["swift"],
-  dart: ["dart", "flutter"],
-  ex: ["elixir"],
-  exs: ["elixir"],
-  zig: ["zig"],
-  hs: ["haskell"],
-  php: ["php"],
-  lua: ["lua"],
-}
-
-const IGNORE_DIRS = ["node_modules", ".*", "target", "dist", "build"]
+import globalConfig from "../config"
 
 export async function loadProjectConfig(dir: string): Promise<ProjectConfig | null> {
-  const configPath = join(dir, ".context.toml")
+  const configPath = join(dir, globalConfig.paths.contextToml)
   const file = Bun.file(configPath)
 
   if (!(await file.exists())) return null
@@ -70,7 +40,7 @@ async function detectTagsFromExtensions(dir: string, vaultTags: Set<string>): Pr
   const extensions = new Set<string>()
 
   for await (const path of glob.scan({ cwd: dir, dot: false, followSymlinks: false })) {
-    const skip = IGNORE_DIRS.some((d) =>
+    const skip = globalConfig.discovery.ignoreDirs.some((d) =>
       d.startsWith(".")
         ? path.startsWith(".")
         : path.startsWith(d + "/"),
@@ -82,7 +52,7 @@ async function detectTagsFromExtensions(dir: string, vaultTags: Set<string>): Pr
 
   const candidates = new Set<string>()
   for (const ext of extensions) {
-    const tags = EXT_TO_TAGS[ext]
+    const tags = globalConfig.discovery.extToTags[ext]
     if (tags) {
       for (const tag of tags) candidates.add(tag)
     }
@@ -105,7 +75,7 @@ export async function createDefaultConfig(
     }
   }
 
-  const configPath = join(dir, ".context.toml")
+  const configPath = join(dir, globalConfig.paths.contextToml)
   await Bun.write(configPath, stringify(config) + "\n")
   return config
 }

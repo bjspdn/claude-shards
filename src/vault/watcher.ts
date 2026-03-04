@@ -4,6 +4,7 @@ import { Glob } from "bun"
 import { NOTE_TYPE_PRIORITY, type NoteEntry } from "./types"
 import { parseNote } from "./parser"
 import { logInfo, logError } from "../logger"
+import config from "../config"
 
 export interface WatcherStats {
   activeWatchers: number
@@ -77,7 +78,7 @@ export function watchVault(
 
   const schedule = () => {
     if (timer) clearTimeout(timer)
-    timer = setTimeout(flush, 300)
+    timer = setTimeout(flush, config.lifecycle.debounceMs)
   }
 
   const removeDirWatcher = (dirPath: string) => {
