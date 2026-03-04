@@ -1,8 +1,9 @@
 import { test, expect, beforeEach, afterEach } from "bun:test"
 import { join } from "path"
-import { mkdtemp, rm, readdir } from "fs/promises"
+import { mkdtemp, rm, readFile, writeFile } from "fs/promises"
 import { tmpdir } from "os"
-import { buildSeedNotes } from "../../src/cli/seed"
+import { VAULT_BUNDLE } from "../../src/cli/vault-bundle.gen"
+import { saveManifest, hashContent } from "../../src/cli/vault-manifest"
 import { formatInitSummary, type InitResult } from "../../src/cli/init"
 
 let tempDir: string
@@ -15,18 +16,11 @@ afterEach(async () => {
   await rm(tempDir, { recursive: true, force: true })
 })
 
-test("buildSeedNotes returns expected files with date injected", () => {
-  const notes = buildSeedNotes("2026-02-28")
-  expect(notes.length).toBe(2)
-
-  const ofm = notes.find((n) => n.relativePath.includes("obsidian-flavored-markdown"))
-  expect(ofm).toBeDefined()
-  expect(ofm!.content).toContain("created: 2026-02-28")
-  expect(ofm!.content).toContain("type: patterns")
-
-  const template = notes.find((n) => n.relativePath.includes("_templates/note.md"))
-  expect(template).toBeDefined()
-  expect(template!.content).toContain("type:")
+test("VAULT_BUNDLE contains expected files", () => {
+  expect(VAULT_BUNDLE["welcome.md"]).toContain("Welcome to Claude Shards")
+  expect(VAULT_BUNDLE["CLAUDE.md"]).toContain("Claude Shards Vault")
+  expect(VAULT_BUNDLE[".obsidian/app.json"]).toBeDefined()
+  expect(VAULT_BUNDLE["skills/.gitkeep"]).toBeDefined()
 })
 
 test("formatInitSummary produces readable output", () => {
@@ -34,34 +28,71 @@ test("formatInitSummary produces readable output", () => {
     vaultPath: "/home/user/.claude-shards/knowledge-base",
     steps: [
       { name: "vault directory", status: "created", detail: "/home/user/.claude-shards/knowledge-base" },
-      { name: "subdirectories", status: "created", detail: "_templates, _unsorted" },
-      { name: "patterns/ofm.md", status: "skipped", detail: "already exists" },
+      { name: "welcome.md", status: "created", detail: "" },
+      { name: "CLAUDE.md", status: "skipped", detail: "user modified" },
       { name: "Claude Code MCP", status: "failed", detail: "CLI not found" },
     ],
   }
 
   const summary = formatInitSummary(result)
   expect(summary).toContain("claude-shards init")
-  expect(summary).toContain("vault directory")
-  expect(summary).toContain("patterns/ofm.md")
+  expect(summary).toContain("welcome.md")
+  expect(summary).toContain("CLAUDE.md")
   expect(summary).toContain("Claude Code MCP")
   expect(summary).toContain("2 created")
   expect(summary).toContain("1 failed")
 })
 
-test("seed notes write to disk correctly", async () => {
-  const notes = buildSeedNotes("2026-02-28")
-  for (const note of notes) {
-    const fullPath = join(tempDir, note.relativePath)
+test("bundle files write to disk correctly", async () => {
+  const fileEntries = Object.entries(VAULT_BUNDLE).filter(([k]) => !k.endsWith("/"))
+  for (const [relativePath, content] of fileEntries) {
+    const fullPath = join(tempDir, relativePath)
     const dir = join(fullPath, "..")
-    await Bun.write(fullPath, note.content)
+    await Bun.write(fullPath, content)
   }
 
-  const ofmContent = await Bun.file(
-    join(tempDir, "obsidian/obsidian-flavored-markdown.md"),
-  ).text()
-  expect(ofmContent).toContain("# Obsidian Flavored Markdown Conventions")
+  const welcomeContent = await readFile(join(tempDir, "welcome.md"), "utf-8")
+  expect(welcomeContent).toContain("Welcome to Claude Shards")
 
-  const templateContent = await Bun.file(join(tempDir, "_templates/note.md")).text()
-  expect(templateContent).toContain("# Title")
+  const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8")
+  expect(claudeContent).toContain("Claude Shards Vault")
+})
+
+test("selective merge preserves user-modified files", async () => {
+  const originalContent = VAULT_BUNDLE["welcome.md"]
+  const fullPath = join(tempDir, "welcome.md")
+
+  await Bun.write(fullPath, originalContent)
+
+  await saveManifest(tempDir, {
+    version: "0.1.0",
+    files: { "welcome.md": hashContent(originalContent) },
+  })
+
+  const userModified = "# My Custom Welcome\n\nI changed this."
+  await writeFile(fullPath, userModified)
+
+  const diskContent = await readFile(fullPath, "utf-8")
+  const diskHash = hashContent(diskContent)
+  const manifestHash = hashContent(originalContent)
+
+  expect(diskHash).not.toBe(manifestHash)
+})
+
+test("selective merge overwrites unmodified files", async () => {
+  const originalContent = "old version"
+  const fullPath = join(tempDir, "welcome.md")
+
+  await Bun.write(fullPath, originalContent)
+
+  await saveManifest(tempDir, {
+    version: "0.1.0",
+    files: { "welcome.md": hashContent(originalContent) },
+  })
+
+  const diskContent = await readFile(fullPath, "utf-8")
+  const diskHash = hashContent(diskContent)
+  const manifestHash = hashContent(originalContent)
+
+  expect(diskHash).toBe(manifestHash)
 })

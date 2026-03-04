@@ -36,5 +36,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # husky temp files
 .husky/.pending_bump
 
+# generated
+src/cli/vault-bundle.gen.ts
+
 # local files
 *.local.md
