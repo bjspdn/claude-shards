@@ -85,25 +85,84 @@ export function executeSearch(
   const keywords = args.query.split(/\s+/).filter(Boolean)
   if (keywords.length === 0) return []
 
-  const scored = filtered
-    .map((entry) => ({
-      icon: NOTE_TYPE_ICONS[entry.frontmatter.type],
-      title: entry.title,
-      type: entry.frontmatter.type,
-      relativePath: entry.relativePath,
-      tokenDisplay: formatTokenCount(entry.tokenCount),
-      score: idf
-        ? scoreBM25(entry, keywords, idf)
-        : scoreEntry(entry, keywords),
+  const SEMANTIC_WEIGHT = 0.35
+  const CANDIDATE_K = 50
+
+  const bm25Scored = filtered.map((entry) => ({
+    entry,
+    bm25: idf ? scoreBM25(entry, keywords, idf) : scoreEntry(entry, keywords),
+  }))
+
+  const bm25Threshold = idf ? MIN_BM25_SCORE : 0
+  const bm25Candidates = bm25Scored
+    .filter((s) => s.bm25 > bm25Threshold)
+    .sort((a, b) => b.bm25 - a.bm25)
+    .slice(0, CANDIDATE_K)
+
+  const hasSemantic = !!(embeddingIndex && queryEmbedding && embeddingIndex.size > 0)
+
+  let semanticCandidates: { entry: NoteEntry; cosine: number }[] = []
+  if (hasSemantic) {
+    semanticCandidates = filtered
+      .map((entry) => {
+        const emb = embeddingIndex!.get(entry.relativePath)
+        if (!emb) return { entry, cosine: -1 }
+        return { entry, cosine: dotProduct(queryEmbedding!, emb.embedding) }
+      })
+      .filter((s) => s.cosine > 0)
+      .sort((a, b) => b.cosine - a.cosine)
+      .slice(0, CANDIDATE_K)
+  }
+
+  const candidateMap = new Map<string, { entry: NoteEntry; bm25: number; cosine: number }>()
+  for (const s of bm25Candidates) {
+    candidateMap.set(s.entry.relativePath, { entry: s.entry, bm25: s.bm25, cosine: 0 })
+  }
+  for (const s of semanticCandidates) {
+    const existing = candidateMap.get(s.entry.relativePath)
+    if (existing) {
+      existing.cosine = s.cosine
+    } else {
+      candidateMap.set(s.entry.relativePath, { entry: s.entry, bm25: 0, cosine: s.cosine })
+    }
+  }
+
+  const candidates = [...candidateMap.values()]
+  let scored: SearchResult[]
+
+  if (hasSemantic && candidates.length > 0) {
+    const bm25Values = candidates.map((c) => c.bm25)
+    const cosineValues = candidates.map((c) => c.cosine)
+    const normBM25 = minMaxNormalize(bm25Values)
+    const normCosine = minMaxNormalize(cosineValues)
+
+    scored = candidates
+      .map((c, i) => ({
+        icon: NOTE_TYPE_ICONS[c.entry.frontmatter.type],
+        title: c.entry.title,
+        type: c.entry.frontmatter.type,
+        relativePath: c.entry.relativePath,
+        tokenDisplay: formatTokenCount(c.entry.tokenCount),
+        score: (1 - SEMANTIC_WEIGHT) * normBM25[i]! + SEMANTIC_WEIGHT * normCosine[i]!,
+      }))
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+  } else {
+    scored = bm25Candidates.map((s) => ({
+      icon: NOTE_TYPE_ICONS[s.entry.frontmatter.type],
+      title: s.entry.title,
+      type: s.entry.frontmatter.type,
+      relativePath: s.entry.relativePath,
+      tokenDisplay: formatTokenCount(s.entry.tokenCount),
+      score: s.bm25,
     }))
-    .filter((r) => r.score > (idf ? MIN_BM25_SCORE : 0))
-    .sort((a, b) => b.score - a.score)
+  }
 
   const limit = args.limit ?? 10
 
   if (linkGraph) {
     const ALPHA = 0.3
-    const pathToScore = new Map(scored.map(r => [r.relativePath, r.score]))
+    const pathToScore = new Map(scored.map((r) => [r.relativePath, r.score]))
 
     for (const result of scored) {
       let boost = 0
@@ -126,24 +185,6 @@ export function executeSearch(
       result.score += ALPHA * boost
     }
 
-    scored.sort((a, b) => b.score - a.score)
-  }
-
-  if (embeddingIndex && queryEmbedding && embeddingIndex.size > 0) {
-    const SEMANTIC_WEIGHT = 0.35
-    const bm25Scores = scored.map((r) => r.score)
-    const normBM25 = minMaxNormalize(bm25Scores)
-
-    const cosineScores = scored.map((r) => {
-      const entry = embeddingIndex.get(r.relativePath)
-      if (!entry) return 0
-      return dotProduct(queryEmbedding, entry.embedding)
-    })
-    const normCosine = minMaxNormalize(cosineScores)
-
-    for (let i = 0; i < scored.length; i++) {
-      scored[i]!.score = (1 - SEMANTIC_WEIGHT) * normBM25[i]! + SEMANTIC_WEIGHT * normCosine[i]!
-    }
     scored.sort((a, b) => b.score - a.score)
   }
 

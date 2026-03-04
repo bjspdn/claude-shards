@@ -116,15 +116,44 @@ test("executeSearch with embeddingIndex applies score fusion", async () => {
   const queryVec = new Float32Array(dim)
   queryVec[0] = 1.0
 
-  const reranked = executeSearch({ query: "bevy" }, entries, undefined, idf, embeddingIndex, queryVec)
-  expect(reranked.length).toBe(results.length)
+  const hybrid = executeSearch({ query: "bevy" }, entries, undefined, idf, embeddingIndex, queryVec)
+  expect(hybrid.length).toBeGreaterThan(0)
 
-  const allInRange = reranked.every((r) => r.score >= 0 && r.score <= 1)
+  const allInRange = hybrid.every((r) => r.score >= 0 && r.score <= 1)
   expect(allInRange).toBe(true)
+
+  expect(hybrid[0]!.relativePath).toBe(results[0]!.relativePath)
 })
 
 test("executeSearch without embeddingIndex preserves backward compat", async () => {
   await setup
   const results = executeSearch({ query: "bevy" }, entries, undefined, idf, undefined, undefined)
   expect(results.length).toBeGreaterThan(0)
+})
+
+test("hybrid retrieval surfaces semantic-only candidates with no keyword overlap", async () => {
+  await setup
+  const query = "completely unrelated xyzterm"
+
+  const withoutSemantic = executeSearch({ query }, entries, undefined, idf)
+  expect(withoutSemantic.length).toBe(0)
+
+  const dim = 384
+  const embeddingIndex: EmbeddingIndex = new Map()
+  const queryVec = new Float32Array(dim)
+  queryVec[0] = 1.0
+
+  for (const entry of entries) {
+    const vec = new Float32Array(dim)
+    embeddingIndex.set(entry.relativePath, { contentHash: "test", embedding: vec })
+  }
+
+  const target = entries[0]!
+  const highVec = new Float32Array(dim)
+  highVec[0] = 0.95
+  embeddingIndex.set(target.relativePath, { contentHash: "test", embedding: highVec })
+
+  const withSemantic = executeSearch({ query }, entries, undefined, idf, embeddingIndex, queryVec)
+  expect(withSemantic.length).toBeGreaterThan(0)
+  expect(withSemantic[0]!.relativePath).toBe(target.relativePath)
 })

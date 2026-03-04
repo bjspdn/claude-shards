@@ -1,15 +1,12 @@
 import { loadVault, buildLinkGraph } from "../src/vault/loader"
 import { executeSearch } from "../src/tools/search-tool"
 import { buildIdfTable } from "../src/tools/bm25"
-import { warmup, encode, isReady, buildEmbeddingIndex } from "../src/embeddings"
+import { warmup, encode, buildEmbeddingIndex } from "../src/embeddings"
 import { join } from "path"
 import { homedir } from "os"
-import type { NoteEntry, LinkGraph } from "../src/vault/types"
-import type { IdfTable } from "../src/tools/bm25"
 import type { EmbeddingIndex } from "../src/embeddings/types"
 
-const VAULT_10K = join(homedir(), ".claude-shards", "vault-10k")
-const VAULT_78 = join(homedir(), ".claude-shards", "knowledge-base")
+const VAULT = join(homedir(), ".claude-shards", "knowledge-base")
 
 interface IdealSet {
   query: string
@@ -77,25 +74,11 @@ function precision(found: Set<string>, ideal: Set<string>): number {
 }
 
 async function main() {
-  hr("LOADING VAULTS + EMBEDDINGS")
+  hr("LOADING VAULT + EMBEDDINGS")
 
   const t0 = performance.now()
-  const entries10k = await loadVault(VAULT_10K)
-  console.log(`10k vault: ${entries10k.length} notes in ${(performance.now() - t0).toFixed(0)}ms`)
-
-  const entries78 = await loadVault(VAULT_78)
-  console.log(`78-shard vault: ${entries78.length} notes`)
-
-  const existing10kSlugs = new Set(entries10k.map((e) => shardName(e.relativePath)))
-  let merged = 0
-  const entries = [...entries10k]
-  for (const e of entries78) {
-    if (!existing10kSlugs.has(shardName(e.relativePath))) {
-      entries.push(e)
-      merged++
-    }
-  }
-  console.log(`Merged corpus: ${entries.length} notes`)
+  const entries = await loadVault(VAULT)
+  console.log(`Vault: ${entries.length} notes in ${(performance.now() - t0).toFixed(0)}ms`)
 
   const linkGraph = buildLinkGraph(entries)
   const idfTable = buildIdfTable(entries)
@@ -106,16 +89,16 @@ async function main() {
   console.log(`Embedder warmup: ${(performance.now() - t1).toFixed(0)}ms`)
 
   const t2 = performance.now()
-  const embeddingIndex = await buildEmbeddingIndex(entries, VAULT_10K)
+  const embeddingIndex = await buildEmbeddingIndex(entries, VAULT)
   console.log(`Embedding index: ${embeddingIndex.size} vectors in ${(performance.now() - t2).toFixed(0)}ms`)
 
   // =========================================================================
   // R@10 COMPARISON: BM25 vs BM25+Graph vs BM25+Graph+Semantic
   // =========================================================================
-  hr("R@10 COMPARISON (BM25 vs BM25+Graph vs BM25+Graph+Semantic)")
+  hr("R@10 COMPARISON (BM25 vs BM25+Graph vs Hybrid)")
 
-  console.log("\n| # | Query | BM25 R@10 | +Graph R@10 | +Semantic R@10 | BM25 P@10 | +Sem P@10 |")
-  console.log("|---|-------|-----------|-------------|----------------|-----------|-----------|")
+  console.log("\n| # | Query | BM25 R@10 | +Graph R@10 | Hybrid R@10 | BM25 P@10 | Hybrid P@10 |")
+  console.log("|---|-------|-----------|-------------|-------------|-----------|-------------|")
 
   let bm25RecallTotal = 0
   let graphRecallTotal = 0
@@ -157,16 +140,16 @@ async function main() {
   }
 
   const n = QUERIES.length
-  console.log(`\nMean R@10  — BM25: ${((bm25RecallTotal / n) * 100).toFixed(1)}%  +Graph: ${((graphRecallTotal / n) * 100).toFixed(1)}%  +Semantic: ${((semRecallTotal / n) * 100).toFixed(1)}%`)
-  console.log(`Mean P@10  — BM25: ${((bm25PrecTotal / n) * 100).toFixed(1)}%  +Semantic: ${((semPrecTotal / n) * 100).toFixed(1)}%`)
+  console.log(`\nMean R@10  — BM25: ${((bm25RecallTotal / n) * 100).toFixed(1)}%  +Graph: ${((graphRecallTotal / n) * 100).toFixed(1)}%  Hybrid: ${((semRecallTotal / n) * 100).toFixed(1)}%`)
+  console.log(`Mean P@10  — BM25: ${((bm25PrecTotal / n) * 100).toFixed(1)}%  Hybrid: ${((semPrecTotal / n) * 100).toFixed(1)}%`)
 
   // =========================================================================
   // P@5 COMPARISON
   // =========================================================================
-  hr("P@5 COMPARISON (BM25+Graph vs BM25+Graph+Semantic)")
+  hr("P@5 COMPARISON (BM25+Graph vs Hybrid)")
 
-  console.log("\n| # | Query | BM25 P@5 | +Sem P@5 | BM25 top-5 | Sem top-5 |")
-  console.log("|---|-------|----------|----------|------------|-----------|")
+  console.log("\n| # | Query | BM25 P@5 | Hybrid P@5 | BM25 top-5 | Hybrid top-5 |")
+  console.log("|---|-------|----------|------------|------------|--------------|")
 
   let bm25P5Total = 0
   let semP5Total = 0
@@ -195,7 +178,7 @@ async function main() {
     )
   }
 
-  console.log(`\nMean P@5  — BM25+Graph: ${((bm25P5Total / n) * 100).toFixed(1)}%  BM25+Graph+Semantic: ${((semP5Total / n) * 100).toFixed(1)}%`)
+  console.log(`\nMean P@5  — BM25+Graph: ${((bm25P5Total / n) * 100).toFixed(1)}%  Hybrid: ${((semP5Total / n) * 100).toFixed(1)}%`)
 
   // =========================================================================
   // R@10 COMPARISON vs FINDINGS BASELINES
@@ -208,8 +191,8 @@ async function main() {
   const meanBm25P5 = (bm25P5Total / n) * 100
   const meanSemP5 = (semP5Total / n) * 100
 
-  console.log("\n| Metric | Substring (S6.3) | BM25 (S7.6) | BM25+Graph+Sem (now) |")
-  console.log("|--------|-----------------|-------------|----------------------|")
+  console.log("\n| Metric | Substring (S6.3) | BM25 (S7.6) | Hybrid (now) |")
+  console.log("|--------|-----------------|-------------|--------------|")
   console.log(`| Mean R@10 (Q1-7) | 69% | 48.8% | ${meanSemR10.toFixed(1)}% |`)
   console.log(`| Mean P@5 | — | — | ${meanSemP5.toFixed(1)}% |`)
 
@@ -251,12 +234,12 @@ async function main() {
 
   console.log(`\nCorpus: ${entries.length} notes`)
   console.log(`Embedding index: ${embeddingIndex.size} vectors`)
-  console.log(`\nMean R@10  — BM25: ${meanBm25R10.toFixed(1)}%  +Graph: ${meanGraphR10.toFixed(1)}%  +Semantic: ${meanSemR10.toFixed(1)}%`)
-  console.log(`Mean P@5   — BM25+Graph: ${meanBm25P5.toFixed(1)}%  +Semantic: ${meanSemP5.toFixed(1)}%`)
+  console.log(`\nMean R@10  — BM25: ${meanBm25R10.toFixed(1)}%  +Graph: ${meanGraphR10.toFixed(1)}%  Hybrid: ${meanSemR10.toFixed(1)}%`)
+  console.log(`Mean P@5   — BM25+Graph: ${meanBm25P5.toFixed(1)}%  Hybrid: ${meanSemP5.toFixed(1)}%`)
 
   const r10Delta = meanSemR10 - meanGraphR10
   const p5Delta = meanSemP5 - meanBm25P5
-  console.log(`\nSemantic re-ranking delta:`)
+  console.log(`\nHybrid retrieval delta vs BM25+Graph:`)
   console.log(`  R@10: ${r10Delta >= 0 ? "+" : ""}${r10Delta.toFixed(1)}pp`)
   console.log(`  P@5:  ${p5Delta >= 0 ? "+" : ""}${p5Delta.toFixed(1)}pp`)
 }
