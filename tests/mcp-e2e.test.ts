@@ -54,7 +54,7 @@ function resultText(res: Awaited<ReturnType<typeof client.callTool>>): string {
 function parseTableRows(text: string): string[][] {
   return text
     .split("\n")
-    .slice(2) // skip header + separator
+    .slice(2)
     .filter((l) => l.startsWith("|"))
     .map((l) =>
       l
@@ -62,6 +62,7 @@ function parseTableRows(text: string): string[][] {
         .slice(1, -1)
         .map((c) => c.trim()),
     )
+    .filter((cells) => cells[0] !== "")
 }
 
 test("listTools returns search tool with correct schema", async () => {
@@ -82,20 +83,20 @@ test("callTool search returns ranked results", async () => {
   expect(text).toContain("| Score |")
   const rows = parseTableRows(text)
   expect(rows.length).toBeGreaterThan(0)
-  expect(rows[0]?.length).toBe(5)
+  expect(rows[0]?.length).toBe(6)
 })
 
 test("BM25 IDF weighting: rare terms rank higher", async () => {
   const res = await client.callTool({ name: "search", arguments: { query: "bevy" } })
   const rows = parseTableRows(resultText(res))
   expect(rows.length).toBeGreaterThan(0)
-  expect(rows.at(0)?.at(1)?.toLowerCase()).toContain("bevy")
+  expect(rows.at(0)?.at(2)?.toLowerCase()).toContain("bevy")
 })
 
 test("title matches outrank body matches", async () => {
   const res = await client.callTool({ name: "search", arguments: { query: "bevy" } })
   const rows = parseTableRows(resultText(res))
-  expect(rows.at(0)?.at(1)?.toLowerCase()).toContain("bevy")
+  expect(rows.at(0)?.at(2)?.toLowerCase()).toContain("bevy")
 })
 
 test("type filter works through MCP", async () => {
@@ -106,7 +107,7 @@ test("type filter works through MCP", async () => {
   const rows = parseTableRows(resultText(res))
   expect(rows.length).toBeGreaterThan(0)
   for (const row of rows) {
-    expect(row[2]).toContain("gotchas/")
+    expect(row[3]).toContain("gotchas/")
   }
 })
 
@@ -150,8 +151,8 @@ test("graph propagation changes scores", async () => {
   const withGraph = await client.callTool({ name: "search", arguments: { query: "bevy" } })
   const withoutGraph = await clientNoGraph.callTool({ name: "search", arguments: { query: "bevy" } })
 
-  const scoresWith = parseTableRows(resultText(withGraph)).map((r) => parseFloat(r[4] ?? ""))
-  const scoresWithout = parseTableRows(resultText(withoutGraph)).map((r) => parseFloat(r[4] ?? ""))
+  const scoresWith = parseTableRows(resultText(withGraph)).map((r) => parseFloat(r[5] ?? ""))
+  const scoresWithout = parseTableRows(resultText(withoutGraph)).map((r) => parseFloat(r[5] ?? ""))
 
   const differ = scoresWith.some((s, i) => s !== scoresWithout[i])
   expect(differ).toBe(true)

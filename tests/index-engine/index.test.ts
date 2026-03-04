@@ -14,6 +14,7 @@ const MOCK_ENTRIES: NoteEntry[] = [
       tags: ["bevy"],
       created: new Date(),
       updated: new Date(),
+      status: "active",
     },
     filePath: "/vault/gotchas/ordering.md",
     relativePath: "gotchas/ordering.md",
@@ -28,6 +29,7 @@ const MOCK_ENTRIES: NoteEntry[] = [
       tags: ["typescript"],
       created: new Date(),
       updated: new Date(),
+      status: "active",
     },
     filePath: "/vault/decisions/bun.md",
     relativePath: "decisions/bun.md",
@@ -43,7 +45,7 @@ test("buildIndexTable generates padded markdown table", () => {
   expect(lines).toHaveLength(4)
   expect(lines[0]).toContain("| T")
   expect(lines[0]).toContain("Title")
-  expect(lines[1]).toMatch(/^\|[-]+\|[-]+\|[-]+\|[-]+\|$/)
+  expect(lines[1]).toMatch(/^\|[-]+\|[-]+\|[-]+\|[-]+\|[-]+\|$/)
   expect(lines[2]).toContain("System ordering matters")
   expect(lines[2]).toContain("gotchas/ordering.md")
   expect(lines[3]).toContain("Use Bun over Node")

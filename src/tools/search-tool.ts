@@ -24,6 +24,9 @@ interface SearchResult {
   relativePath: string
   tokenDisplay: string
   score: number
+  status: string
+  description?: string
+  motivation?: string
 }
 
 /** @deprecated Use {@link scoreBM25} from ./bm25 — scheduled for removal. */
@@ -144,6 +147,9 @@ export function executeSearch(
         relativePath: c.entry.relativePath,
         tokenDisplay: formatTokenCount(c.entry.tokenCount),
         score: (1 - SEMANTIC_WEIGHT) * normBM25[i]! + SEMANTIC_WEIGHT * normCosine[i]!,
+        status: c.entry.frontmatter.status === "stale" ? "STALE" : "ACTIVE",
+        description: c.entry.frontmatter.description,
+        motivation: c.entry.frontmatter.motivation,
       }))
       .filter((r) => r.score > 0)
       .sort((a, b) => b.score - a.score)
@@ -155,6 +161,9 @@ export function executeSearch(
       relativePath: s.entry.relativePath,
       tokenDisplay: formatTokenCount(s.entry.tokenCount),
       score: s.bm25,
+      status: s.entry.frontmatter.status === "stale" ? "STALE" : "ACTIVE",
+      description: s.entry.frontmatter.description,
+      motivation: s.entry.frontmatter.motivation,
     }))
   }
 
@@ -196,13 +205,20 @@ export function executeSearch(
  * @param results - Scored search results to format.
  */
 export function formatSearchResults(results: SearchResult[]): string {
-  return [
-    "| T | Title | Path | ~Tok | Score |",
-    "|---|-------|------|------|-------|",
-    ...results.map(
-      (r) => `| ${r.icon} | ${r.title} | ${r.relativePath} | ${r.tokenDisplay} | ${r.score} |`,
-    ),
-  ].join("\n")
+  const lines = [
+    "| T | S | Title | Path | ~Tok | Score |",
+    "|---|---|-------|------|------|-------|",
+  ]
+  for (const r of results) {
+    lines.push(`| ${r.icon} | ${r.status} | ${r.title} | ${r.relativePath} | ${r.tokenDisplay} | ${r.score} |`)
+    const details: string[] = []
+    if (r.description) details.push(r.description)
+    if (r.motivation) details.push(`_${r.motivation}_`)
+    if (details.length > 0) {
+      lines.push(`| | | ${details.join(" — ")} | | | |`)
+    }
+  }
+  return lines.join("\n")
 }
 
 export const searchTool: ToolDefinition = {
