@@ -5,6 +5,7 @@ import { buildSeedNotes } from "./seed"
 import { registerVaultWithObsidian } from "./obsidian"
 import { installGlobal, registerMcpServer } from "./claude-code"
 import config from "../config"
+import { detectLegacyLayout, executeMigration } from "./migrate"
 
 export type StepStatus = "created" | "skipped" | "failed"
 
@@ -22,7 +23,7 @@ export type InitResult = {
 export async function executeInit(vaultPathOverride?: string): Promise<InitResult> {
   const steps: InitStep[] = []
   const VAULT_PATH = vaultPathOverride ?? config.paths.vaultPath
-  const subdirs = [...config.noteTypes, "_templates"]
+  const subdirs = ["_templates", "_unsorted"]
 
   await mkdir(VAULT_PATH, { recursive: true })
   steps.push({ name: "vault directory", status: "created", detail: VAULT_PATH })
@@ -46,6 +47,17 @@ export async function executeInit(vaultPathOverride?: string): Promise<InitResul
       await mkdir(join(VAULT_PATH, note.relativePath, ".."), { recursive: true })
       await Bun.write(fullPath, note.content)
       steps.push({ name: note.relativePath, status: "created", detail: "" })
+    }
+  }
+
+  if (await detectLegacyLayout(VAULT_PATH)) {
+    const migration = await executeMigration(VAULT_PATH)
+    if (migration.moved.length > 0) {
+      const detail = `${migration.moved.length} notes moved to tag-based folders`
+      steps.push({ name: "folder migration", status: "created", detail })
+    }
+    for (const dir of migration.removedDirs) {
+      steps.push({ name: `remove ${dir}/`, status: "created", detail: "empty legacy folder" })
     }
   }
 

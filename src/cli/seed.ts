@@ -112,7 +112,7 @@ export type SeedNote = {
 
 export function buildSeedNotes(dateStr: string): SeedNote[] {
   return [
-    { relativePath: "patterns/obsidian-flavored-markdown.md", content: OFM_NOTE(dateStr) },
+    { relativePath: "obsidian/obsidian-flavored-markdown.md", content: OFM_NOTE(dateStr) },
     { relativePath: "_templates/note.md", content: NOTE_TEMPLATE },
   ]
 }

@@ -5,6 +5,7 @@ import { executeSearch } from "./search-tool"
 import type { IdfTable } from "./bm25"
 import type { EmbeddingIndex } from "../embeddings/types"
 import config from "../config"
+import { draftFolder } from "../vault/paths"
 
 interface SuggestCaptureArgs {
   topic: string
@@ -56,7 +57,7 @@ export function executeSuggestCapture(
   )
 
   const slug = generateSlug(args.topic)
-  const draftPath = `${args.type}/${slug}.md`
+  const draftPath = `${draftFolder(args.tags)}/${slug}.md`
   const motivation = generateMotivation(args.context)
 
   const similarNotes = similarResults.map((r) => ({

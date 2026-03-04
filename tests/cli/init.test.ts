@@ -34,7 +34,7 @@ test("formatInitSummary produces readable output", () => {
     vaultPath: "/home/user/.claude-shards/knowledge-base",
     steps: [
       { name: "vault directory", status: "created", detail: "/home/user/.claude-shards/knowledge-base" },
-      { name: "subdirectories", status: "created", detail: "gotchas, decisions" },
+      { name: "subdirectories", status: "created", detail: "_templates, _unsorted" },
       { name: "patterns/ofm.md", status: "skipped", detail: "already exists" },
       { name: "Claude Code MCP", status: "failed", detail: "CLI not found" },
     ],
@@ -58,7 +58,7 @@ test("seed notes write to disk correctly", async () => {
   }
 
   const ofmContent = await Bun.file(
-    join(tempDir, "patterns/obsidian-flavored-markdown.md"),
+    join(tempDir, "obsidian/obsidian-flavored-markdown.md"),
   ).text()
   expect(ofmContent).toContain("# Obsidian Flavored Markdown Conventions")
 

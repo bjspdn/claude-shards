@@ -10,7 +10,6 @@ export interface ShardsConfig {
     globalClaudeMd: string
     contextToml: string
   }
-  noteTypes: readonly string[]
   noteTypeIcons: Record<string, string>
   noteTypePriority: Record<string, number>
   lifecycle: {
@@ -74,7 +73,6 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
       globalClaudeMd: join(globalClaudeDir, "CLAUDE.md"),
       contextToml: ".context.toml",
     },
-    noteTypes: ["gotchas", "decisions", "patterns", "references"],
     noteTypeIcons: {
       gotchas: "🔴",
       decisions: "🟤",
@@ -157,7 +155,6 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
 
   return Object.freeze({
     paths: { ...defaults.paths, ...overrides.paths },
-    noteTypes: overrides.noteTypes ?? defaults.noteTypes,
     noteTypeIcons: overrides.noteTypeIcons ?? defaults.noteTypeIcons,
     noteTypePriority: overrides.noteTypePriority ?? defaults.noteTypePriority,
     lifecycle: { ...defaults.lifecycle, ...overrides.lifecycle },

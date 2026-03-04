@@ -61,7 +61,7 @@ test("executeSuggestCapture generates correct path and type", async () => {
     undefined,
     idf,
   )
-  expect(result.draftPath).toBe("patterns/new-pattern.md")
+  expect(result.draftPath).toBe("_unsorted/new-pattern.md")
   expect(result.draftFrontmatter.type).toBe("patterns")
 })
 
@@ -75,6 +75,17 @@ test("executeSuggestCapture finds similar existing notes", async () => {
   )
   expect(result.similarNotes.length).toBeGreaterThan(0)
   expect(result.similarNotes[0]!.title.toLowerCase()).toContain("bevy")
+})
+
+test("executeSuggestCapture uses first tag as folder", async () => {
+  await setup
+  const result = executeSuggestCapture(
+    { topic: "new pattern", type: "patterns", context: "Some pattern", tags: ["rust", "lifetimes"] },
+    entries,
+    undefined,
+    idf,
+  )
+  expect(result.draftPath).toBe("rust/new-pattern.md")
 })
 
 test("tags and projects pass through correctly", async () => {
@@ -196,7 +207,7 @@ test("formatSuggestion contains draft path", async () => {
   )
   const output = formatSuggestion(suggestion)
   expect(output).toContain("**Draft path:**")
-  expect(output).toContain("patterns/test-format.md")
+  expect(output).toContain("_unsorted/test-format.md")
 })
 
 test("formatSuggestion contains frontmatter yaml block", async () => {

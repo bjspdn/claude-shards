@@ -12,9 +12,8 @@ test("createConfig returns frozen defaults", () => {
   expect(cfg.paths.contextToml).toBe(".context.toml")
 })
 
-test("createConfig has correct note types", () => {
+test("createConfig has correct note type icons and priorities", () => {
   const cfg = createConfig()
-  expect(cfg.noteTypes).toEqual(["gotchas", "decisions", "patterns", "references"])
   expect(cfg.noteTypeIcons.gotchas).toBe("🔴")
   expect(cfg.noteTypeIcons.decisions).toBe("🟤")
   expect(cfg.noteTypeIcons.patterns).toBe("🔵")
