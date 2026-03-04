@@ -9,7 +9,8 @@ import { watchVault } from "./vault/watcher"
 import {
   registerTools,
   indexTool, readTool, searchTool, syncTool,
-  writeTool, diagnosticsTool, buildIdfTable,
+  writeTool, diagnosticsTool, healthTool, suggestCaptureTool,
+  buildIdfTable,
   type ToolContext,
 } from "./tools"
 import { warmup, encode, isReady, buildEmbeddingIndex, updateEmbeddings, type EmbeddingIndex } from "./embeddings"
@@ -209,7 +210,7 @@ async function runServer() {
 
   registerTools(server, [
     indexTool, readTool, searchTool, syncTool,
-    writeTool, diagnosticsTool,
+    writeTool, diagnosticsTool, healthTool, suggestCaptureTool,
   ], ctx)
 
   const transport = new StdioServerTransport()

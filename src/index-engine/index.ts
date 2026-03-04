@@ -14,6 +14,7 @@ export function toIndexEntry(entry: NoteEntry): IndexEntry {
     title: entry.title,
     relativePath: entry.relativePath,
     tokenDisplay: formatTokenCount(entry.tokenCount),
+    status: entry.frontmatter.status === "stale" ? "STALE" : "ACTIVE",
   }
 }
 
@@ -22,10 +23,10 @@ export function buildIndexTable(entries: NoteEntry[]): string {
     return "No knowledge entries match the current filters."
   }
 
-  const headers = ["T", "Title", "Path", "~Tok"]
+  const headers = ["T", "S", "Title", "Path", "~Tok"]
   const rows = entries.map((e) => {
     const idx = toIndexEntry(e)
-    return [idx.icon, idx.title, idx.relativePath, idx.tokenDisplay]
+    return [idx.icon, idx.status, idx.title, idx.relativePath, idx.tokenDisplay]
   })
 
   const colWidths = headers.map((h, i) =>

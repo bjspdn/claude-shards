@@ -25,6 +25,9 @@ export function flattenWikilinks(val: unknown): string[] {
 
 const WikilinkArray = z.any().default([]).transform((val) => flattenWikilinks(val))
 
+export const NoteStatus = z.enum(["active", "stale"]).default("active")
+export type NoteStatus = z.infer<typeof NoteStatus>
+
 export const NoteFrontmatter = z.object({
   type: NoteType,
   projects: z.array(z.string()).default([]),
@@ -37,6 +40,9 @@ export const NoteFrontmatter = z.object({
   updated: z.coerce.date(),
   title: z.string().optional(),
   description: z.string().optional(),
+  motivation: z.string().optional(),
+  status: NoteStatus,
+  staleAt: z.coerce.date().optional(),
 })
 export type NoteFrontmatter = z.infer<typeof NoteFrontmatter>
 
@@ -59,6 +65,7 @@ export interface IndexEntry {
   title: string
   relativePath: string
   tokenDisplay: string
+  status: string
 }
 
 export const ProjectConfigSchema = z.object({

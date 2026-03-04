@@ -26,9 +26,11 @@ export function executeDiagnostics(
 ): string {
   const typeCounts: Record<NoteType, number> = { gotchas: 0, decisions: 0, patterns: 0, references: 0 }
   let totalTokens = 0
+  let staleCount = 0
   for (const entry of entries) {
     typeCounts[entry.frontmatter.type]++
     totalTokens += entry.tokenCount
+    if (entry.frontmatter.status === "stale") staleCount++
   }
 
   const mem = process.memoryUsage()
@@ -38,6 +40,7 @@ export function executeDiagnostics(
     `  Entries:  ${entries.length}`,
     `  Gotchas: ${typeCounts.gotchas}  Decisions: ${typeCounts.decisions}  Patterns: ${typeCounts.patterns}  References: ${typeCounts.references}`,
     `  Tokens:   ${totalTokens}`,
+    `  Stale:    ${staleCount}`,
     "",
     `${C.bold}Watcher${C.reset}`,
     `  Active:   ${watcherStats.activeWatchers}`,
