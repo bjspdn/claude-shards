@@ -13,11 +13,13 @@ function cachePath(vaultPath: string): string {
 }
 
 function contentHash(entry: NoteEntry): string {
-  return Bun.hash(`${entry.title} ${entry.frontmatter.tags.join(" ")}`).toString(36)
+  const desc = entry.frontmatter.description ?? ""
+  return Bun.hash(`${entry.title} ${entry.frontmatter.tags.join(" ")} ${desc}`).toString(36)
 }
 
 function embedText(entry: NoteEntry): string {
-  return `${entry.title} ${entry.frontmatter.tags.join(" ")}`
+  const desc = entry.frontmatter.description ?? ""
+  return `${entry.title} ${entry.frontmatter.tags.join(" ")} ${desc}`
 }
 
 interface SerializedCache {

@@ -21,6 +21,7 @@ export interface IdfTable {
   idf: Map<string, number>
   avgTitleLen: number
   avgTagLen: number
+  avgDescLen: number
   avgBodyLen: number
   N: number
 }
@@ -28,6 +29,7 @@ export interface IdfTable {
 const K1 = 1.5
 const B = 0.75
 const W_TITLE = 10
+const W_DESC = 7
 const W_TAG = 5
 const W_BODY = 1
 
@@ -52,18 +54,21 @@ export function buildIdfTable(entries: NoteEntry[]): IdfTable {
   const df = new Map<string, number>()
   let totalTitleLen = 0
   let totalTagLen = 0
+  let totalDescLen = 0
   let totalBodyLen = 0
 
   for (const entry of entries) {
     const titleTokens = tokenize(entry.title)
     const tagTokens = tokenize(entry.frontmatter.tags.join(" "))
+    const descTokens = tokenize(entry.frontmatter.description ?? "")
     const bodyTokens = tokenize(entry.body)
 
     totalTitleLen += titleTokens.length
     totalTagLen += tagTokens.length
+    totalDescLen += descTokens.length
     totalBodyLen += bodyTokens.length
 
-    const unique = new Set([...titleTokens, ...tagTokens, ...bodyTokens])
+    const unique = new Set([...titleTokens, ...tagTokens, ...descTokens, ...bodyTokens])
     for (const token of unique) {
       df.set(token, (df.get(token) ?? 0) + 1)
     }
@@ -78,6 +83,7 @@ export function buildIdfTable(entries: NoteEntry[]): IdfTable {
     idf,
     avgTitleLen: N > 0 ? totalTitleLen / N : 0,
     avgTagLen: N > 0 ? totalTagLen / N : 0,
+    avgDescLen: N > 0 ? totalDescLen / N : 0,
     avgBodyLen: N > 0 ? totalBodyLen / N : 0,
     N,
   }
@@ -107,6 +113,7 @@ function countToken(tokens: string[], keyword: string): number {
 export function scoreBM25(entry: NoteEntry, keywords: string[], idf: IdfTable): number {
   const titleTokens = tokenize(entry.title)
   const tagTokens = tokenize(entry.frontmatter.tags.join(" "))
+  const descTokens = tokenize(entry.frontmatter.description ?? "")
   const bodyTokens = tokenize(entry.body)
 
   let score = 0
@@ -117,13 +124,15 @@ export function scoreBM25(entry: NoteEntry, keywords: string[], idf: IdfTable): 
 
     const titleTf = countToken(titleTokens, kwLower)
     const tagTf = countToken(tagTokens, kwLower)
+    const descTf = countToken(descTokens, kwLower)
     const bodyTf = countToken(bodyTokens, kwLower)
 
     const titleScore = W_TITLE * tfBm25(titleTf, titleTokens.length, idf.avgTitleLen)
     const tagScore = W_TAG * tfBm25(tagTf, tagTokens.length, idf.avgTagLen)
+    const descScore = W_DESC * tfBm25(descTf, descTokens.length, idf.avgDescLen)
     const bodyScore = W_BODY * tfBm25(bodyTf, bodyTokens.length, idf.avgBodyLen)
 
-    score += idfVal * (titleScore + tagScore + bodyScore)
+    score += idfVal * (titleScore + tagScore + descScore + bodyScore)
   }
 
   return score

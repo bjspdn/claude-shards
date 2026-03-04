@@ -347,6 +347,7 @@ class NotePlan:
     vocab: list[str]
     code_lang: str
     tech_stack: list[str]
+    description: str = ""
     body: str = ""
     links: dict[str, list[str]] = field(default_factory=dict)
 
@@ -753,6 +754,18 @@ def generate_content(plans: list[NotePlan]) -> None:
             plan.body = generate_noise_body(plan.project, plan.vocab, plan.target_words)
             continue
 
+        terms = plan.vocab
+        project = plan.project
+        if len(terms) >= 2:
+            if plan.note_type == "decisions":
+                plan.description = f"Decision to use {terms[0]} over {terms[1]} for {project}"
+            elif plan.note_type == "gotchas":
+                plan.description = f"Gotcha with {terms[0]} causing {terms[1]} issues in {project}"
+            elif plan.note_type == "patterns":
+                plan.description = f"Pattern for {terms[0]} {terms[1]} in {project}"
+            elif plan.note_type == "references":
+                plan.description = f"Reference for {terms[0]} {terms[1]} configuration"
+
         if plan.note_type == "decisions":
             plan.body = generate_decision_body(plan.vocab, plan.target_words)
         elif plan.note_type == "gotchas":
@@ -929,22 +942,19 @@ def write_vault(plans: list[NotePlan], output: Path, resume: bool = True) -> Non
         dir_.mkdir(parents=True, exist_ok=True)
 
         tags_yaml = "\n".join(f"  - {t}" for t in plan.tags)
-        frontmatter = f"""---
-type: {plan.note_type}
-projects:
-  - {plan.project}
-tags:
-{tags_yaml}"""
+        frontmatter = f"---\ntype: {plan.note_type}\n"
+
+        if plan.description:
+            frontmatter += f'description: "{plan.description}"\n'
+
+        frontmatter += f"projects:\n  - {plan.project}\ntags:\n{tags_yaml}"
 
         for cat in ["decisions", "patterns", "gotchas", "references"]:
             links = plan.links.get(cat, [])
             if links:
                 frontmatter += f"\n{cat}:\n" + "\n".join(f'  - "{v}"' for v in links)
 
-        frontmatter += f"""
-created: {plan.created}
-updated: {plan.updated}
----"""
+        frontmatter += f"\ncreated: {plan.created}\nupdated: {plan.updated}\n---"
 
         content = f"{frontmatter}\n\n# {plan.title}\n\n{plan.body.strip()}\n"
         path.write_text(content)

@@ -36,6 +36,7 @@ export const NoteFrontmatter = z.object({
   created: z.coerce.date(),
   updated: z.coerce.date(),
   title: z.string().optional(),
+  description: z.string().optional(),
 })
 export type NoteFrontmatter = z.infer<typeof NoteFrontmatter>
 

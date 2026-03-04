@@ -1,5 +1,6 @@
 ---
 type: gotchas
+description: "Bevy systems run in parallel by default, requiring explicit ordering for data dependencies"
 projects:
   - bevy-game
 tags:

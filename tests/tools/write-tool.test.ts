@@ -548,6 +548,89 @@ test("create mode with category links emits wikilinks in frontmatter YAML", asyn
   expect(content).toContain('  - "[[rust-error-handling]]"')
 })
 
+test("create with description emits description in frontmatter", async () => {
+  const result = await executeWrite(
+    writeCreate({
+      path: "gotchas/with-desc.md",
+      type: "gotchas",
+      title: "Described Note",
+      body: "Some body.",
+      description: "Gotcha with system ordering causing render issues",
+    }),
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  const content = await Bun.file(join(tempVault, "gotchas/with-desc.md")).text()
+  expect(content).toContain('description: "Gotcha with system ordering causing render issues"')
+})
+
+test("create without description omits description from frontmatter", async () => {
+  const result = await executeWrite(
+    writeCreate({
+      path: "gotchas/no-desc.md",
+      type: "gotchas",
+      title: "No Desc",
+      body: "Some body.",
+    }),
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  const content = await Bun.file(join(tempVault, "gotchas/no-desc.md")).text()
+  expect(content).not.toContain("description:")
+})
+
+test("append preserves existing description", async () => {
+  await executeWrite(
+    writeCreate({
+      path: "gotchas/desc-append.md",
+      type: "gotchas",
+      title: "With Desc",
+      body: "original",
+      description: "A semantic summary",
+    }),
+    entries,
+    tempVault,
+  )
+
+  await executeWrite(
+    writeAppend({ path: "gotchas/desc-append.md", body: "appended" }),
+    entries,
+    tempVault,
+  )
+
+  const content = await Bun.file(join(tempVault, "gotchas/desc-append.md")).text()
+  expect(content).toContain('description: "A semantic summary"')
+  expect(content).toContain("appended")
+})
+
+test("patch preserves existing description", async () => {
+  await executeWrite(
+    writeCreate({
+      path: "gotchas/desc-patch.md",
+      type: "gotchas",
+      title: "With Desc",
+      body: "## Sec\n\nold content",
+      description: "A semantic summary",
+    }),
+    entries,
+    tempVault,
+  )
+
+  await executeWrite(
+    writePatch({ path: "gotchas/desc-patch.md", section: "Sec", body: "new content" }),
+    entries,
+    tempVault,
+  )
+
+  const content = await Bun.file(join(tempVault, "gotchas/desc-patch.md")).text()
+  expect(content).toContain('description: "A semantic summary"')
+  expect(content).toContain("new content")
+})
+
 test("append mode preserves existing category links", async () => {
   await executeWrite(
     writeCreate({

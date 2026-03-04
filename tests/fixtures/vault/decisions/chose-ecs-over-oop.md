@@ -1,5 +1,6 @@
 ---
 type: decisions
+description: "Decision to use ECS over OOP for better cache performance and composability in Bevy"
 projects:
   - bevy-game
 tags:

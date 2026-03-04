@@ -17,6 +17,7 @@ interface WriteCreateCmd {
   type: string
   title: string
   body: string
+  description?: string
   tags?: string[]
   projects?: string[]
   decisions?: string[]
@@ -31,6 +32,7 @@ interface WriteReplaceCmd {
   type: string
   title: string
   body: string
+  description?: string
   tags?: string[]
   projects?: string[]
   decisions?: string[]
@@ -85,6 +87,7 @@ export function parseWriteArgs(args: {
   type?: string
   title?: string
   body?: string
+  description?: string
   tags?: string[]
   projects?: string[]
   decisions?: string[]
@@ -120,6 +123,7 @@ export function parseWriteArgs(args: {
         type: args.type!,
         title: args.title!,
         body: args.body!,
+        description: args.description,
         tags: args.tags,
         projects: args.projects,
         decisions: args.decisions,
@@ -133,6 +137,7 @@ export function parseWriteArgs(args: {
         type: args.type!,
         title: args.title!,
         body: args.body!,
+        description: args.description,
         tags: args.tags,
         projects: args.projects,
         decisions: args.decisions,
@@ -153,6 +158,7 @@ const LINK_CATEGORIES = ["decisions", "patterns", "gotchas", "references"] as co
 
 function buildFrontmatter(args: {
   type: string
+  description?: string
   tags?: string[]
   projects?: string[]
   decisions?: string[]
@@ -163,6 +169,10 @@ function buildFrontmatter(args: {
   updated: string
 }): string {
   const lines = ["---", `type: ${args.type}`]
+
+  if (args.description) {
+    lines.push(`description: "${args.description}"`)
+  }
 
   if (args.projects?.length) {
     lines.push("projects:")
@@ -235,6 +245,7 @@ export async function executeWrite(
       const { data, content: existingContent } = matter(raw)
       const fm = buildFrontmatter({
         type: data.type,
+        description: data.description,
         tags: data.tags,
         projects: data.projects,
         decisions: flattenWikilinks(data.decisions),
@@ -278,6 +289,7 @@ export async function executeWrite(
 
       const fm = buildFrontmatter({
         type: data.type,
+        description: data.description,
         tags: data.tags,
         projects: data.projects,
         decisions: flattenWikilinks(data.decisions),
@@ -306,6 +318,7 @@ export async function executeWrite(
 
       const fm = buildFrontmatter({
         type: cmd.type,
+        description: cmd.description,
         tags: cmd.tags,
         projects: cmd.projects,
         decisions: cmd.decisions,
@@ -353,6 +366,7 @@ export const writeTool: ToolDefinition = {
     mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
     type: NoteType.optional().describe("Note type (required for create/replace)"),
     title: z.string().optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
+    description: z.string().optional().describe("One-line semantic summary for search"),
     body: z.string().optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
     section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
     tags: z.array(z.string()).optional().describe("Searchable tags"),

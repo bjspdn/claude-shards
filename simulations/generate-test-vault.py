@@ -7,7 +7,7 @@ VAULT = Path(os.path.expanduser("~/.claude-shards/knowledge-base"))
 
 SHARDS = []
 
-def shard(name, type_, project, tags, title, body, decisions=None, patterns=None, gotchas=None, references=None):
+def shard(name, type_, project, tags, title, body, decisions=None, patterns=None, gotchas=None, references=None, description=None):
     SHARDS.append({
         "name": name,
         "type": type_,
@@ -15,6 +15,7 @@ def shard(name, type_, project, tags, title, body, decisions=None, patterns=None
         "tags": tags,
         "title": title,
         "body": body,
+        "description": description or "",
         "decisions": decisions or [],
         "patterns": patterns or [],
         "gotchas": gotchas or [],
@@ -28,14 +29,16 @@ shard("chose-app-router", "decisions", "dashboard",
     "Chose Next.js App Router Over Pages Router",
     """Chose App Router for the dashboard project. The app directory structure with nested layouts and React Server Components made data fetching simpler. Tradeoff: the middleware layer is more limited than Pages Router — no Node.js APIs in edge runtime, which caused problems with jsonwebtoken library. See [[edge-runtime-auth-limits]] for the auth workaround and [[fetch-cache-persistence]] for the caching gotcha we hit. Redis session lookup latency was acceptable at p99. We made architectural decisions for dashboard around RSC patterns.""",
     patterns=["[[rsc-data-fetching-pattern]]"],
-    gotchas=["[[fetch-cache-persistence]]", "[[edge-runtime-auth-limits]]"])
+    gotchas=["[[fetch-cache-persistence]]", "[[edge-runtime-auth-limits]]"],
+    description="Decision to use App Router over Pages Router for dashboard RSC patterns")
 
 shard("chose-session-tokens", "decisions", "dashboard",
     ["auth", "architecture", "dashboard"],
     "Chose Session Tokens for Dashboard Auth",
     """Evaluated JWT vs session tokens for the dashboard. Session tokens won because the dashboard is a single deployment — no microservice boundary to cross. The session_id cookie is validated by the middleware on every request. Redis stores session data with 24h TTL. The jsonwebtoken library was our first choice but broke in edge runtime. Latency of Redis session lookup is under 5ms at p99. Forward to the API layer for validation.""",
     patterns=["[[server-auth-middleware-pattern]]"],
-    gotchas=["[[edge-runtime-auth-limits]]"])
+    gotchas=["[[edge-runtime-auth-limits]]"],
+    description="Session tokens chosen over JWT for single-deployment dashboard with Redis validation")
 
 shard("fetch-cache-persistence", "gotchas", "dashboard",
     ["nextjs", "caching", "dashboard"],
@@ -43,35 +46,40 @@ shard("fetch-cache-persistence", "gotchas", "dashboard",
     """The App Router fetch cache persists across deployments by default. This caused stale data on the dashboard after deploys. Fix: use revalidatePath or revalidateTag to invalidate. The problems with App Router caching are subtle — the cache key includes the full URL and headers. See [[rsc-data-fetching-pattern]] and [[revalidation-cheatsheet]].""",
     decisions=["[[chose-app-router]]"],
     patterns=["[[rsc-data-fetching-pattern]]"],
-    references=["[[revalidation-cheatsheet]]"])
+    references=["[[revalidation-cheatsheet]]"],
+    description="App Router fetch cache persists across deploys causing stale dashboard data")
 
 shard("edge-runtime-auth-limits", "gotchas", "dashboard",
     ["nextjs", "auth", "edge-runtime", "dashboard"],
     "Edge Runtime Auth Limits",
     """The jose library is the only JWT library that works in Web Crypto (Edge Runtime). jsonwebtoken uses Node.js crypto which is unavailable in middleware. This caused problems when we deployed the App Router dashboard. Cookie validation and session_id checks must use jose instead. See [[server-auth-middleware-pattern]] for the workaround and [[chose-session-tokens]] for why we switched to sessions.""",
     decisions=["[[chose-app-router]]", "[[chose-session-tokens]]"],
-    patterns=["[[server-auth-middleware-pattern]]"])
+    patterns=["[[server-auth-middleware-pattern]]"],
+    description="jsonwebtoken fails in Edge Runtime; must use jose for JWT validation in middleware")
 
 shard("rsc-data-fetching-pattern", "patterns", "dashboard",
     ["nextjs", "rsc", "data-fetching", "dashboard"],
     "RSC Data Fetching Pattern",
     """Pattern for data fetching in React Server Components. Use async components with direct database/API calls. No useEffect or client-side fetching needed. revalidatePath and revalidateTag control cache invalidation. See [[fetch-cache-persistence]] for gotchas.""",
     decisions=["[[chose-app-router]]"],
-    references=["[[revalidation-cheatsheet]]"])
+    references=["[[revalidation-cheatsheet]]"],
+    description="Async Server Component data fetching with revalidatePath/revalidateTag cache control")
 
 shard("server-auth-middleware-pattern", "patterns", "dashboard",
     ["auth", "middleware", "dashboard"],
     "Server Auth Middleware Pattern",
     """Pattern for auth middleware in Next.js App Router. Validates session cookie on every request. The session_id is checked against Redis. If invalid, redirect to login. Uses jose for JWT validation in edge runtime since jsonwebtoken is broken there. Cookie handling follows httpOnly + secure + sameSite strict. See [[edge-runtime-auth-limits]] and [[chose-session-tokens]].""",
     decisions=["[[chose-session-tokens]]"],
-    gotchas=["[[edge-runtime-auth-limits]]"])
+    gotchas=["[[edge-runtime-auth-limits]]"],
+    description="Next.js middleware validates session cookies against Redis on every request")
 
 shard("revalidation-cheatsheet", "references", "dashboard",
     ["nextjs", "caching", "revalidation", "dashboard"],
     "Revalidation Cheatsheet",
     """Quick reference for Next.js cache revalidation. revalidatePath('/dashboard') clears the page cache. revalidateTag('user-data') clears tagged fetches. Time-based revalidation via next.revalidate option. On-demand revalidation from API routes or Server Actions.""",
     patterns=["[[rsc-data-fetching-pattern]]"],
-    gotchas=["[[fetch-cache-persistence]]"])
+    gotchas=["[[fetch-cache-persistence]]"],
+    description="Quick reference for Next.js revalidatePath, revalidateTag, and time-based cache invalidation")
 
 # ── Auth System Cluster ──
 
@@ -82,7 +90,8 @@ shard("chose-jwt-over-sessions", "decisions", "auth-system",
 
 See [[token-refresh-pattern]] for the refresh flow implementation, and [[session-revocation-gotcha]] for the edge case that almost burned us with stale tokens after password changes.""",
     patterns=["[[token-refresh-pattern]]"],
-    gotchas=["[[session-revocation-gotcha]]"])
+    gotchas=["[[session-revocation-gotcha]]"],
+    description="JWT chosen over server sessions for stateless microservice auth with short-lived tokens")
 
 shard("token-refresh-pattern", "patterns", "auth-system",
     ["auth", "jwt", "security"],
@@ -107,7 +116,8 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenPair> {
 
 This pattern is referenced by [[chose-jwt-over-sessions]] as the core refresh mechanism. See [[password-hashing-gotcha]] for why bcrypt rounds matter when validating during token issuance, and [[auth-middleware-reference]] for how the middleware chain validates tokens on each request.""",
     decisions=["[[chose-jwt-over-sessions]]"],
-    gotchas=["[[session-revocation-gotcha]]"])
+    gotchas=["[[session-revocation-gotcha]]"],
+    description="Sliding-expiry refresh tokens in Redis with 15min access tokens and 7-day rotation")
 
 shard("session-revocation-gotcha", "gotchas", "auth-system",
     ["auth", "jwt", "security"],
@@ -116,7 +126,8 @@ shard("session-revocation-gotcha", "gotchas", "auth-system",
 
 The fix: maintain a `tokenInvalidatedAt` timestamp per user in Redis. The [[auth-middleware-reference]] checks this timestamp on every request — if the token was issued before `tokenInvalidatedAt`, reject it. Password changes, account lockouts, and admin "force logout" all update this timestamp. See [[chose-jwt-over-sessions]] for why we accepted this tradeoff and [[rbac-permission-pattern]] for how permission changes interact with cached token claims.""",
     decisions=["[[chose-jwt-over-sessions]]"],
-    patterns=["[[token-refresh-pattern]]"])
+    patterns=["[[token-refresh-pattern]]"],
+    description="Existing JWTs remain valid after password change; fix via tokenInvalidatedAt timestamp")
 
 shard("oauth2-integration-reference", "references", "auth-system",
     ["auth", "oauth", "api"],
@@ -130,7 +141,10 @@ shard("oauth2-integration-reference", "references", "auth-system",
 | Discord | discord.com/oauth2/authorize | discord.com/api/oauth2/token | discord.com/api/users/@me | identify email |
 
 State parameter is a signed JWT containing the redirect URI and a nonce — never use a random string without validation. PKCE (S256) is required for all providers even when using a confidential client, because it prevents authorization code injection attacks. See [[chose-jwt-over-sessions]] for how OAuth tokens are exchanged for our internal JWT pair, and [[two-factor-auth-pattern]] for how 2FA interacts with the OAuth login flow.""",
-    patterns=["[[token-refresh-pattern]]", "[[two-factor-auth-pattern]]"])
+    patterns=["[[token-refresh-pattern]]", "[[two-factor-auth-pattern]]"],
+    description="OAuth2 provider integration reference for Google, GitHub, and Discord with PKCE"
+
+)
 
 shard("rbac-permission-pattern", "patterns", "auth-system",
     ["auth", "authorization", "patterns"],
@@ -151,7 +165,8 @@ function hasPermission(user: User, permission: string): boolean {
 
 Permission claims are embedded in the JWT access token (see [[chose-jwt-over-sessions]]) so most authorization checks happen without a database query. When roles change, the `tokenInvalidatedAt` flag forces token refresh so new permissions take effect — see [[session-revocation-gotcha]] for the invalidation mechanism. The [[auth-middleware-reference]] enforces permission checks at the route level.""",
     decisions=["[[chose-jwt-over-sessions]]"],
-    references=["[[auth-middleware-reference]]"])
+    references=["[[auth-middleware-reference]]"],
+    description="Flat permission set derived from roles at assignment time, embedded in JWT claims")
 
 shard("password-hashing-gotcha", "gotchas", "auth-system",
     ["auth", "security", "performance"],
@@ -159,7 +174,8 @@ shard("password-hashing-gotcha", "gotchas", "auth-system",
     """Set bcrypt cost factor to 14 for maximum security during initial development. Under load testing, login requests consistently timed out at 3 seconds. Each bcrypt hash at cost 14 takes ~1.5 seconds on our hardware, and with 50 concurrent login attempts, the event loop was effectively blocked.
 
 Reduced cost factor to 12 (~300ms per hash), which is still well above the minimum recommended value of 10. The key insight: bcrypt is deliberately CPU-intensive, so running it in the main thread blocks the event loop for all other requests. Moved hashing to a worker thread pool to prevent blocking, but even then, the pool size limits concurrency. See [[token-refresh-pattern]] for how the refresh flow avoids repeated password hashing, and [[chose-jwt-over-sessions]] for the overall auth architecture that minimizes how often we need to hash.""",
-    decisions=["[[chose-jwt-over-sessions]]"])
+    decisions=["[[chose-jwt-over-sessions]]"],
+    description="Bcrypt cost 14 caused login timeouts under load; reduced to 12 with worker thread pool")
 
 shard("two-factor-auth-pattern", "patterns", "auth-system",
     ["auth", "2fa", "security"],
@@ -179,7 +195,8 @@ function verifyTotp(secret: string, token: string): boolean {
 
 The [-1, 0, 1] window compensates for clock drift between client and server. Recovery codes (8 single-use codes) are generated alongside the secret and stored as bcrypt hashes. See [[oauth2-integration-reference]] for how 2FA integrates with the OAuth login flow — after OAuth callback, if 2FA is enabled, the user is redirected to the TOTP prompt before the JWT pair from [[chose-jwt-over-sessions]] is issued.""",
     decisions=["[[chose-jwt-over-sessions]]"],
-    references=["[[oauth2-integration-reference]]"])
+    references=["[[oauth2-integration-reference]]"],
+    description="TOTP two-factor auth with 30-second time steps, clock drift window, and recovery codes")
 
 shard("auth-middleware-reference", "references", "auth-system",
     ["auth", "middleware", "api"],
@@ -196,7 +213,8 @@ If step 2 fails with an expired token, the middleware returns 401 with a `token_
 
 Rate limiting is applied after step 1 to prevent brute-force attacks on stolen refresh tokens. Failed auth attempts are logged with client IP for audit trail. See [[chose-jwt-over-sessions]] for the architectural context.""",
     patterns=["[[rbac-permission-pattern]]"],
-    gotchas=["[[session-revocation-gotcha]]"])
+    gotchas=["[[session-revocation-gotcha]]"],
+    description="Five-step middleware chain: extract token, verify JWT, check invalidation, load permissions, route guard")
 
 # ── CI/CD Pipeline Cluster ──
 
@@ -207,7 +225,8 @@ shard("chose-github-actions", "decisions", "cicd-pipeline",
 
 Matrix builds let us test against Node 18/20/22 in parallel. The built-in `GITHUB_TOKEN` handles artifact pushing to GHCR without managing separate credentials. See [[docker-layer-caching-pattern]] for how we cut build times by 60%, and [[deploy-rollback-gotcha]] for what went wrong with our first automated deployment.""",
     patterns=["[[docker-layer-caching-pattern]]"],
-    gotchas=["[[deploy-rollback-gotcha]]"])
+    gotchas=["[[deploy-rollback-gotcha]]"],
+    description="GitHub Actions chosen for native repo integration, matrix builds, and reusable workflows")
 
 shard("docker-layer-caching-pattern", "patterns", "cicd-pipeline",
     ["cicd", "docker", "performance"],
@@ -234,7 +253,8 @@ CMD ["node", "dist/index.js"]
 
 CI uses `docker/build-push-action` with GitHub Actions cache (`cache-from: type=gha`). Cache hit rate went from ~30% to ~85% after this change. See [[chose-github-actions]] for the CI setup, and [[k8s-manifests-reference]] for how the built image is deployed.""",
     decisions=["[[chose-github-actions]]"],
-    references=["[[k8s-manifests-reference]]"])
+    references=["[[k8s-manifests-reference]]"],
+    description="Multi-stage Docker builds with GHA cache for 85% cache hit rate on CI builds")
 
 shard("deploy-rollback-gotcha", "gotchas", "cicd-pipeline",
     ["cicd", "deployment", "reliability"],
@@ -243,7 +263,8 @@ shard("deploy-rollback-gotcha", "gotchas", "cicd-pipeline",
 
 The fix: rollback deploys a specific image tag from the container registry rather than reverting git commits. The deploy workflow now takes an explicit `image_tag` input parameter for manual rollbacks. See [[chose-github-actions]] for the workflow structure and [[artifact-caching-pattern]] for how we tag and store images.""",
     decisions=["[[chose-github-actions]]"],
-    references=["[[k8s-manifests-reference]]"])
+    references=["[[k8s-manifests-reference]]"],
+    description="Git revert rollback caused infinite deploy loop; fixed by deploying specific image tags")
 
 shard("k8s-manifests-reference", "references", "cicd-pipeline",
     ["cicd", "kubernetes", "infrastructure"],
@@ -286,7 +307,8 @@ spec:
 
 The image tag is replaced by the CI pipeline from [[chose-github-actions]] at deploy time. See [[pipeline-monitoring-reference]] for how deploy status is tracked.""",
     patterns=["[[docker-layer-caching-pattern]]"],
-    gotchas=["[[deploy-rollback-gotcha]]"])
+    gotchas=["[[deploy-rollback-gotcha]]"],
+    description="Standard K8s deployment manifest with rolling updates, probes, and resource limits")
 
 shard("environment-secrets-pattern", "patterns", "cicd-pipeline",
     ["cicd", "security", "configuration"],
@@ -303,7 +325,8 @@ jobs:
 
 Local development uses `.env.local` (gitignored) populated from a team-shared 1Password vault via the `op` CLI. Never hardcode secrets or commit `.env` files. See [[chose-github-actions]] for the workflow-level environment configuration and [[flaky-test-gotcha]] for a case where missing test secrets caused intermittent failures.""",
     decisions=["[[chose-github-actions]]"],
-    gotchas=["[[flaky-test-gotcha]]"])
+    gotchas=["[[flaky-test-gotcha]]"],
+    description="Environment-scoped secrets in GitHub Actions with 1Password CLI for local dev")
 
 shard("flaky-test-gotcha", "gotchas", "cicd-pipeline",
     ["cicd", "testing", "reliability"],
@@ -312,7 +335,8 @@ shard("flaky-test-gotcha", "gotchas", "cicd-pipeline",
 
 Fix: created a `testing` environment with sandbox API keys. Tests that require external services are tagged and only run in CI jobs that specify `environment: testing`. See [[environment-secrets-pattern]] for the secret scoping strategy and [[chose-github-actions]] for how environments are configured in workflows.""",
     decisions=["[[chose-github-actions]]"],
-    patterns=["[[environment-secrets-pattern]]"])
+    patterns=["[[environment-secrets-pattern]]"],
+    description="Tests failed in CI due to secrets scoped to wrong environment; fixed with testing environment")
 
 shard("artifact-caching-pattern", "patterns", "cicd-pipeline",
     ["cicd", "docker", "performance"],
@@ -332,7 +356,8 @@ fi
 
 Rollbacks reference the SHA tag directly rather than rebuilding. The [[deploy-rollback-gotcha]] taught us never to rollback via git — always deploy a known-good image tag. See [[docker-layer-caching-pattern]] for the build-side caching that makes image creation fast.""",
     decisions=["[[chose-github-actions]]"],
-    patterns=["[[docker-layer-caching-pattern]]"])
+    patterns=["[[docker-layer-caching-pattern]]"],
+    description="Docker image tagging strategy with sha/latest/semver tags for rollback-safe deploys")
 
 shard("pipeline-monitoring-reference", "references", "cicd-pipeline",
     ["cicd", "monitoring", "observability"],
@@ -349,7 +374,8 @@ shard("pipeline-monitoring-reference", "references", "cicd-pipeline",
 
 Slack notifications fire on: build failure, deploy success/failure, rollback triggered. PagerDuty alerts on: >3 consecutive failures on main, deploy stuck in pending >15min. See [[chose-github-actions]] for the notification workflow steps and [[artifact-caching-pattern]] for cache metrics collection.""",
     decisions=["[[chose-github-actions]]"],
-    gotchas=["[[flaky-test-gotcha]]"])
+    gotchas=["[[flaky-test-gotcha]]"],
+    description="Key CI/CD health metrics with targets, alert thresholds, and notification channels")
 
 # ── Database Scaling Cluster ──
 
@@ -360,7 +386,8 @@ shard("chose-postgres-over-mysql", "decisions", "database-scaling",
 
 The rich type system (enums, arrays, composite types) reduces the impedance mismatch between TypeScript types and database columns. See [[connection-pooling-pattern]] for how we manage connections at scale, and [[sharding-decision]] for the scaling path we're planning.""",
     patterns=["[[connection-pooling-pattern]]"],
-    gotchas=["[[n-plus-one-query-gotcha]]"])
+    gotchas=["[[n-plus-one-query-gotcha]]"],
+    description="PostgreSQL chosen over MySQL for JSONB, window functions, and Citus sharding compatibility")
 
 shard("connection-pooling-pattern", "patterns", "database-scaling",
     ["database", "postgres", "performance"],
@@ -379,7 +406,8 @@ default_pool_size = 25
 
 Transaction-level pooling is critical: connections are returned to the pool after each transaction, not after each client disconnects. This means `SET` commands and prepared statements don't persist across transactions — see [[n-plus-one-query-gotcha]] for a case where this caused unexpected behavior with ORMs. See [[chose-postgres-over-mysql]] for why Postgres, and [[query-planner-reference]] for optimizing queries that run through the pool.""",
     decisions=["[[chose-postgres-over-mysql]]"],
-    references=["[[index-optimization-reference]]"])
+    references=["[[index-optimization-reference]]"],
+    description="PgBouncer transaction-level pooling to multiplex 1000 client connections onto 25 DB connections")
 
 shard("n-plus-one-query-gotcha", "gotchas", "database-scaling",
     ["database", "orm", "performance"],
@@ -388,7 +416,8 @@ shard("n-plus-one-query-gotcha", "gotchas", "database-scaling",
 
 The fix: use Prisma's `relationLoadStrategy: "join"` to force a single SQL query with JOINs instead of separate queries. For complex aggregations, drop to raw SQL with `$queryRaw`. Monitor query count per request using the Prisma query event logger. See [[connection-pooling-pattern]] for the PgBouncer setup that amplifies this problem, and [[index-optimization-reference]] for ensuring the JOINs are properly indexed.""",
     decisions=["[[chose-postgres-over-mysql]]"],
-    patterns=["[[connection-pooling-pattern]]"])
+    patterns=["[[connection-pooling-pattern]]"],
+    description="Prisma eager loading generates N+1 queries under PgBouncer; fix with relationLoadStrategy join")
 
 shard("index-optimization-reference", "references", "database-scaling",
     ["database", "postgres", "performance"],
@@ -405,7 +434,8 @@ shard("index-optimization-reference", "references", "database-scaling",
 
 Composite indexes: column order matters. Put equality conditions first, range conditions last. A composite `(user_id, created_at)` supports queries on `user_id` alone but not `created_at` alone. See [[n-plus-one-query-gotcha]] for JOIN performance, and [[query-planner-reference]] for reading EXPLAIN output.""",
     patterns=["[[connection-pooling-pattern]]"],
-    gotchas=["[[n-plus-one-query-gotcha]]"])
+    gotchas=["[[n-plus-one-query-gotcha]]"],
+    description="PostgreSQL index types reference: B-tree, GIN, GiST, Hash, Partial, and composite ordering")
 
 shard("read-replica-pattern", "patterns", "database-scaling",
     ["database", "postgres", "scaling"],
@@ -421,7 +451,8 @@ function getConnection(ctx: RequestContext): PrismaClient {
 
 Replication lag (typically <100ms) means reads from the replica may be slightly stale. For read-after-write consistency, mutations return the updated data directly rather than re-querying. See [[chose-postgres-over-mysql]] for the logical replication setup, and [[migration-rollback-gotcha]] for how schema migrations interact with replica lag.""",
     decisions=["[[chose-postgres-over-mysql]]"],
-    gotchas=["[[migration-rollback-gotcha]]"])
+    gotchas=["[[migration-rollback-gotcha]]"],
+    description="Context-based connection routing to read replicas for dashboards, reports, and reindexing")
 
 shard("migration-rollback-gotcha", "gotchas", "database-scaling",
     ["database", "migrations", "reliability"],
@@ -430,7 +461,8 @@ shard("migration-rollback-gotcha", "gotchas", "database-scaling",
 
 The fix: migrations must be backward-compatible. Instead of adding a NOT NULL column, add it as nullable, deploy code that handles both states, backfill data, then alter to NOT NULL in a subsequent migration. See [[read-replica-pattern]] for the replica routing that exposed this issue, and [[chose-postgres-over-mysql]] for replication configuration.""",
     decisions=["[[chose-postgres-over-mysql]]"],
-    patterns=["[[read-replica-pattern]]"])
+    patterns=["[[read-replica-pattern]]"],
+    description="NOT NULL column migration broke read replica during rollback; requires backward-compatible migrations")
 
 shard("query-planner-reference", "references", "database-scaling",
     ["database", "postgres", "debugging"],
@@ -452,7 +484,8 @@ Red flags:
 
 See [[index-optimization-reference]] for index types, and [[connection-pooling-pattern]] for how PgBouncer affects prepared statements used by the planner.""",
     patterns=["[[connection-pooling-pattern]]"],
-    gotchas=["[[n-plus-one-query-gotcha]]"])
+    gotchas=["[[n-plus-one-query-gotcha]]"],
+    description="Reading EXPLAIN ANALYZE output to diagnose slow queries, stale statistics, and missing indexes")
 
 shard("chose-sharding-strategy", "decisions", "database-scaling",
     ["database", "scaling", "architecture"],
@@ -461,7 +494,8 @@ shard("chose-sharding-strategy", "decisions", "database-scaling",
 
 Citus extension for Postgres handles the distributed query routing transparently. The application doesn't need to know which shard a tenant lives on. See [[chose-postgres-over-mysql]] for why Postgres was chosen (Citus compatibility was a factor), and [[connection-pooling-pattern]] for how PgBouncer fronts each shard independently.""",
     decisions=["[[chose-postgres-over-mysql]]"],
-    references=["[[index-optimization-reference]]"])
+    references=["[[index-optimization-reference]]"],
+    description="Tenant-based horizontal sharding with Citus for data isolation and fast cross-table JOINs")
 
 # ── Frontend State Cluster ──
 
@@ -472,7 +506,8 @@ shard("chose-zustand-over-redux", "decisions", "frontend-state",
 
 Redux's middleware ecosystem (thunks, sagas) wasn't needed because our data fetching happens in Server Components (see [[server-component-data-pattern]]). Client state is limited to UI concerns: form state, modal visibility, optimistic updates. See [[form-validation-pattern]] for how Zustand manages form state, and [[hydration-mismatch-gotcha]] for the server/client state sync issue we hit.""",
     patterns=["[[form-validation-pattern]]"],
-    gotchas=["[[hydration-mismatch-gotcha]]"])
+    gotchas=["[[hydration-mismatch-gotcha]]"],
+    description="Zustand chosen over Redux for minimal API surface and UI-only client state management")
 
 shard("form-validation-pattern", "patterns", "frontend-state",
     ["frontend", "forms", "validation"],
@@ -494,7 +529,8 @@ const useFormStore = create<FormState>((set, get) => ({
 
 Errors are computed on read (not stored), so they're always consistent with current values. Only show errors for touched fields to avoid overwhelming the user on first render. See [[chose-zustand-over-redux]] for why Zustand, and [[optimistic-updates-pattern]] for how form submissions use optimistic state.""",
     decisions=["[[chose-zustand-over-redux]]"],
-    references=["[[react-hooks-reference]]"])
+    references=["[[react-hooks-reference]]"],
+    description="Zod schema validation with Zustand store for computed errors on touched fields only")
 
 shard("hydration-mismatch-gotcha", "gotchas", "frontend-state",
     ["frontend", "nextjs", "ssr"],
@@ -503,7 +539,8 @@ shard("hydration-mismatch-gotcha", "gotchas", "frontend-state",
 
 The fix: initialize stores with safe defaults that match server rendering, then hydrate from browser APIs in a `useEffect` after mount. Alternatively, use `useSyncExternalStore` with a `getServerSnapshot` that returns the server-safe default. See [[chose-zustand-over-redux]] for the state management architecture, and [[stale-closure-gotcha]] for a related issue with stale values in event handlers.""",
     decisions=["[[chose-zustand-over-redux]]"],
-    patterns=["[[optimistic-updates-pattern]]"])
+    patterns=["[[optimistic-updates-pattern]]"],
+    description="Zustand stores with browser-dependent initial values cause React hydration mismatches")
 
 shard("react-hooks-reference", "references", "frontend-state",
     ["frontend", "react", "api"],
@@ -521,7 +558,8 @@ shard("react-hooks-reference", "references", "frontend-state",
 
 See [[chose-zustand-over-redux]] for the store pattern, and [[stale-closure-gotcha]] for a common pitfall with useCallback.""",
     patterns=["[[form-validation-pattern]]"],
-    gotchas=["[[stale-closure-gotcha]]"])
+    gotchas=["[[stale-closure-gotcha]]"],
+    description="Quick reference for React hooks usage patterns and when to reach for each one")
 
 shard("optimistic-updates-pattern", "patterns", "frontend-state",
     ["frontend", "ux", "state-management"],
@@ -543,7 +581,8 @@ async function toggleFavorite(itemId: string) {
 
 The rollback pattern captures previous state before mutation. For list operations (add/remove/reorder), keep the rollback state as a snapshot of the full list rather than trying to reverse the operation. See [[chose-zustand-over-redux]] for the store setup, and [[form-validation-pattern]] for how form submissions use this pattern.""",
     decisions=["[[chose-zustand-over-redux]]"],
-    gotchas=["[[hydration-mismatch-gotcha]]"])
+    gotchas=["[[hydration-mismatch-gotcha]]"],
+    description="Immediate UI updates with server reconciliation and rollback on mutation failure")
 
 shard("stale-closure-gotcha", "gotchas", "frontend-state",
     ["frontend", "react", "javascript"],
@@ -560,7 +599,8 @@ const handleSearch = useCallback(
 
 Fix: use a ref to hold the current value, or include the dependency in the useCallback deps array (which recreates the debounced function). For Zustand, call `useStore.getState()` inside the handler instead of using the hook value. See [[react-hooks-reference]] for correct hook usage, and [[hydration-mismatch-gotcha]] for a related initialization timing issue.""",
     patterns=["[[form-validation-pattern]]"],
-    references=["[[react-hooks-reference]]"])
+    references=["[[react-hooks-reference]]"],
+    description="Debounced callbacks capture stale state; fix with refs or useStore.getState()")
 
 shard("server-component-data-pattern", "patterns", "frontend-state",
     ["frontend", "nextjs", "data-fetching"],
@@ -584,7 +624,8 @@ export function DashboardClient({ metrics }: Props) {
 
 This eliminates loading spinners for initial page load and reduces client bundle size. See [[chose-zustand-over-redux]] for why client state is minimal, and [[hydration-mismatch-gotcha]] for the server/client boundary pitfall.""",
     decisions=["[[chose-zustand-over-redux]]"],
-    gotchas=["[[hydration-mismatch-gotcha]]"])
+    gotchas=["[[hydration-mismatch-gotcha]]"],
+    description="Async Server Components fetch data directly; client components receive data as props")
 
 shard("bundle-size-reference", "references", "frontend-state",
     ["frontend", "performance", "nextjs"],
@@ -604,7 +645,8 @@ Analysis tools:
 
 Common size wins: dynamic imports for heavy components (charts, editors), replacing moment.js with date-fns tree-shaking, using server components to keep data-heavy code off the client. See [[server-component-data-pattern]] for the server/client split strategy, and [[chose-zustand-over-redux]] for why Zustand's 1kB footprint beat Redux's 11kB.""",
     decisions=["[[chose-zustand-over-redux]]"],
-    patterns=["[[server-component-data-pattern]]"])
+    patterns=["[[server-component-data-pattern]]"],
+    description="Bundle size budgets enforced in CI with per-route and total JS limits")
 
 # ── API Design Cluster ──
 
@@ -615,7 +657,8 @@ shard("chose-rest-over-graphql", "decisions", "api-design",
 
 GraphQL's flexibility is a liability for our use case — we'd spend more time on query complexity analysis and depth limiting than we'd save on endpoint design. See [[rate-limiting-pattern]] for how we throttle API usage, and [[openapi-spec-reference]] for the auto-generated documentation.""",
     patterns=["[[rate-limiting-pattern]]"],
-    gotchas=["[[cors-misconfiguration-gotcha]]"])
+    gotchas=["[[cors-misconfiguration-gotcha]]"],
+    description="REST chosen over GraphQL for cache-friendly server-to-server integrations with predictable access patterns")
 
 shard("rate-limiting-pattern", "patterns", "api-design",
     ["api", "security", "performance"],
@@ -636,7 +679,8 @@ async function checkRateLimit(apiKey: string): Promise<boolean> {
 
 Response headers include `X-RateLimit-Remaining`, `X-RateLimit-Limit`, and `Retry-After` per RFC 6585. See [[chose-rest-over-graphql]] for the API architecture, and [[cors-misconfiguration-gotcha]] for a related header issue.""",
     decisions=["[[chose-rest-over-graphql]]"],
-    references=["[[openapi-spec-reference]]"])
+    references=["[[openapi-spec-reference]]"],
+    description="Token bucket rate limiting backed by Redis with RFC 6585 response headers")
 
 shard("cors-misconfiguration-gotcha", "gotchas", "api-design",
     ["api", "security", "cors"],
@@ -645,7 +689,8 @@ shard("cors-misconfiguration-gotcha", "gotchas", "api-design",
 
 The fix: explicitly list allowed origins from an environment variable, validate the `Origin` header against the whitelist, and reflect it back in the response. Never use `*` with credentials. See [[chose-rest-over-graphql]] for the API architecture, and [[error-response-pattern]] for how CORS errors are formatted.""",
     decisions=["[[chose-rest-over-graphql]]"],
-    patterns=["[[rate-limiting-pattern]]"])
+    patterns=["[[rate-limiting-pattern]]"],
+    description="Wildcard CORS origin with credentials causes browser rejection; must whitelist origins explicitly")
 
 shard("openapi-spec-reference", "references", "api-design",
     ["api", "documentation", "openapi"],
@@ -660,7 +705,8 @@ Key conventions:
 - Pagination parameters follow [[pagination-pattern]] conventions
 
 Generation: `pnpm generate:openapi` outputs `openapi.json`. This file is committed and diffed in PRs to catch breaking API changes. See [[chose-rest-over-graphql]] for the design philosophy, and [[versioning-gotcha]] for API versioning issues.""",
-    patterns=["[[rate-limiting-pattern]]", "[[pagination-pattern]]"])
+    patterns=["[[rate-limiting-pattern]]", "[[pagination-pattern]]"],
+    description="Auto-generated OpenAPI docs from Zod schemas with zod-to-openapi and Swagger UI")
 
 shard("pagination-pattern", "patterns", "api-design",
     ["api", "performance", "ux"],
@@ -684,7 +730,8 @@ async function paginate<T>(query: Query, cursor?: string, limit = 20) {
 
 Cursors are opaque base64-encoded strings containing the sort field value. See [[chose-rest-over-graphql]] for the API design decisions, and [[openapi-spec-reference]] for how pagination params are documented.""",
     decisions=["[[chose-rest-over-graphql]]"],
-    references=["[[openapi-spec-reference]]"])
+    references=["[[openapi-spec-reference]]"],
+    description="Cursor-based pagination with opaque base64 cursors for stable, depth-independent performance")
 
 shard("versioning-gotcha", "gotchas", "api-design",
     ["api", "versioning", "breaking-changes"],
@@ -693,7 +740,8 @@ shard("versioning-gotcha", "gotchas", "api-design",
 
 The fix: include the API version in the URL path (`/api/v2/users`) rather than in a header. URL-based versioning plays nicely with HTTP caches, CDNs, and client-side caching libraries that key on the full URL. See [[chose-rest-over-graphql]] for the versioning decision, and [[rate-limiting-pattern]] for how rate limits are scoped per API version.""",
     decisions=["[[chose-rest-over-graphql]]"],
-    patterns=["[[error-response-pattern]]"])
+    patterns=["[[error-response-pattern]]"],
+    description="Accept-Version header ignored by client SDK cache; switched to URL-path versioning")
 
 shard("error-response-pattern", "patterns", "api-design",
     ["api", "error-handling", "dx"],
@@ -720,7 +768,8 @@ function handleError(err: unknown, res: Response) {
 
 Error codes are documented in the [[openapi-spec-reference]]. Client SDKs switch on `error.code` rather than HTTP status for granular handling. See [[cors-misconfiguration-gotcha]] for how CORS errors bypass this pattern entirely.""",
     decisions=["[[chose-rest-over-graphql]]"],
-    references=["[[webhook-design-reference]]"])
+    references=["[[webhook-design-reference]]"],
+    description="Consistent JSON error response with machine-readable code, message, and optional details")
 
 shard("webhook-design-reference", "references", "api-design",
     ["api", "webhooks", "architecture"],
@@ -738,7 +787,8 @@ shard("webhook-design-reference", "references", "api-design",
 After 5 failures, the endpoint is marked as failing and the customer is notified via email. Endpoints returning 410 Gone are automatically unsubscribed.
 
 Payload signature: HMAC-SHA256 over `timestamp.body` with the endpoint's signing secret, sent in `X-Webhook-Signature` header. This is the same scheme Stripe uses. See [[chose-rest-over-graphql]] for the API architecture, and [[rate-limiting-pattern]] for how webhook delivery respects rate limits.""",
-    patterns=["[[error-response-pattern]]", "[[rate-limiting-pattern]]"])
+    patterns=["[[error-response-pattern]]", "[[rate-limiting-pattern]]"],
+    description="Webhook delivery with exponential backoff retry, HMAC-SHA256 signatures, and auto-unsubscribe")
 
 # ── Observability Cluster ──
 
@@ -749,7 +799,8 @@ shard("chose-structured-logging", "decisions", "observability",
 
 Pino was chosen over Winston for its lower overhead — it serializes to JSON faster because it avoids creating intermediate objects. See [[distributed-tracing-pattern]] for how trace IDs flow through logs, and [[log-aggregation-pattern]] for the ELK stack that ingests them.""",
     patterns=["[[distributed-tracing-pattern]]"],
-    gotchas=["[[alert-fatigue-gotcha]]"])
+    gotchas=["[[alert-fatigue-gotcha]]"],
+    description="Pino structured JSON logging chosen over console.log for machine-parseable log aggregation")
 
 shard("distributed-tracing-pattern", "patterns", "observability",
     ["observability", "tracing", "microservices"],
@@ -773,7 +824,8 @@ function handleRequest(req: Request) {
 
 Traces are exported to Jaeger via OTLP. The [[chose-structured-logging]] decision ensures trace IDs appear in every log line. See [[prometheus-metrics-reference]] for how trace-derived metrics feed into dashboards, and [[alert-fatigue-gotcha]] for a case where tracing noise overwhelmed alerting.""",
     decisions=["[[chose-structured-logging]]"],
-    references=["[[prometheus-metrics-reference]]"])
+    references=["[[prometheus-metrics-reference]]"],
+    description="OpenTelemetry trace IDs propagated across logs, queries, and outbound HTTP calls")
 
 shard("alert-fatigue-gotcha", "gotchas", "observability",
     ["observability", "alerting", "reliability"],
@@ -784,7 +836,8 @@ When a genuine database outage occurred, the on-call engineer had already silenc
 
 Fix: dramatically reduce alert count by raising thresholds to actionable levels, adding duration requirements (sustained >5min, not instantaneous), and tiering alerts into critical (pages) vs warning (Slack). See [[slo-definition-pattern]] for how SLOs now drive alerting thresholds, and [[metric-cardinality-gotcha]] for another monitoring anti-pattern.""",
     decisions=["[[chose-structured-logging]]"],
-    patterns=["[[distributed-tracing-pattern]]"])
+    patterns=["[[distributed-tracing-pattern]]"],
+    description="Too many low-threshold alerts caused critical database outage alert to be ignored")
 
 shard("prometheus-metrics-reference", "references", "observability",
     ["observability", "prometheus", "metrics"],
@@ -805,7 +858,8 @@ Common PromQL patterns:
 - Request rate: `sum(rate(http_requests_total[5m])) by (path)`
 
 See [[chose-structured-logging]] for how log-derived metrics complement Prometheus, and [[grafana-dashboard-reference]] for visualization.""",
-    patterns=["[[distributed-tracing-pattern]]", "[[slo-definition-pattern]]"])
+    patterns=["[[distributed-tracing-pattern]]", "[[slo-definition-pattern]]"],
+    description="Standard Prometheus metrics, label conventions, and common PromQL query patterns")
 
 shard("log-aggregation-pattern", "patterns", "observability",
     ["observability", "logging", "infrastructure"],
@@ -820,7 +874,8 @@ Key Logstash filters:
 
 Retention: 30 days for info, 90 days for warn/error, 1 year for audit events. Index lifecycle management (ILM) handles rotation and deletion automatically. See [[chose-structured-logging]] for the logging format, and [[metric-cardinality-gotcha]] for why we limit label values in log-derived metrics.""",
     decisions=["[[chose-structured-logging]]"],
-    gotchas=["[[metric-cardinality-gotcha]]"])
+    gotchas=["[[metric-cardinality-gotcha]]"],
+    description="Pino JSON logs through Filebeat, Logstash, Elasticsearch, and Kibana with tiered retention")
 
 shard("metric-cardinality-gotcha", "gotchas", "observability",
     ["observability", "prometheus", "performance"],
@@ -829,7 +884,8 @@ shard("metric-cardinality-gotcha", "gotchas", "observability",
 
 The rule: never use unbounded values (user IDs, request IDs, email addresses) as metric labels. Labels should have low, bounded cardinality (<100 unique values). For per-user metrics, log the data and query it from the log aggregation layer (see [[log-aggregation-pattern]]) rather than exposing it as a Prometheus metric. See [[prometheus-metrics-reference]] for the correct label schema, and [[alert-fatigue-gotcha]] for how this OOM triggered a cascade of false alerts.""",
     decisions=["[[chose-structured-logging]]"],
-    references=["[[prometheus-metrics-reference]]"])
+    references=["[[prometheus-metrics-reference]]"],
+    description="userId as metric label created 50M time series and OOM'd Prometheus; use log aggregation instead")
 
 shard("slo-definition-pattern", "patterns", "observability",
     ["observability", "sre", "reliability"],
@@ -846,7 +902,8 @@ Error budget consumed = (actual errors / total requests) / (1 - SLO target). Whe
 
 Alerting is derived from SLOs: alert when error budget burn rate exceeds 14.4x (will exhaust budget in 1 hour) for page-level urgency, or 6x (will exhaust in 6 hours) for ticket-level. See [[alert-fatigue-gotcha]] for why SLO-based alerting replaced threshold-based alerts, and [[prometheus-metrics-reference]] for the metrics that feed SLO calculations.""",
     decisions=["[[chose-structured-logging]]"],
-    references=["[[grafana-dashboard-reference]]"])
+    references=["[[grafana-dashboard-reference]]"],
+    description="SLO targets with error budgets driving alerting thresholds and deploy freezes")
 
 shard("grafana-dashboard-reference", "references", "observability",
     ["observability", "grafana", "visualization"],
@@ -864,7 +921,8 @@ Variables: `$service` (dropdown), `$environment` (staging/production), `$timeran
 
 Annotations: deploy events from GitHub webhook, PagerDuty incidents, maintenance windows. These overlay on all panels so latency spikes can be correlated with deploys. See [[prometheus-metrics-reference]] for the underlying metrics, and [[chose-structured-logging]] for log-based panels.""",
     patterns=["[[slo-definition-pattern]]"],
-    gotchas=["[[alert-fatigue-gotcha]]"])
+    gotchas=["[[alert-fatigue-gotcha]]"],
+    description="Standard Grafana dashboard layout with golden signals, deploy annotations, and SLO panels")
 
 # ── Search/NLP Cluster ──
 
@@ -875,7 +933,8 @@ shard("chose-fulltext-over-vector", "decisions", "search-nlp",
 
 Vector search is valuable for semantic queries ("comfortable running shoes" matching "lightweight jogging sneakers") but we're adding it as a secondary signal rather than replacing BM25. See [[hybrid-retrieval-pattern]] for how we combine both, and [[embedding-model-pattern]] for the vector pipeline.""",
     patterns=["[[embedding-model-pattern]]"],
-    gotchas=["[[tokenization-gotcha]]"])
+    gotchas=["[[tokenization-gotcha]]"],
+    description="BM25 full-text as primary search with vector search as secondary semantic signal")
 
 shard("embedding-model-pattern", "patterns", "search-nlp",
     ["search", "ml", "embeddings"],
@@ -895,7 +954,8 @@ async function embedDocuments(docs: Document[]): Promise<void> {
 
 The embedding input is `title + description` — not the full document, because long inputs dilute the semantic signal. See [[chose-fulltext-over-vector]] for why this is a secondary signal, and [[tokenization-gotcha]] for an input length issue we hit.""",
     decisions=["[[chose-fulltext-over-vector]]"],
-    references=["[[elasticsearch-reference-config]]"])
+    references=["[[elasticsearch-reference-config]]"],
+    description="Batch embedding pipeline using text-embedding-3-small on title+description for nightly indexing")
 
 shard("tokenization-gotcha", "gotchas", "search-nlp",
     ["search", "nlp", "api"],
@@ -904,7 +964,8 @@ shard("tokenization-gotcha", "gotchas", "search-nlp",
 
 The fix: pre-tokenize input using tiktoken's `cl100k_base` encoder (same tokenizer the model uses) and truncate at 8000 tokens with a clear boundary (end of sentence). Log a warning when truncation occurs. See [[embedding-model-pattern]] for the pipeline, and [[elasticsearch-reference-config]] for how we store both the embedding and the full-text index.""",
     decisions=["[[chose-fulltext-over-vector]]"],
-    patterns=["[[embedding-model-pattern]]"])
+    patterns=["[[embedding-model-pattern]]"],
+    description="OpenAI embedding API silently truncates inputs beyond 8191 tokens without error")
 
 shard("elasticsearch-reference-config", "references", "search-nlp",
     ["search", "elasticsearch", "configuration"],
@@ -937,7 +998,8 @@ shard("elasticsearch-reference-config", "references", "search-nlp",
 ```
 
 See [[chose-fulltext-over-vector]] for the hybrid architecture decision, and [[index-sharding-reference]] for shard allocation strategy.""",
-    patterns=["[[embedding-model-pattern]]", "[[semantic-search-pattern]]"])
+    patterns=["[[embedding-model-pattern]]", "[[semantic-search-pattern]]"],
+    description="Elasticsearch index config with custom analyzers, BM25 text fields, and dense_vector kNN")
 
 shard("semantic-search-pattern", "patterns", "search-nlp",
     ["search", "nlp", "vector-search"],
@@ -955,7 +1017,8 @@ async function semanticSearch(query: string, k = 10) {
 
 `num_candidates` controls the accuracy/speed tradeoff: higher values search more shards but return more accurate results. 100 candidates for k=10 is a good default. See [[chose-fulltext-over-vector]] for why semantic search is secondary, and [[hybrid-retrieval-pattern]] for how it combines with BM25.""",
     decisions=["[[chose-fulltext-over-vector]]"],
-    gotchas=["[[relevance-tuning-gotcha]]"])
+    gotchas=["[[relevance-tuning-gotcha]]"],
+    description="kNN vector search using Elasticsearch with configurable num_candidates accuracy tradeoff")
 
 shard("relevance-tuning-gotcha", "gotchas", "search-nlp",
     ["search", "relevance", "debugging"],
@@ -964,7 +1027,8 @@ shard("relevance-tuning-gotcha", "gotchas", "search-nlp",
 
 The fix: for queries under 4 tokens, disable the vector search component entirely and rely only on BM25 keyword matching. Short queries have high keyword precision — the user typed exactly what they want. Vector search adds value only for longer, more descriptive queries where vocabulary gaps exist. See [[hybrid-retrieval-pattern]] for the routing logic, and [[chose-fulltext-over-vector]] for the architectural decision.""",
     decisions=["[[chose-fulltext-over-vector]]"],
-    patterns=["[[semantic-search-pattern]]"])
+    patterns=["[[semantic-search-pattern]]"],
+    description="Short queries produce poor vector results; disable vector search for queries under 4 tokens")
 
 shard("hybrid-retrieval-pattern", "patterns", "search-nlp",
     ["search", "nlp", "architecture"],
@@ -990,7 +1054,8 @@ async function hybridSearch(query: string, k = 10) {
 
 RRF merges ranked lists without needing score normalization — it uses `1/(rank + 60)` per result per list, summing across lists. This avoids the problem of BM25 scores and cosine similarities being on incomparable scales. See [[chose-fulltext-over-vector]] for the architecture, [[semantic-search-pattern]] for the vector component, and [[relevance-tuning-gotcha]] for why short queries skip vector search.""",
     decisions=["[[chose-fulltext-over-vector]]"],
-    references=["[[elasticsearch-reference-config]]"])
+    references=["[[elasticsearch-reference-config]]"],
+    description="Reciprocal Rank Fusion combining BM25 and kNN results with short-query fallback to text-only")
 
 shard("index-sharding-reference", "references", "search-nlp",
     ["search", "elasticsearch", "infrastructure"],
@@ -1011,7 +1076,8 @@ Rules of thumb:
 
 See [[elasticsearch-reference-config]] for index settings, and [[chose-fulltext-over-vector]] for the overall search architecture.""",
     patterns=["[[hybrid-retrieval-pattern]]"],
-    gotchas=["[[tokenization-gotcha]]"])
+    gotchas=["[[tokenization-gotcha]]"],
+    description="Elasticsearch shard sizing guidelines by document count with JVM heap and per-node limits")
 
 # ── Search/NLP Extended Cluster ──
 
@@ -1020,48 +1086,55 @@ shard("chose-elasticsearch", "decisions", "search-platform",
     "Chose Elasticsearch Over Solr for Full-Text Search",
     """Evaluated Elasticsearch and Solr for our full-text search infrastructure. Elasticsearch won due to its native REST API, near-real-time indexing capabilities, and a significantly richer ecosystem of client libraries and tooling. The built-in mapping types and configurable analyzers gave us fine-grained control over how product data was tokenized and scored. Cluster management via the CAT APIs and Kibana made operations more transparent than Solr's ZooKeeper dependency. See [[elasticsearch-mapping-explosion]] for a critical gotcha we hit with dynamic mappings, and [[search-relevance-tuning-reference]] for how we tuned relevance after migration.""",
     gotchas=["[[elasticsearch-mapping-explosion]]"],
-    references=["[[search-relevance-tuning-reference]]"])
+    references=["[[search-relevance-tuning-reference]]"],
+    description="Elasticsearch chosen over Solr for REST API, near-real-time indexing, and richer tooling ecosystem")
 
 shard("elasticsearch-mapping-explosion", "gotchas", "search-platform",
     ["elasticsearch", "mapping", "cardinality"],
     "Elasticsearch Mapping Explosion from Dynamic Fields",
     """Dynamic field mappings in Elasticsearch caused cluster instability when high-cardinality user-generated data created thousands of unique field names in the index. Each new field adds to the cluster state, and at around 10,000 mappings the master node started timing out on state updates. The fielddata circuit breaker tripped repeatedly under query load because every unique field consumed heap for aggregation metadata. The fix was switching to strict mapping mode (`"dynamic": "strict"`) so unmapped fields are rejected at index time, combined with explicit mappings for all known fields. See [[chose-elasticsearch]] for the original architecture decision, and [[chose-fulltext-over-vector]] for how the hybrid approach was unaffected since vector fields use a fixed schema.""",
-    decisions=["[[chose-elasticsearch]]", "[[chose-fulltext-over-vector]]"])
+    decisions=["[[chose-elasticsearch]]", "[[chose-fulltext-over-vector]]"],
+    description="Dynamic field mappings created 10K+ fields causing master node timeouts; switched to strict mode")
 
 shard("search-relevance-tuning-reference", "references", "search-platform",
     ["elasticsearch", "relevance", "search"],
     "Search Relevance Tuning Quick Reference",
     """Reference for tuning Elasticsearch BM25 ranking parameters. The key BM25 knobs are `k1` (term frequency saturation, default 1.2, raise to 1.5-2.0 for long documents) and `b` (length normalization, default 0.75, lower to 0.3 for title-heavy ranking). Field boosting via `boost` on `multi_match` queries lets title matches dominate over body matches. The `function_score` query wraps BM25 with custom signals like recency decay or popularity weighting. Always validate changes with the `_explain` API on representative queries before deploying, and run A/B tests on relevance changes to measure click-through impact. See [[relevance-tuning-gotcha]] for a short-query edge case, and [[search-query-parsing-pattern]] for how parsed queries feed into the ranking pipeline.""",
     patterns=["[[search-query-parsing-pattern]]"],
-    gotchas=["[[relevance-tuning-gotcha]]"])
+    gotchas=["[[relevance-tuning-gotcha]]"],
+    description="BM25 tuning reference for k1, b, field boosting, function_score, and _explain API validation")
 
 shard("search-query-parsing-pattern", "patterns", "search-platform",
     ["search", "query-parsing", "elasticsearch"],
     "Search Query Parsing Pattern with Fallback",
     """Pattern for parsing raw user search input into structured Elasticsearch queries with graceful degradation. The primary path attempts to parse the query into a structured bool query using field-specific tokens (e.g., `brand:nike` becomes a term filter, quoted phrases become match_phrase clauses). If structured parsing fails or produces zero results, the fallback issues a simple `multi_match` query across all searchable fields with fuzziness enabled. Synonym expansion is applied at the analyzer level using a managed synonyms file, and stopword removal uses a custom list tuned to our domain. Fuzzy matching (`fuzziness: "AUTO"`) catches typos without degrading precision on exact matches. See [[chose-elasticsearch]] for the query DSL capabilities that enable this, and [[search-relevance-tuning-reference]] for how parsed queries interact with BM25 tuning.""",
     decisions=["[[chose-elasticsearch]]"],
-    references=["[[search-relevance-tuning-reference]]"])
+    references=["[[search-relevance-tuning-reference]]"],
+    description="Structured query parsing with field tokens and fuzzy multi_match fallback for zero results")
 
 shard("stale-search-index", "gotchas", "search-platform",
     ["elasticsearch", "indexing", "staleness"],
     "Stale Search Index After Database Updates",
     """Database writes were not immediately reflected in search results because Elasticsearch's default refresh interval is 1 second, and our indexing pipeline added additional latency through its queue-based architecture. Users would create or update a record and then immediately search for it, getting stale or missing results — a classic eventual consistency problem. The near-real-time guarantee only holds if documents are actually submitted to the index promptly. Fix strategies we evaluated: reducing the refresh interval to 200ms (increased I/O), using `refresh=wait_for` on critical writes (adds latency to the write path), and implementing change data capture for low-latency event-driven indexing. See [[chose-search-indexing-strategy]] for the CDC approach we chose, and [[incremental-reindex-pattern]] for how we handle bulk catch-up reindexes.""",
     decisions=["[[chose-search-indexing-strategy]]"],
-    patterns=["[[incremental-reindex-pattern]]"])
+    patterns=["[[incremental-reindex-pattern]]"],
+    description="Database writes not reflected in search due to refresh interval and queue-based indexing latency")
 
 shard("incremental-reindex-pattern", "patterns", "search-platform",
     ["elasticsearch", "reindex", "indexing"],
     "Incremental Reindex Pattern for Search Indices",
     """Pattern for reindexing Elasticsearch without downtime using a dual-index approach with alias switching. The live alias always points to the current production index. A new index is created with updated mappings or settings, and documents are copied via the bulk API using a timestamp-based delta to avoid re-processing unchanged documents. Once the new index catches up, the alias is atomically swapped. Versioned document IDs (combining the source record ID with a schema version) prevent conflicts during the transition window. The zero-downtime guarantee depends on the alias rotation being atomic — Elasticsearch's `_aliases` API supports add/remove in a single request. See [[chose-search-indexing-strategy]] for why we need frequent reindexes, and [[stale-search-index]] for the staleness problem this pattern mitigates during catch-up windows.""",
     decisions=["[[chose-search-indexing-strategy]]"],
-    gotchas=["[[stale-search-index]]"])
+    gotchas=["[[stale-search-index]]"],
+    description="Zero-downtime reindex with dual-index alias switching and timestamp-based delta processing")
 
 shard("chose-search-indexing-strategy", "decisions", "search-platform",
     ["search", "indexing", "architecture"],
     "Chose Event-Driven Indexing Over Periodic Batch Reindex",
     """Evaluated two indexing strategies: periodic batch reindex (cron job every N minutes scans for changed records) vs event-driven indexing via change data capture. Event-driven won because it delivers near-real-time search freshness — documents appear in results within seconds of a database commit rather than waiting for the next batch window. We use Debezium to capture PostgreSQL WAL changes and route them through Kafka Connect to an Elasticsearch sink connector. The tradeoff is significant operational complexity: Debezium, Kafka, and the connector each need monitoring, and schema changes require coordinated updates across the pipeline. For bulk backfills and mapping migrations we still use the batch approach. See [[stale-search-index]] for the staleness problem this solves, and [[incremental-reindex-pattern]] for the bulk reindex fallback.""",
     patterns=["[[incremental-reindex-pattern]]"],
-    gotchas=["[[stale-search-index]]"])
+    gotchas=["[[stale-search-index]]"],
+    description="Event-driven CDC indexing via Debezium and Kafka for near-real-time search freshness")
 
 # ── Noise Notes (no wikilinks) ──
 
@@ -1072,21 +1145,24 @@ shard("sourdough-starter-maintenance", "patterns", "cooking",
 
 Daily feeding (room temperature): discard all but 50g, add 50g flour + 50g water. Refrigerated maintenance: feed once per week, take out 12 hours before baking. Peak activity is 4-6 hours after feeding at 75F — the starter should double in volume and pass the float test (a spoonful floats in water).
 
-Flour matters: unbleached all-purpose works, but adding 25% whole wheat or rye accelerates fermentation due to higher mineral and wild yeast content. Chlorinated water can inhibit yeast — use filtered water.""")
+Flour matters: unbleached all-purpose works, but adding 25% whole wheat or rye accelerates fermentation due to higher mineral and wild yeast content. Chlorinated water can inhibit yeast — use filtered water.""",
+    description="Daily and weekly sourdough starter feeding schedules with flour and hydration ratios")
 
 shard("chose-coffee-grinder", "decisions", "cooking",
     ["coffee", "equipment"],
     "Chose Burr Grinder Over Blade for Espresso",
     """Blade grinders produce inconsistent particle sizes — some powder, some boulders. This causes uneven extraction in espresso: fine particles over-extract (bitter) while coarse particles under-extract (sour). A burr grinder crushes beans between two abrasive surfaces at a fixed distance, producing uniform particle size.
 
-Chose the Baratza Encore (conical burr) over the Breville Smart Grinder (flat burr) because conical burrs generate less heat and produce less static, which matters for retention (grounds sticking inside the grinder). Flat burrs produce slightly more uniform particles at espresso grind sizes, but the difference is negligible outside commercial settings.""")
+Chose the Baratza Encore (conical burr) over the Breville Smart Grinder (flat burr) because conical burrs generate less heat and produce less static, which matters for retention (grounds sticking inside the grinder). Flat burrs produce slightly more uniform particles at espresso grind sizes, but the difference is negligible outside commercial settings.""",
+    description="Conical burr grinder chosen over blade for uniform espresso particle size")
 
 shard("cast-iron-seasoning-gotcha", "gotchas", "cooking",
     ["cooking", "maintenance"],
     "Flaxseed Oil Seasoning Flakes Off Cast Iron",
     """Seasoned a cast iron skillet with flaxseed oil based on internet recommendations (highest smoke point among food-safe oils, creates hardest polymer). After 3 months of regular use, the seasoning started flaking off in sheets, revealing bare metal underneath.
 
-Flaxseed oil polymerizes into a very hard but brittle layer. Thermal cycling from stovetop to sink (even with careful cooling) causes differential expansion that cracks the rigid layer. Switch to Crisco shortening or grapeseed oil — they produce a slightly softer but more flexible seasoning that survives thermal stress. Season at 450F for 1 hour, 3-4 thin layers with full cooldown between coats.""")
+Flaxseed oil polymerizes into a very hard but brittle layer. Thermal cycling from stovetop to sink (even with careful cooling) causes differential expansion that cracks the rigid layer. Switch to Crisco shortening or grapeseed oil — they produce a slightly softer but more flexible seasoning that survives thermal stress. Season at 450F for 1 hour, 3-4 thin layers with full cooldown between coats.""",
+    description="Flaxseed oil cast iron seasoning flakes off from thermal cycling; use Crisco or grapeseed instead")
 
 shard("cake-frosting-techniques", "references", "cooking",
     ["baking", "decoration"],
@@ -1101,7 +1177,8 @@ shard("cake-frosting-techniques", "references", "cooking",
 | Ganache | Rich, glossy | Poured coating, truffles | Sets firm | Moderate — remelts at 90F |
 | Royal Icing | Hard, matte | Cookie decoration | Rigid when dry | No — shelf stable |
 
-Crumb coat trick: apply a thin first layer of frosting, refrigerate 15 minutes until firm, then apply the final coat. This traps crumbs in the base layer so the outer surface stays clean.""")
+Crumb coat trick: apply a thin first layer of frosting, refrigerate 15 minutes until firm, then apply the final coat. This traps crumbs in the base layer so the outer surface stays clean.""",
+    description="Frosting types comparison with texture, use cases, and temperature sensitivity")
 
 shard("indoor-plant-watering", "patterns", "gardening",
     ["plants", "home"],
@@ -1116,14 +1193,16 @@ shard("indoor-plant-watering", "patterns", "gardening",
 | Fiddle Leaf Fig | Top inch dry | Every 7 days | Every 10-14 days |
 | Succulents | Fully dry | Every 14 days | Every 30 days |
 
-Drainage is non-negotiable: every pot needs a drainage hole. Standing water in the saucer for >30 minutes causes root rot. Use a moisture meter for large pots where the finger test can't reach deep enough.""")
+Drainage is non-negotiable: every pot needs a drainage hole. Standing water in the saucer for >30 minutes causes root rot. Use a moisture meter for large pots where the finger test can't reach deep enough.""",
+    description="Seasonal watering schedules for common houseplants with drainage and moisture testing tips")
 
 shard("vinyl-record-cleaning-gotcha", "gotchas", "hobbies",
     ["vinyl", "maintenance"],
     "Tap Water Leaves Mineral Deposits on Vinyl Records",
     """Cleaned vinyl records with tap water and a microfiber cloth, thinking it was the gentlest approach. After drying, records had increased surface noise — pops and crackles that weren't there before. The cause: dissolved minerals in tap water (calcium, magnesium) deposited into the grooves as the water evaporated.
 
-Use distilled water only. For deep cleaning, a solution of distilled water + 1 drop of non-lotion dish soap per liter, applied with a carbon fiber brush following the groove direction (never across grooves). Rinse with pure distilled water and air dry vertically in a dish rack. For valuable records, invest in an ultrasonic cleaner — it reaches deep into grooves without physical contact that can cause micro-scratches.""")
+Use distilled water only. For deep cleaning, a solution of distilled water + 1 drop of non-lotion dish soap per liter, applied with a carbon fiber brush following the groove direction (never across grooves). Rinse with pure distilled water and air dry vertically in a dish rack. For valuable records, invest in an ultrasonic cleaner — it reaches deep into grooves without physical contact that can cause micro-scratches.""",
+    description="Tap water mineral deposits increase vinyl surface noise; use distilled water only")
 
 shard("catan-board-game-strategy", "references", "hobbies",
     ["boardgames", "strategy"],
@@ -1139,7 +1218,8 @@ Probability reference: 6 and 8 are rolled most often (5/36 each), 2 and 12 least
 
 Trading: never trade resources that help the leader. Track what opponents need by watching their builds. Offering favorable trades early game builds goodwill for late-game negotiations.
 
-Longest Road vs Largest Army: Road is more expensive (5 brick + 5 wood minimum vs 3 wheat + 3 sheep + 3 ore for 3 dev cards). Army also gives robber control, which has defensive value. Prefer Army unless your resource mix strongly favors brick/wood.""")
+Longest Road vs Largest Army: Road is more expensive (5 brick + 5 wood minimum vs 3 wheat + 3 sheep + 3 ore for 3 dev cards). Army also gives robber control, which has defensive value. Prefer Army unless your resource mix strongly favors brick/wood.""",
+    description="Catan strategy guide covering placement priorities, probability, trading, and victory paths")
 
 shard("espresso-troubleshooting", "decisions", "cooking",
     ["coffee", "troubleshooting"],
@@ -1148,7 +1228,8 @@ shard("espresso-troubleshooting", "decisions", "cooking",
 
 Chose a machine with pressure profiling (Lelit Bianca) over a standard E61 grouphead because: pre-infusion at low pressure saturates the puck evenly before full extraction, reducing channeling. Declining pressure at the end reduces harsh over-extracted flavors from fines that break down late in the shot. The result: wider grind tolerance (less puck prep precision needed) and a sweeter, more balanced shot.
 
-Diagnostic by taste: sour = under-extracted (grind finer or increase brew time), bitter = over-extracted (grind coarser or reduce time), watery = low dose or too coarse, astringent = too fine or too hot.""")
+Diagnostic by taste: sour = under-extracted (grind finer or increase brew time), bitter = over-extracted (grind coarser or reduce time), watery = low dose or too coarse, astringent = too fine or too hot.""",
+    description="Pressure profiling espresso machine chosen for even pre-infusion and reduced channeling")
 
 # ── Write files ──
 
@@ -1171,19 +1252,18 @@ for s in SHARDS:
 
     dir_.mkdir(parents=True, exist_ok=True)
     tags_yaml = "\n".join(f"  - {t}" for t in s["tags"])
-    frontmatter = f"""---
-type: {s['type']}
-projects:
-  - {s['project']}
-tags:
-{tags_yaml}"""
+    frontmatter = f"---\ntype: {s['type']}\n"
+
+    if s["description"]:
+        frontmatter += f'description: "{s["description"]}"\n'
+
+    frontmatter += f"projects:\n  - {s['project']}\ntags:\n{tags_yaml}"
+
     for cat in ["decisions", "patterns", "gotchas", "references"]:
         if s[cat]:
             frontmatter += f"\n{cat}:\n" + "\n".join(f'  - "{v}"' for v in s[cat])
-    frontmatter += f"""
-created: 2026-03-02
-updated: 2026-03-02
----"""
+
+    frontmatter += "\ncreated: 2026-03-02\nupdated: 2026-03-02\n---"
 
     content = f"{frontmatter}\n\n# {s['title']}\n\n{s['body'].strip()}\n"
     path.write_text(content)
