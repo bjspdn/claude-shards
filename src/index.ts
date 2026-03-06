@@ -7,7 +7,7 @@ import { watchVault } from "./vault/watcher"
 import {
   registerTools,
   indexTool, readTool, searchTool, syncTool,
-  writeTool, diagnosticsTool, healthTool, suggestCaptureTool,
+  writeTool, diagnosticsTool, healthTool, suggestCaptureTool, kanbanTool,
   buildIdfTable,
   type ToolContext,
 } from "./tools"
@@ -224,7 +224,7 @@ async function runServer() {
 
   registerTools(server, [
     indexTool, readTool, searchTool, syncTool,
-    writeTool, diagnosticsTool, healthTool, suggestCaptureTool,
+    writeTool, diagnosticsTool, healthTool, suggestCaptureTool, kanbanTool,
   ], ctx)
 
   const transport = new StdioServerTransport()

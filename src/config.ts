@@ -38,6 +38,9 @@ export interface ShardsConfig {
     iconLegend: string
     instructionLine: string
   }
+  kanban: {
+    filename: string
+  }
 }
 
 interface PersistedConfig {
@@ -149,6 +152,9 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
       iconLegend: "🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
       instructionLine: "Use MCP tool `read` with the note path to fetch full details on demand.",
     },
+    kanban: {
+      filename: "_kanban.md",
+    },
   }
 
   if (!overrides) return Object.freeze(defaults)
@@ -162,6 +168,7 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
     similarity: { ...defaults.similarity, ...overrides.similarity },
     discovery: { ...defaults.discovery, ...overrides.discovery },
     display: { ...defaults.display, ...overrides.display },
+    kanban: { ...defaults.kanban, ...overrides.kanban },
   })
 }
 
