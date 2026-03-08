@@ -1,6 +1,6 @@
 {
   "name": "@bjspdn/claude-shards",
-  "version": "0.79.0",
+  "version": "0.21.0",
   "description": "MCP server that gives Claude Code persistent knowledge via an Obsidian-compatible vault",
   "module": "dist/index.js",
   "main": "dist/index.js",
@@ -19,7 +19,6 @@
     "prebuild": "bun run bundle-vault",
     "build": "bunup",
     "prepublishOnly": "bun run build"
-    
   },
   "bin": {
     "claude-shards": "dist/index.js"
