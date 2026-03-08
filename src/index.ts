@@ -7,7 +7,7 @@ import { watchVault } from "./vault/watcher"
 import {
   registerTools,
   readTool, searchTool, syncTool,
-  writeTool, diagnosticsTool, healthTool, suggestCaptureTool,
+  writeTool, healthTool, suggestCaptureTool,
   buildIdfTable,
   type ToolContext,
 } from "./tools"
@@ -197,7 +197,7 @@ async function runServer() {
     }
   }
 
-  const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries, onFlush)
+  const { stop: stopWatcher } = watchVault(VAULT_PATH, entries, onFlush)
 
   initEmbeddings()
   initUpdateCheck()
@@ -214,7 +214,6 @@ async function runServer() {
   const ctx: ToolContext = {
     entries,
     vaultPath: VAULT_PATH,
-    watcherStats,
     get linkGraph() { return linkGraph },
     get idfTable() { return idfTable },
     rebuildLinkGraph: rebuildGraph,
@@ -224,7 +223,7 @@ async function runServer() {
 
   registerTools(server, [
     readTool, searchTool, syncTool,
-    writeTool, diagnosticsTool, healthTool, suggestCaptureTool,
+    writeTool, healthTool, suggestCaptureTool,
   ], ctx)
 
   const transport = new StdioServerTransport()

@@ -30,11 +30,11 @@ export function buildIndexTable(entries: NoteEntry[]): string {
   })
 
   const colWidths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => r[i].length)),
+    Math.max(h.length, ...rows.map((r) => r[i]!.length)),
   )
 
   const padRow = (cells: string[]) =>
-    "| " + cells.map((c, i) => c.padEnd(colWidths[i])).join(" | ") + " |"
+    "| " + cells.map((c, i) => c.padEnd(colWidths[i]!)).join(" | ") + " |"
 
   const separator =
     "|" + colWidths.map((w) => "-".repeat(w + 2)).join("|") + "|"

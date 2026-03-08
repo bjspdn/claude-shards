@@ -1,6 +1,5 @@
 import type { z } from "zod"
 import type { NoteEntry, LinkGraph } from "../vault/types"
-import type { WatcherStats } from "../vault/watcher"
 import type { IdfTable } from "./bm25"
 import type { EmbeddingIndex } from "../embeddings/types"
 
@@ -8,7 +7,6 @@ import type { EmbeddingIndex } from "../embeddings/types"
 export interface ToolContext {
   entries: NoteEntry[]
   vaultPath: string
-  watcherStats: WatcherStats
   linkGraph: LinkGraph
   idfTable: IdfTable
   rebuildLinkGraph: () => void

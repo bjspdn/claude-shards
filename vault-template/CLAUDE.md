@@ -18,8 +18,9 @@ updated: YYYY-MM-DD
 
 ## Tools available
 
-- `capture` — Save a new knowledge note
-- `search` — Find notes by keyword or semantic similarity
 - `read` — Load the full content of a note by path
+- `search` — Find notes by keyword or semantic similarity
+- `write` — Create or update a knowledge note
+- `sync` — Sync the Knowledge Index in CLAUDE.md
 - `health` — Check vault health and surface stale notes
-- `suggest` — Get suggestions for knowledge worth capturing
+- `suggest-capture` — Get suggestions for knowledge worth capturing

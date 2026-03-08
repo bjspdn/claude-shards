@@ -47,7 +47,7 @@ test("bundle files write to disk correctly", async () => {
   for (const [relativePath, content] of fileEntries) {
     const fullPath = join(tempDir, relativePath)
     const dir = join(fullPath, "..")
-    await Bun.write(fullPath, content)
+    await Bun.write(fullPath, content!)
   }
 
   const welcomeContent = await readFile(join(tempDir, "Welcome.md"), "utf-8")
@@ -58,7 +58,7 @@ test("bundle files write to disk correctly", async () => {
 })
 
 test("selective merge preserves user-modified files", async () => {
-  const originalContent = VAULT_BUNDLE["Welcome.md"]
+  const originalContent = VAULT_BUNDLE["Welcome.md"]!
   const fullPath = join(tempDir, "Welcome.md")
 
   await Bun.write(fullPath, originalContent)

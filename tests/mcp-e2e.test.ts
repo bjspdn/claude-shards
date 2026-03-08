@@ -28,7 +28,6 @@ beforeAll(async () => {
   const ctx: ToolContext = {
     entries,
     vaultPath: VAULT,
-    watcherStats: { activeWatchers: 0, totalFlushes: 0, totalUpserts: 0, totalRemoves: 0 },
     get linkGraph() { return linkGraph },
     get idfTable() { return idfTable },
     rebuildLinkGraph: () => {},
@@ -133,7 +132,6 @@ test("graph propagation changes scores", async () => {
   const ctxNoGraph: ToolContext = {
     entries,
     vaultPath: VAULT,
-    watcherStats: { activeWatchers: 0, totalFlushes: 0, totalUpserts: 0, totalRemoves: 0 },
     get linkGraph() { return undefined as unknown as LinkGraph },
     get idfTable() { return idfTable },
     rebuildLinkGraph: () => {},
