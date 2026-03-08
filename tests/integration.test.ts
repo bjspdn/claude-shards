@@ -70,8 +70,10 @@ test("search finds relevant notes and ranks by score", () => {
 
 test("sync with note paths copies files and updates CLAUDE.md", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "integration-test-"))
-  const notePaths = allEntries.slice(0, 2).map((e) => e.relativePath)
-  const result = await executeSync(notePaths, allEntries, tempDir)
+  const entries = allEntries.slice(0, 2)
+  const notePaths = entries.map((e) => e.relativePath)
+  const synthesized = Object.fromEntries(entries.map((e) => [e.relativePath, `# ${e.title}\n\nSynthesized.`]))
+  const result = await executeSync(notePaths, allEntries, tempDir, { synthesized })
 
   expect(result.entryCount).toBe(2)
 

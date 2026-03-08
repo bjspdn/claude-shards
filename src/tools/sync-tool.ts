@@ -216,7 +216,7 @@ async function copyNotesToProject(
     await mkdir(typePath, { recursive: true })
     const dest = join(typePath, basename(entry.relativePath))
     const content = synthesized?.[entry.relativePath]
-      ?? await Bun.file(entry.filePath).text()
+      ?? (entry.frontmatter.type === "architecture" ? await Bun.file(entry.filePath).text() : "")
     await Bun.write(dest, content)
   }
 }
@@ -317,14 +317,53 @@ export async function executeSync(
     }
   }
 
-  await copyNotesToProject(found, "", dir, options?.synthesized)
+  const missingSynthesis = found.filter((e) =>
+    e.frontmatter.type !== "architecture" && !options?.synthesized?.[e.relativePath],
+  )
+  if (missingSynthesis.length > 0) {
+    const linkGraph = options?.linkGraph ?? { forward: new Map(), reverse: new Map() }
+    const gathered = missingSynthesis.map((e) => gatherNoteContent(e, allEntries, linkGraph))
+    const requestedPaths = new Set(notes)
+    const output = formatGatheredOutput(gathered, requestedPaths, globalConfig.sync.gatherMaxTokens)
+
+    const parts: string[] = [
+      `Missing synthesized content for ${missingSynthesis.length} note(s). Synthesize before syncing.`,
+      "",
+      output,
+    ]
+    if (skippedStale.length > 0) parts.push(`\nSkipped stale: ${skippedStale.join(", ")}`)
+    if (notFound.length > 0) parts.push(`\nNot found: ${notFound.join(", ")}`)
+
+    return {
+      entryCount: found.length,
+      totalTokens: found.reduce((sum, e) => sum + e.tokenCount, 0),
+      summary: parts.join("\n"),
+    }
+  }
+
+  const synthesized = options?.synthesized ?? {}
+  await copyNotesToProject(found, "", dir, synthesized)
   const removed = await cleanupRemovedNotes(found, dir, new Set(notes))
+
+  const withSynthTokens = found.map((e) => {
+    const synthContent = synthesized[e.relativePath]
+    return synthContent ? { ...e, tokenCount: estimateTokens(synthContent) } : e
+  })
 
   const existingEntries = await discoverExistingSyncedEntries(dir, allEntries)
   const foundPaths = new Set(found.map((e) => `${e.frontmatter.type}/${basename(e.relativePath)}`))
+  const existingWithDiskTokens = await Promise.all(
+    existingEntries
+      .filter((e) => !foundPaths.has(`${e.frontmatter.type}/${basename(e.relativePath)}`))
+      .map(async (e) => {
+        const diskPath = join(dir, "docs", "knowledge", e.frontmatter.type, basename(e.relativePath))
+        const diskContent = await Bun.file(diskPath).text().catch(() => "")
+        return diskContent ? { ...e, tokenCount: estimateTokens(diskContent) } : e
+      }),
+  )
   const merged = [
-    ...existingEntries.filter((e) => !foundPaths.has(`${e.frontmatter.type}/${basename(e.relativePath)}`)),
-    ...found,
+    ...existingWithDiskTokens,
+    ...withSynthTokens,
   ].sort((a, b) => NOTE_TYPE_PRIORITY[a.frontmatter.type] - NOTE_TYPE_PRIORITY[b.frontmatter.type])
 
   const { entryCount, totalTokens, changed } = await syncToFile(
@@ -362,7 +401,7 @@ export async function executeSync(
 
 export const syncTool: ToolDefinition = {
   name: "sync",
-  description: "Gather vault notes with resolved dependencies for synthesis, or write synthesized notes into project context. Use mode: 'gather' to get note content with linked dependencies, then pass back synthesized content to write to docs/knowledge/.",
+  description: "Two-step sync: first gather (mode: 'gather') to get note content with dependencies, then synthesize the output, then sync (mode: 'sync') with the synthesized map. Sync mode requires a synthesized map covering all requested notes — missing entries will return gather output instead of writing files.",
   inputSchema: z.object({
     notes: z.array(z.string().max(500)).max(100).describe("Vault-relative paths of notes to sync into the project"),
     mode: z.enum(["sync", "gather"]).default("sync").describe("'gather' returns note content with resolved dependencies for synthesis; 'sync' writes files and updates CLAUDE.md"),

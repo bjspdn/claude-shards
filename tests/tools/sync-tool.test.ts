@@ -68,7 +68,9 @@ test("executeSync copies files to docs/knowledge/<type>/ and updates CLAUDE.md",
     }),
   ]
 
-  const result = await executeSync(["gotchas/SYNC_BEFORE_INIT.md"], entries, tempDir)
+  const result = await executeSync(["gotchas/SYNC_BEFORE_INIT.md"], entries, tempDir, {
+    synthesized: { "gotchas/SYNC_BEFORE_INIT.md": "# Synthesized\n\nSynced content." },
+  })
   expect(result.entryCount).toBe(1)
   expect(result.summary).toContain("Synced 1 entries")
 
@@ -128,7 +130,9 @@ test("executeSync preserves files from previous syncs not in current request", a
     }),
   ]
 
-  const result = await executeSync(["gotchas/KEEP.md"], entries, tempDir)
+  const result = await executeSync(["gotchas/KEEP.md"], entries, tempDir, {
+    synthesized: { "gotchas/KEEP.md": "# Synthesized Keep" },
+  })
   expect(result.summary).not.toContain("Removed")
 
   const previousExists = await Bun.file(join(knowledgeDir, "PREVIOUS.md")).exists()
@@ -172,7 +176,9 @@ test("executeSync uses description as title in CLAUDE.md table", async () => {
     }),
   ]
 
-  const result = await executeSync(["decisions/CHOSE_BUN.md"], entries, tempDir)
+  const result = await executeSync(["decisions/CHOSE_BUN.md"], entries, tempDir, {
+    synthesized: { "decisions/CHOSE_BUN.md": "# Synthesized Bun Decision" },
+  })
   const claudeMd = await Bun.file(join(tempDir, "CLAUDE.md")).text()
   expect(claudeMd).toContain("Why we chose Bun")
   expect(claudeMd).not.toContain("Chose Bun Over Node")
@@ -189,10 +195,11 @@ test("executeSync fingerprint skips rewrite when unchanged", async () => {
     }),
   ]
 
-  const result1 = await executeSync(["gotchas/STABLE.md"], entries, tempDir)
+  const synth = { "gotchas/STABLE.md": "# Synthesized Stable" }
+  const result1 = await executeSync(["gotchas/STABLE.md"], entries, tempDir, { synthesized: synth })
   expect(result1.summary).toContain("Synced")
 
-  const result2 = await executeSync(["gotchas/STABLE.md"], entries, tempDir)
+  const result2 = await executeSync(["gotchas/STABLE.md"], entries, tempDir, { synthesized: synth })
   expect(result2.summary).toContain("already up to date")
 })
 
@@ -361,6 +368,60 @@ test("sync with synthesized content still updates CLAUDE.md index", async () => 
   const claudeMd = await Bun.file(join(tempDir, "CLAUDE.md")).text()
   expect(claudeMd).toContain("## Knowledge Index")
   expect(claudeMd).toContain("@docs/knowledge/gotchas/SYNTH2.md")
+})
+
+test("sync without synthesized returns gather output and writes nothing", async () => {
+  const fp = await writeVaultNote("gotchas/UNSYNTH.md", "---\ntype: gotchas\n---\n# Unsynthesized")
+  const entry = makeEntry({
+    relativePath: "gotchas/UNSYNTH.md",
+    filePath: fp,
+    title: "Unsynth Note",
+    body: "Raw body content",
+    frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+
+  const result = await executeSync(["gotchas/UNSYNTH.md"], [entry], tempDir)
+  expect(result.summary).toContain("Missing synthesized content for 1 note(s)")
+  expect(result.summary).toContain("Raw body content")
+
+  const claudeMdExists = await Bun.file(join(tempDir, "CLAUDE.md")).exists()
+  expect(claudeMdExists).toBe(false)
+
+  const copiedExists = await Bun.file(join(tempDir, "docs/knowledge/gotchas/UNSYNTH.md")).exists()
+  expect(copiedExists).toBe(false)
+})
+
+test("sync with partial synthesized returns gather for missing notes and writes nothing", async () => {
+  const fp1 = await writeVaultNote("gotchas/HAS_SYNTH.md", "---\ntype: gotchas\n---\n# Has")
+  const fp2 = await writeVaultNote("gotchas/NO_SYNTH.md", "---\ntype: gotchas\n---\n# Missing")
+  const entry1 = makeEntry({
+    relativePath: "gotchas/HAS_SYNTH.md",
+    filePath: fp1,
+    title: "Has Synth",
+    body: "Has body",
+    frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+  const entry2 = makeEntry({
+    relativePath: "gotchas/NO_SYNTH.md",
+    filePath: fp2,
+    title: "No Synth",
+    body: "Missing body",
+    frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+
+  const result = await executeSync(
+    ["gotchas/HAS_SYNTH.md", "gotchas/NO_SYNTH.md"],
+    [entry1, entry2],
+    tempDir,
+    { synthesized: { "gotchas/HAS_SYNTH.md": "# Synthesized Has" } },
+  )
+
+  expect(result.summary).toContain("Missing synthesized content for 1 note(s)")
+  expect(result.summary).toContain("Missing body")
+  expect(result.summary).not.toContain("Has body")
+
+  const claudeMdExists = await Bun.file(join(tempDir, "CLAUDE.md")).exists()
+  expect(claudeMdExists).toBe(false)
 })
 
 import type { GatheredNote } from "../../src/tools/sync-tool"
