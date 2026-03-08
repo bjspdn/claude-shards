@@ -1,6 +1,5 @@
 import { test, expect } from "bun:test"
-import { discoverFiles, loadVault, filterEntries, buildLinkGraph } from "../../src/vault/loader"
-import type { ProjectConfig } from "../../src/vault/types"
+import { discoverFiles, loadVault, buildLinkGraph } from "../../src/vault/loader"
 import { join } from "path"
 
 const VAULT = join(import.meta.dir, "../fixtures/vault")
@@ -31,41 +30,6 @@ test("loadVault sorts by type priority: gotchas > decisions > patterns > referen
   expect(gotchaIdx).toBeLessThan(decisionIdx)
   expect(decisionIdx).toBeLessThan(patternIdx)
   expect(patternIdx).toBeLessThan(referenceIdx)
-})
-
-test("filterEntries with null config returns all entries", async () => {
-  const entries = await loadVault(VAULT)
-  const filtered = filterEntries(entries, null)
-  expect(filtered.length).toBe(entries.length)
-})
-
-test("filterEntries by tags keeps notes matching ANY tag", async () => {
-  const entries = await loadVault(VAULT)
-  const config: ProjectConfig = {
-    filter: { tags: ["bevy"] },
-  }
-  const filtered = filterEntries(entries, config)
-  expect(filtered.every((e) => e.frontmatter.tags.includes("bevy"))).toBe(true)
-  expect(filtered.length).toBeGreaterThan(0)
-  expect(filtered.length).toBeLessThan(entries.length)
-})
-
-test("filterEntries by types keeps only matching types", async () => {
-  const entries = await loadVault(VAULT)
-  const config: ProjectConfig = {
-    filter: { types: ["gotchas"] },
-  }
-  const filtered = filterEntries(entries, config)
-  expect(filtered.every((e) => e.frontmatter.type === "gotchas")).toBe(true)
-})
-
-test("filterEntries with exclude patterns removes matching paths", async () => {
-  const entries = await loadVault(VAULT)
-  const config: ProjectConfig = {
-    filter: { exclude: ["drafts/*"] },
-  }
-  const filtered = filterEntries(entries, config)
-  expect(filtered.some((e) => e.relativePath.startsWith("drafts/"))).toBe(false)
 })
 
 test("buildLinkGraph builds forward and reverse maps from frontmatter links", async () => {

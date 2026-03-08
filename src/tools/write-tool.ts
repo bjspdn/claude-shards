@@ -6,6 +6,8 @@ import { NoteType, NOTE_TYPE_PRIORITY, flattenWikilinks, type NoteEntry } from "
 import { parseNote } from "../vault/parser"
 import { formatDate } from "../utils"
 import type { ToolDefinition } from "./types"
+import { logError } from "../logger"
+import { draftFolder } from "../vault/paths"
 
 type WriteResult =
   | { ok: true; path: string; updated: boolean }
@@ -18,8 +20,9 @@ interface WriteCreateCmd {
   title: string
   body: string
   description?: string
+  motivation?: string
   tags?: string[]
-  projects?: string[]
+
   decisions?: string[]
   patterns?: string[]
   gotchas?: string[]
@@ -33,8 +36,9 @@ interface WriteReplaceCmd {
   title: string
   body: string
   description?: string
+  motivation?: string
   tags?: string[]
-  projects?: string[]
+
   decisions?: string[]
   patterns?: string[]
   gotchas?: string[]
@@ -88,8 +92,9 @@ export function parseWriteArgs(args: {
   title?: string
   body?: string
   description?: string
+  motivation?: string
   tags?: string[]
-  projects?: string[]
+
   decisions?: string[]
   patterns?: string[]
   gotchas?: string[]
@@ -124,8 +129,8 @@ export function parseWriteArgs(args: {
         title: args.title!,
         body: args.body!,
         description: args.description,
+        motivation: args.motivation,
         tags: args.tags,
-        projects: args.projects,
         decisions: args.decisions,
         patterns: args.patterns,
         gotchas: args.gotchas,
@@ -138,8 +143,8 @@ export function parseWriteArgs(args: {
         title: args.title!,
         body: args.body!,
         description: args.description,
+        motivation: args.motivation,
         tags: args.tags,
-        projects: args.projects,
         decisions: args.decisions,
         patterns: args.patterns,
         gotchas: args.gotchas,
@@ -159,8 +164,10 @@ const LINK_CATEGORIES = ["decisions", "patterns", "gotchas", "references"] as co
 function buildFrontmatter(args: {
   type: string
   description?: string
+  motivation?: string
+  status?: string
   tags?: string[]
-  projects?: string[]
+
   decisions?: string[]
   patterns?: string[]
   gotchas?: string[]
@@ -174,9 +181,8 @@ function buildFrontmatter(args: {
     lines.push(`description: "${args.description}"`)
   }
 
-  if (args.projects?.length) {
-    lines.push("projects:")
-    for (const p of args.projects) lines.push(`  - ${p}`)
+  if (args.motivation) {
+    lines.push(`motivation: "${args.motivation}"`)
   }
 
   if (args.tags?.length) {
@@ -192,7 +198,7 @@ function buildFrontmatter(args: {
     }
   }
 
-  lines.push(`created: ${args.created}`, `updated: ${args.updated}`, "---")
+  lines.push(`created: ${args.created}`, `updated: ${args.updated}`, `status: ${args.status ?? "active"}`, "---")
   return lines.join("\n")
 }
 
@@ -216,13 +222,22 @@ export async function executeWrite(
   vaultPath: string,
 ): Promise<WriteResult> {
   if (cmd.path.startsWith("/")) {
+    logError("security", "absolute path attempt in write", { path: cmd.path })
     return { ok: false, error: "Absolute paths not allowed. Use paths relative to vault root." }
+  }
+
+  const NOTE_TYPES = new Set(NoteType.options)
+  const firstSegment = cmd.path.split("/")[0]
+  if (firstSegment && NOTE_TYPES.has(firstSegment as any)) {
+    const rest = cmd.path.slice(firstSegment.length + 1)
+    cmd = { ...cmd, path: `${draftFolder(firstSegment)}/${rest}` }
   }
 
   const resolved = resolve(vaultPath, cmd.path)
   const rel = relative(vaultPath, resolved)
 
   if (rel.startsWith("..")) {
+    logError("security", "path traversal attempt in write", { path: cmd.path })
     return { ok: false, error: "Path resolves outside vault. Use paths relative to vault root." }
   }
 
@@ -246,8 +261,9 @@ export async function executeWrite(
       const fm = buildFrontmatter({
         type: data.type,
         description: data.description,
+        motivation: data.motivation,
+        status: data.status,
         tags: data.tags,
-        projects: data.projects,
         decisions: flattenWikilinks(data.decisions),
         patterns: flattenWikilinks(data.patterns),
         gotchas: flattenWikilinks(data.gotchas),
@@ -290,8 +306,9 @@ export async function executeWrite(
       const fm = buildFrontmatter({
         type: data.type,
         description: data.description,
+        motivation: data.motivation,
+        status: data.status,
         tags: data.tags,
-        projects: data.projects,
         decisions: flattenWikilinks(data.decisions),
         patterns: flattenWikilinks(data.patterns),
         gotchas: flattenWikilinks(data.gotchas),
@@ -319,8 +336,8 @@ export async function executeWrite(
       const fm = buildFrontmatter({
         type: cmd.type,
         description: cmd.description,
+        motivation: cmd.motivation,
         tags: cmd.tags,
-        projects: cmd.projects,
         decisions: cmd.decisions,
         patterns: cmd.patterns,
         gotchas: cmd.gotchas,
@@ -362,19 +379,19 @@ export const writeTool: ToolDefinition = {
     "(gotchas \u2192 the decisions/patterns involved, patterns \u2192 the decisions " +
     "they implement, references \u2192 patterns that use them).",
   inputSchema: z.object({
-    path: z.string().describe("Relative path within vault (e.g. gotchas/my-new-note.md)"),
+    path: z.string().max(500).describe("Relative path within vault (e.g. gotchas/SYNC_BEFORE_INIT.md). Use UPPER_SNAKE_CASE filenames."),
     mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
     type: NoteType.optional().describe("Note type (required for create/replace)"),
-    title: z.string().optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
-    description: z.string().optional().describe("One-line semantic summary for search"),
-    body: z.string().optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
-    section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
-    tags: z.array(z.string()).optional().describe("Searchable tags"),
-    projects: z.array(z.string()).optional().describe("Project names this note relates to"),
-    decisions: z.array(z.string()).optional().describe("Wikilinks to related decision notes (e.g. [[chose-x]])"),
-    patterns: z.array(z.string()).optional().describe("Wikilinks to related pattern notes (e.g. [[my-pattern]])"),
-    gotchas: z.array(z.string()).optional().describe("Wikilinks to related gotcha notes (e.g. [[my-gotcha]])"),
-    references: z.array(z.string()).optional().describe("Wikilinks to related reference notes (e.g. [[my-reference]])"),
+    title: z.string().max(200).optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
+    description: z.string().max(500).optional().describe("One-line semantic summary for search"),
+    motivation: z.string().max(500).optional().describe("Why this note was created — shown in search results"),
+    body: z.string().max(50_000).optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
+    section: z.string().max(200).optional().describe("Section heading to replace (required for patch mode)"),
+    tags: z.array(z.string().max(100)).max(50).optional().describe("Searchable tags"),
+    decisions: z.array(z.string().max(500)).max(50).optional().describe("Wikilinks to related decision notes (e.g. [[chose-x]])"),
+    patterns: z.array(z.string().max(500)).max(50).optional().describe("Wikilinks to related pattern notes (e.g. [[my-pattern]])"),
+    gotchas: z.array(z.string().max(500)).max(50).optional().describe("Wikilinks to related gotcha notes (e.g. [[my-gotcha]])"),
+    references: z.array(z.string().max(500)).max(50).optional().describe("Wikilinks to related reference notes (e.g. [[my-reference]])"),
     overwrite: z.boolean().optional().describe("Deprecated — use mode 'replace' instead"),
   }),
   handler: async (args, ctx) => {

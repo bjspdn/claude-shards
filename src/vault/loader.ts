@@ -1,6 +1,6 @@
 import { globby } from "globby"
 import { parseNote } from "./parser"
-import { NOTE_TYPE_PRIORITY, type NoteEntry, type ProjectConfig, type LinkGraph } from "./types"
+import { NOTE_TYPE_PRIORITY, type NoteEntry, type LinkGraph } from "./types"
 
 export async function discoverFiles(vaultPath: string): Promise<string[]> {
   return globby("**/*.md", {
@@ -66,40 +66,4 @@ export function buildLinkGraph(entries: NoteEntry[]): LinkGraph {
   }
 
   return { forward, reverse }
-}
-
-function matchesGlob(path: string, pattern: string): boolean {
-  const regex = pattern
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, "{{GLOBSTAR}}")
-    .replace(/\*/g, "[^/]*")
-    .replace(/\{\{GLOBSTAR\}\}/g, ".*")
-  return new RegExp(`^${regex}$`).test(path)
-}
-
-export function filterEntries(
-  entries: NoteEntry[],
-  config: ProjectConfig | null,
-): NoteEntry[] {
-  if (!config?.filter) return entries
-
-  const { tags, types, exclude } = config.filter
-
-  return entries.filter((entry) => {
-    if (types?.length && !types.includes(entry.frontmatter.type)) return false
-
-    if (
-      tags?.length &&
-      !entry.frontmatter.tags.some((t) => tags.includes(t))
-    )
-      return false
-
-    if (
-      exclude?.length &&
-      exclude.some((pattern) => matchesGlob(entry.relativePath, pattern))
-    )
-      return false
-
-    return true
-  })
 }

@@ -3,6 +3,7 @@ import {
   type NoteEntry,
   type IndexEntry,
 } from "../vault/types"
+import config from "../config"
 
 export function formatTokenCount(count: number): string {
   return `~${Math.round(count / 10) * 10}`
@@ -11,7 +12,7 @@ export function formatTokenCount(count: number): string {
 export function toIndexEntry(entry: NoteEntry): IndexEntry {
   return {
     icon: NOTE_TYPE_ICONS[entry.frontmatter.type],
-    title: entry.title,
+    title: entry.frontmatter.description ?? entry.title,
     relativePath: entry.relativePath,
     tokenDisplay: formatTokenCount(entry.tokenCount),
   }
@@ -29,11 +30,11 @@ export function buildIndexTable(entries: NoteEntry[]): string {
   })
 
   const colWidths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => r[i].length)),
+    Math.max(h.length, ...rows.map((r) => r[i]!.length)),
   )
 
   const padRow = (cells: string[]) =>
-    "| " + cells.map((c, i) => c.padEnd(colWidths[i])).join(" | ") + " |"
+    "| " + cells.map((c, i) => c.padEnd(colWidths[i]!)).join(" | ") + " |"
 
   const separator =
     "|" + colWidths.map((w) => "-".repeat(w + 2)).join("|") + "|"
@@ -43,11 +44,15 @@ export function buildIndexTable(entries: NoteEntry[]): string {
 
 export function formatKnowledgeSection(entries: NoteEntry[]): string {
   const table = buildIndexTable(entries)
+  const hasArchitecture = entries.some((e) => e.frontmatter.type === "architecture")
+  const legend = hasArchitecture
+    ? config.display.architectureLegend
+    : config.display.iconLegend
 
   return [
-    "## Knowledge Index",
-    "Use MCP tool `read` with the note path to fetch full details on demand.",
-    "🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
+    config.display.sectionTitle,
+    config.display.instructionLine,
+    legend,
     "",
     table,
   ].join("\n")
@@ -58,7 +63,8 @@ export function injectKnowledgeSection(
   entries: NoteEntry[],
 ): string {
   const newSection = formatKnowledgeSection(entries)
-  const sectionStart = existingContent.indexOf("## Knowledge Index")
+  const sectionTitle = config.display.sectionTitle
+  const sectionStart = existingContent.indexOf(sectionTitle)
 
   if (sectionStart === -1) {
     return newSection + "\n\n" + existingContent.trimStart()
@@ -67,7 +73,7 @@ export function injectKnowledgeSection(
   const beforeSection = existingContent.substring(0, sectionStart)
   const afterSectionStart = existingContent.indexOf(
     "\n## ",
-    sectionStart + "## Knowledge Index".length,
+    sectionStart + sectionTitle.length,
   )
 
   const rest =

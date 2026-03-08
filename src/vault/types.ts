@@ -1,21 +1,11 @@
 import { z } from "zod"
+import config from "../config"
 
-export const NoteType = z.enum(["gotchas", "decisions", "patterns", "references"])
+export const NoteType = z.enum(["architecture", "gotchas", "decisions", "patterns", "references"])
 export type NoteType = z.infer<typeof NoteType>
 
-export const NOTE_TYPE_ICONS: Record<NoteType, string> = {
-  gotchas: "\uD83D\uDD34",
-  decisions: "\uD83D\uDFE4",
-  patterns: "\uD83D\uDD35",
-  references: "\uD83D\uDFE2",
-}
-
-export const NOTE_TYPE_PRIORITY: Record<NoteType, number> = {
-  gotchas: 0,
-  decisions: 1,
-  patterns: 2,
-  references: 3,
-}
+export const NOTE_TYPE_ICONS = config.noteTypeIcons as Record<NoteType, string>
+export const NOTE_TYPE_PRIORITY = config.noteTypePriority as Record<NoteType, number>
 
 export function flattenWikilinks(val: unknown): string[] {
   if (typeof val === "string") return [val.startsWith("[[") ? val : `[[${val}]]`]
@@ -23,11 +13,13 @@ export function flattenWikilinks(val: unknown): string[] {
   return []
 }
 
-const WikilinkArray = z.any().default([]).transform((val) => flattenWikilinks(val))
+const WikilinkArray = z.union([z.string(), z.array(z.unknown())]).default([]).transform((val) => flattenWikilinks(val))
+
+export const NoteStatus = z.enum(["active", "stale"]).default("active")
+export type NoteStatus = z.infer<typeof NoteStatus>
 
 export const NoteFrontmatter = z.object({
   type: NoteType,
-  projects: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
   decisions: WikilinkArray,
   patterns: WikilinkArray,
@@ -37,6 +29,9 @@ export const NoteFrontmatter = z.object({
   updated: z.coerce.date(),
   title: z.string().optional(),
   description: z.string().optional(),
+  motivation: z.string().optional(),
+  status: NoteStatus,
+  staleAt: z.coerce.date().optional(),
 })
 export type NoteFrontmatter = z.infer<typeof NoteFrontmatter>
 

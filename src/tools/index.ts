@@ -1,10 +1,10 @@
 export { registerTools } from "./registry"
 export type { ToolContext, ToolDefinition, ToolResponse } from "./types"
 
-export { indexTool } from "./index-tool"
 export { readTool } from "./read-tool"
 export { searchTool } from "./search-tool"
 export { syncTool } from "./sync-tool"
 export { writeTool } from "./write-tool"
-export { diagnosticsTool } from "./diagnostics-tool"
+export { healthTool } from "./health-tool"
+export { suggestCaptureTool } from "./suggest-capture-tool"
 export { buildIdfTable } from "./bm25"

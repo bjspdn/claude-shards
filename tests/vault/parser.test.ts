@@ -12,7 +12,6 @@ test("parseNote extracts frontmatter, body, and metadata", async () => {
   expect(entry).not.toBeNull()
   expect(entry!.frontmatter.type).toBe("gotchas")
   expect(entry!.frontmatter.tags).toContain("bevy")
-  expect(entry!.frontmatter.projects).toContain("bevy-game")
   expect(entry!.title).toBe("Bevy system ordering matters")
   expect(entry!.relativePath).toBe("gotchas/bevy-system-ordering.md")
   expect(entry!.body).toContain("Systems in Bevy")

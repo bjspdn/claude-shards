@@ -7,7 +7,7 @@ export const LOG_PATH = join(homedir(), ".claude-shards", "claude-shards.log")
 const MAX_LOG_SIZE = 5 * 1024 * 1024
 
 type LogLevel = "info" | "warn" | "error"
-type LogCategory = "server" | "tool" | "watcher" | "update" | "embedder" | "embeddings"
+type LogCategory = "server" | "tool" | "watcher" | "update" | "embedder" | "embeddings" | "security"
 
 interface LogEntry {
   ts: string

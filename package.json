@@ -1,23 +1,25 @@
 {
   "name": "claude-shards",
-  "version": "0.20.0",
-  "description": "MCP server that gives Claude Code persistent memory via an Obsidian knowledge vault",
+  "version": "0.79.0",
+  "description": "MCP server that gives Claude Code persistent knowledge via an Obsidian-compatible vault",
   "module": "dist/index.js",
   "main": "dist/index.js",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xspdn/claude-shards.git"
+    "url": "https://github.com/bjspdn/claude-shards.git"
   },
   "bugs": {
-    "url": "https://github.com/0xspdn/claude-shards/issues"
+    "url": "https://github.com/bjspdn/claude-shards/issues"
   },
-  "homepage": "https://github.com/0xspdn/claude-shards?tab=readme-ov-file#claude-shards",
+  "homepage": "https://github.com/bjspdn/claude-shards?tab=readme-ov-file#claude-shards",
   "scripts": {
     "prepare": "husky",
+    "bundle-vault": "bun scripts/bundle-vault.ts",
+    "prebuild": "bun run bundle-vault",
     "build": "bunup",
-    "prepublishOnly": "bun run build",
-    "prepare-release": "bash scripts/prepare-release.sh"
+    "prepublishOnly": "bun run build"
+    
   },
   "bin": {
     "claude-shards": "dist/index.js"
@@ -34,7 +36,7 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.5.1",
+    "@huggingface/transformers": "3.5.1",
     "@modelcontextprotocol/sdk": "1.27.1",
     "globby": "16.1.1",
     "gray-matter": "4.0.3",

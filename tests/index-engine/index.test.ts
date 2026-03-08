@@ -10,10 +10,10 @@ const MOCK_ENTRIES: NoteEntry[] = [
   {
     frontmatter: {
       type: "gotchas",
-      projects: ["bevy-game"],
       tags: ["bevy"],
       created: new Date(),
       updated: new Date(),
+      status: "active",
     },
     filePath: "/vault/gotchas/ordering.md",
     relativePath: "gotchas/ordering.md",
@@ -24,10 +24,10 @@ const MOCK_ENTRIES: NoteEntry[] = [
   {
     frontmatter: {
       type: "decisions",
-      projects: ["web-api"],
       tags: ["typescript"],
       created: new Date(),
       updated: new Date(),
+      status: "active",
     },
     filePath: "/vault/decisions/bun.md",
     relativePath: "decisions/bun.md",
@@ -37,12 +37,13 @@ const MOCK_ENTRIES: NoteEntry[] = [
   },
 ]
 
-test("buildIndexTable generates padded markdown table", () => {
+test("buildIndexTable generates padded markdown table with 4 columns", () => {
   const table = buildIndexTable(MOCK_ENTRIES)
   const lines = table.split("\n")
   expect(lines).toHaveLength(4)
   expect(lines[0]).toContain("| T")
   expect(lines[0]).toContain("Title")
+  expect(lines[0]).not.toContain("S")
   expect(lines[1]).toMatch(/^\|[-]+\|[-]+\|[-]+\|[-]+\|$/)
   expect(lines[2]).toContain("System ordering matters")
   expect(lines[2]).toContain("gotchas/ordering.md")
@@ -50,6 +51,29 @@ test("buildIndexTable generates padded markdown table", () => {
   expect(lines[3]).toContain("decisions/bun.md")
   const rowLengths = lines.filter((_, i) => i !== 1).map((l) => l.length)
   expect(new Set(rowLengths).size).toBe(1)
+})
+
+test("buildIndexTable uses description over title when available", () => {
+  const entries: NoteEntry[] = [
+    {
+      frontmatter: {
+        type: "gotchas",
+        description: "A concise description",
+        tags: [],
+        created: new Date(),
+        updated: new Date(),
+        status: "active",
+      },
+      filePath: "/vault/gotchas/test.md",
+      relativePath: "gotchas/test.md",
+      title: "The Full Title",
+      body: "body",
+      tokenCount: 50,
+    },
+  ]
+  const table = buildIndexTable(entries)
+  expect(table).toContain("A concise description")
+  expect(table).not.toContain("The Full Title")
 })
 
 test("buildIndexTable returns empty message for no entries", () => {
@@ -60,6 +84,7 @@ test("buildIndexTable returns empty message for no entries", () => {
 test("formatKnowledgeSection wraps table with header and legend", () => {
   const section = formatKnowledgeSection(MOCK_ENTRIES)
   expect(section).toContain("## Knowledge Index")
+  expect(section).toContain("Notes listed here are auto-loaded into context.")
   expect(section).toContain("🔴 = gotchas")
   expect(section).toContain("| T")
   expect(section).toContain("Title")

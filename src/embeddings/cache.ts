@@ -40,7 +40,9 @@ async function loadCache(vaultPath: string): Promise<EmbeddingIndex> {
         embedding: new Float32Array(entry.embedding),
       })
     }
-  } catch {}
+  } catch (err) {
+    logError("embeddings", "failed to load embedding cache", { error: String(err) })
+  }
   return index
 }
 

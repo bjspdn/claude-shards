@@ -9,6 +9,7 @@ import { formatTokenCount } from "../index-engine/index"
 import type { ToolDefinition } from "./types"
 import { scoreBM25, MIN_BM25_SCORE, type IdfTable } from "./bm25"
 import type { EmbeddingIndex } from "../embeddings/types"
+import config from "../config"
 
 interface SearchArgs {
   query: string
@@ -24,6 +25,9 @@ interface SearchResult {
   relativePath: string
   tokenDisplay: string
   score: number
+  status: string
+  description?: string
+  motivation?: string
 }
 
 /** @deprecated Use {@link scoreBM25} from ./bm25 — scheduled for removal. */
@@ -85,8 +89,8 @@ export function executeSearch(
   const keywords = args.query.split(/\s+/).filter(Boolean)
   if (keywords.length === 0) return []
 
-  const SEMANTIC_WEIGHT = 0.35
-  const CANDIDATE_K = 50
+  const SEMANTIC_WEIGHT = config.search.semanticWeight
+  const CANDIDATE_K = config.search.candidateK
 
   const bm25Scored = filtered.map((entry) => ({
     entry,
@@ -144,6 +148,9 @@ export function executeSearch(
         relativePath: c.entry.relativePath,
         tokenDisplay: formatTokenCount(c.entry.tokenCount),
         score: (1 - SEMANTIC_WEIGHT) * normBM25[i]! + SEMANTIC_WEIGHT * normCosine[i]!,
+        status: c.entry.frontmatter.status === "stale" ? "STALE" : "ACTIVE",
+        description: c.entry.frontmatter.description,
+        motivation: c.entry.frontmatter.motivation,
       }))
       .filter((r) => r.score > 0)
       .sort((a, b) => b.score - a.score)
@@ -155,13 +162,16 @@ export function executeSearch(
       relativePath: s.entry.relativePath,
       tokenDisplay: formatTokenCount(s.entry.tokenCount),
       score: s.bm25,
+      status: s.entry.frontmatter.status === "stale" ? "STALE" : "ACTIVE",
+      description: s.entry.frontmatter.description,
+      motivation: s.entry.frontmatter.motivation,
     }))
   }
 
-  const limit = args.limit ?? 10
+  const limit = args.limit ?? config.search.defaultLimit
 
   if (linkGraph) {
-    const ALPHA = 0.3
+    const ALPHA = config.search.alpha
     const pathToScore = new Map(scored.map((r) => [r.relativePath, r.score]))
 
     for (const result of scored) {
@@ -196,23 +206,30 @@ export function executeSearch(
  * @param results - Scored search results to format.
  */
 export function formatSearchResults(results: SearchResult[]): string {
-  return [
-    "| T | Title | Path | ~Tok | Score |",
-    "|---|-------|------|------|-------|",
-    ...results.map(
-      (r) => `| ${r.icon} | ${r.title} | ${r.relativePath} | ${r.tokenDisplay} | ${r.score} |`,
-    ),
-  ].join("\n")
+  const lines = [
+    "| T | S | Title | Path | ~Tok | Score |",
+    "|---|---|-------|------|------|-------|",
+  ]
+  for (const r of results) {
+    lines.push(`| ${r.icon} | ${r.status} | ${r.title} | ${r.relativePath} | ${r.tokenDisplay} | ${r.score} |`)
+    const details: string[] = []
+    if (r.description) details.push(r.description)
+    if (r.motivation) details.push(`_${r.motivation}_`)
+    if (details.length > 0) {
+      lines.push(`| | | ${details.join(" — ")} | | | |`)
+    }
+  }
+  return lines.join("\n")
 }
 
 export const searchTool: ToolDefinition = {
   name: "search",
   description: "Keyword search across vault notes, scored by title/tag/body matches. Returns a ranked results table — use the read tool to fetch full content of specific results.",
   inputSchema: z.object({
-    query: z.string().describe("Space-separated keywords to search for"),
+    query: z.string().max(1000).describe("Space-separated keywords to search for"),
     types: z.array(NoteType).optional().describe("Filter to these note types"),
-    tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
-    limit: z.number().optional().describe("Max results (default 10)"),
+    tags: z.array(z.string().max(100)).max(50).optional().describe("Filter to notes with these tags"),
+    limit: z.number().int().min(1).max(100).optional().describe("Max results (default 10)"),
   }),
   handler: async (args, ctx) => {
     let queryEmbedding: Float32Array | undefined

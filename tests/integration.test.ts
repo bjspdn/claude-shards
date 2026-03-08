@@ -1,16 +1,16 @@
 import { test, expect, beforeAll } from "bun:test"
 import { loadVault } from "../src/vault/loader"
-import { executeIndex } from "../src/tools/index-tool"
 import { executeRead } from "../src/tools/read-tool"
 import { executeSearch } from "../src/tools/search-tool"
 import { executeSync } from "../src/tools/sync-tool"
+import { markStaleNotes } from "../src/tools/index-tool"
+import { buildIndexTable } from "../src/index-engine/index"
 import type { NoteEntry } from "../src/vault/types"
 import { join } from "path"
 import { mkdtemp } from "fs/promises"
 import { tmpdir } from "os"
 
 const VAULT = join(import.meta.dir, "fixtures/vault")
-const CONFIG_DIR = join(import.meta.dir, "fixtures/with-config")
 
 let allEntries: NoteEntry[]
 
@@ -22,16 +22,12 @@ test("full vault loads expected number of valid notes", () => {
   expect(allEntries.length).toBe(11)
 })
 
-test("index tool returns full table", () => {
-  const table = executeIndex({}, allEntries)
+test("index table has 4 columns", () => {
+  const table = buildIndexTable(allEntries)
   expect(table).toContain("| T")
-})
-
-test("index tool filters by project name", () => {
-  const table = executeIndex({ project: "bevy-game" }, allEntries)
-  expect(table).toContain("Bevy")
-  expect(table).not.toContain("Bun over Node")
-  expect(table).not.toContain("TypeScript builder")
+  const headerLine = table.split("\n")[0]!
+  const cols = headerLine.split("|").filter((c) => c.trim() !== "")
+  expect(cols.length).toBe(4)
 })
 
 test("read tool returns full content for valid note", async () => {
@@ -48,31 +44,48 @@ test("read tool blocks path traversal", async () => {
   expect(result.ok).toBe(false)
 })
 
+test("read tool returns stale notes with warning", async () => {
+  const staleEntries: NoteEntry[] = [
+    {
+      title: "Stale Note",
+      relativePath: "gotchas/bevy-system-ordering.md",
+      filePath: join(VAULT, "gotchas/bevy-system-ordering.md"),
+      tokenCount: 100,
+      body: "body",
+      frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "stale", staleAt: new Date() },
+    },
+  ]
+  const result = await executeRead("gotchas/bevy-system-ordering.md", VAULT, staleEntries)
+  expect(result.ok).toBe(true)
+  if (result.ok) {
+    expect(result.content).toContain("⚠ This note is stale")
+  }
+})
+
 test("search finds relevant notes and ranks by score", () => {
   const results = executeSearch({ query: "bevy ordering" }, allEntries)
   expect(results.length).toBeGreaterThan(0)
   expect(results[0]!.title).toContain("Bevy system ordering")
 })
 
-test("sync creates valid CLAUDE.md and .context.toml in temp directory", async () => {
+test("sync with note paths copies files and updates CLAUDE.md", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "integration-test-"))
-  const globalDir = await mkdtemp(join(tmpdir(), "integration-global-"))
-  const result = await executeSync(tempDir, allEntries, VAULT, { globalClaudeDir: globalDir })
+  const entries = allEntries.slice(0, 2)
+  const notePaths = entries.map((e) => e.relativePath)
+  const synthesized = Object.fromEntries(entries.map((e) => [e.relativePath, `# ${e.title}\n\nSynthesized.`]))
+  const result = await executeSync(notePaths, allEntries, tempDir, { synthesized })
 
-  expect(result.entryCount).toBe(0)
+  expect(result.entryCount).toBe(2)
 
   const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
   expect(content).toContain("## Knowledge Index")
-
-  const configExists = await Bun.file(join(tempDir, ".context.toml")).exists()
-  expect(configExists).toBe(true)
+  expect(content).toContain("@docs/knowledge/")
 })
 
-test("sync with config filters produces smaller index", async () => {
-  const globalDir = await mkdtemp(join(tmpdir(), "integration-global-"))
-  const result = await executeSync(CONFIG_DIR, allEntries, VAULT, { globalClaudeDir: globalDir })
-  expect(result.entryCount).toBeLessThan(allEntries.length)
-  expect(result.entryCount).toBeGreaterThan(0)
+test("sync with empty notes returns prompt", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "integration-test-"))
+  const result = await executeSync([], allEntries, tempDir)
+  expect(result.summary).toContain("No notes specified")
 })
 
 test("vault notes with missing frontmatter are skipped without crashing", () => {

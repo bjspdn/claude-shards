@@ -2,43 +2,47 @@
 import pkg from "../package.json" with { type: "json" }
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { homedir } from "os"
-import { join } from "path"
 import { loadVault, buildLinkGraph } from "./vault/loader"
 import { watchVault } from "./vault/watcher"
 import {
   registerTools,
-  indexTool, readTool, searchTool, syncTool,
-  writeTool, diagnosticsTool, buildIdfTable,
+  readTool, searchTool, syncTool,
+  writeTool, healthTool, suggestCaptureTool,
+  buildIdfTable,
   type ToolContext,
 } from "./tools"
 import { warmup, encode, isReady, buildEmbeddingIndex, updateEmbeddings, type EmbeddingIndex } from "./embeddings"
 import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
 import { spinner } from "./cli/spinner"
-import { executeInit, formatInitSummary, VAULT_PATH as INIT_VAULT_PATH } from "./cli/init"
+import { executeInit, formatInitSummary } from "./cli/init"
 import { unregisterVaultFromObsidian } from "./cli/obsidian"
 import { C } from "./utils"
+import config from "./config"
 import { fetchLatestVersion, fetchReleaseNotes, initUpdateCheck } from "./update-checker"
 import { initLogFile, logInfo, logError } from "./logger"
 import { instrumentToolLogging } from "./tool-logger"
 import { runLogViewer } from "./cli/logging"
-import { rm } from "fs/promises"
+import { mkdir, rm } from "fs/promises"
+import { stringify } from "smol-toml"
 import { createInterface } from "readline"
 
 type CliCommand = "init" | "serve" | "version" | "update" | "uninstall" | "logging" | "help"
 
-const VAULT_PATH = join(homedir(), ".claude-shards", "knowledge-base")
+const VAULT_PATH = config.paths.vaultPath
 
-function parseCliArgs(): CliCommand {
+function parseCliArgs(): { command: CliCommand; vaultPath?: string } {
   const args = process.argv.slice(2)
-  if (args.includes("--version") || args.includes("-v")) return "version"
-  if (args.includes("--update")) return "update"
-  if (args.includes("--uninstall")) return "uninstall"
-  if (args.includes("--init")) return "init"
-  if (args.includes("--logging")) return "logging"
-  if (args.includes("--stdio")) return "serve"
-  if (!process.stdin.isTTY) return "serve"
-  return "help"
+  const vaultPathIdx = args.indexOf("--vault-path")
+  const vaultPath = vaultPathIdx !== -1 ? args[vaultPathIdx + 1] : undefined
+
+  if (args.includes("--version") || args.includes("-v")) return { command: "version" }
+  if (args.includes("--update")) return { command: "update" }
+  if (args.includes("--uninstall")) return { command: "uninstall" }
+  if (args.includes("--init")) return { command: "init", vaultPath }
+  if (args.includes("--logging")) return { command: "logging" }
+  if (args.includes("--stdio")) return { command: "serve" }
+  if (!process.stdin.isTTY) return { command: "serve" }
+  return { command: "help" }
 }
 
 async function printHelp() {
@@ -57,10 +61,11 @@ async function printHelp() {
     }
   } catch {}
 
-  console.log(`${C.bold}Claude Shards${C.reset} — Persistent memory for Claude Code
+  console.log(`${C.bold}Claude Shards${C.reset} — Persistent knowledge for Claude Code
 
 ${C.bold}Usage:${C.reset}
   ${C.cyan}claude-shards --init${C.reset}        Set up vault and register MCP server
+  ${C.cyan}  --vault-path <path>${C.reset}    Use a custom vault directory
   ${C.cyan}claude-shards --update${C.reset}      Update to the latest version
   ${C.cyan}claude-shards --uninstall${C.reset}   Remove Claude Shards, MCP server, and optionally the vault
   ${C.cyan}claude-shards --version${C.reset}     Show installed version
@@ -69,7 +74,7 @@ ${C.bold}Usage:${C.reset}
 ${C.bold}First-time install:${C.reset}
   ${C.cyan}bun install -g claude-shards && claude-shards --init${C.reset}
 
-${C.dim}Vault:${C.reset} ~/.claude-shards/knowledge-base/
+${C.dim}Vault:${C.reset} ${VAULT_PATH}
 ${C.dim}Docs:${C.reset}  https://github.com/0xspdn/claude-shards${updateLine}`)
 }
 
@@ -119,11 +124,11 @@ async function runUninstall() {
   await removeMcpServer()
   console.log(`  ${C.green}+${C.reset} Removed MCP server`)
 
-  await unregisterVaultFromObsidian(INIT_VAULT_PATH)
+  await unregisterVaultFromObsidian(VAULT_PATH)
   console.log(`  ${C.green}+${C.reset} Unregistered Obsidian vault`)
 
-  const shardsDir = join(homedir(), ".claude-shards")
-  const deleteVault = await promptConfirm(`  Delete vault at ${C.dim}${INIT_VAULT_PATH}${C.reset}? ${C.dim}(y/N)${C.reset} `)
+  const shardsDir = config.paths.shardsDir
+  const deleteVault = await promptConfirm(`  Delete vault at ${C.dim}${VAULT_PATH}${C.reset}? ${C.dim}(y/N)${C.reset} `)
   if (deleteVault) {
     await rm(shardsDir, { recursive: true, force: true })
     console.log(`  ${C.green}+${C.reset} Deleted vault`)
@@ -141,8 +146,18 @@ async function runUninstall() {
   console.log(`\n${C.green}Done${C.reset}`)
 }
 
-async function runInit() {
-  const result = await executeInit()
+async function persistVaultPath(vaultPath: string) {
+  const shardsDir = config.paths.shardsDir
+  await mkdir(shardsDir, { recursive: true })
+  const configPath = `${shardsDir}/config.toml`
+  await Bun.write(configPath, stringify({ vault: { path: vaultPath } }) + "\n")
+}
+
+async function runInit(vaultPath?: string) {
+  if (vaultPath) {
+    await persistVaultPath(vaultPath)
+  }
+  const result = await executeInit(vaultPath)
   console.log(formatInitSummary(result))
 
   const failed = result.steps.filter((s) => s.status === "failed").length
@@ -182,7 +197,7 @@ async function runServer() {
     }
   }
 
-  const { stop: stopWatcher, stats: watcherStats } = watchVault(VAULT_PATH, entries, onFlush)
+  const { stop: stopWatcher } = watchVault(VAULT_PATH, entries, onFlush)
 
   initEmbeddings()
   initUpdateCheck()
@@ -199,7 +214,6 @@ async function runServer() {
   const ctx: ToolContext = {
     entries,
     vaultPath: VAULT_PATH,
-    watcherStats,
     get linkGraph() { return linkGraph },
     get idfTable() { return idfTable },
     rebuildLinkGraph: rebuildGraph,
@@ -208,8 +222,8 @@ async function runServer() {
   }
 
   registerTools(server, [
-    indexTool, readTool, searchTool, syncTool,
-    writeTool, diagnosticsTool,
+    readTool, searchTool, syncTool,
+    writeTool, healthTool, suggestCaptureTool,
   ], ctx)
 
   const transport = new StdioServerTransport()
@@ -229,27 +243,27 @@ async function runServer() {
 
 const cli = parseCliArgs()
 
-if (cli === "version") {
+if (cli.command === "version") {
   console.log(pkg.version)
   process.exit(0)
-} else if (cli === "help") {
+} else if (cli.command === "help") {
   printHelp().then(() => process.exit(0)).catch(() => process.exit(0))
-} else if (cli === "update") {
+} else if (cli.command === "update") {
   runUpdate().catch((err) => {
     console.error("Fatal:", err)
     process.exit(1)
   })
-} else if (cli === "uninstall") {
+} else if (cli.command === "uninstall") {
   runUninstall().catch((err) => {
     console.error("Fatal:", err)
     process.exit(1)
   })
-} else if (cli === "init") {
-  runInit().catch((err) => {
+} else if (cli.command === "init") {
+  runInit(cli.vaultPath).catch((err) => {
     console.error("Fatal:", err)
     process.exit(1)
   })
-} else if (cli === "logging") {
+} else if (cli.command === "logging") {
   runLogViewer().catch((err) => {
     console.error("Fatal:", err)
     process.exit(1)
