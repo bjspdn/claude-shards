@@ -1,3 +1,4 @@
-export function draftFolder(tags: string[] | undefined): string {
-  return tags?.[0] ?? "_unsorted"
+export function draftFolder(type: string, project?: string): string {
+  const root = project ?? "GLOBAL"
+  return `${root}/${type}`
 }

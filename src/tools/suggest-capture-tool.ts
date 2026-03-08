@@ -12,6 +12,7 @@ interface SuggestCaptureArgs {
   type: NoteType
   context: string
   tags?: string[]
+  project?: string
 }
 
 export interface CaptureSuggestion {
@@ -56,7 +57,7 @@ export function executeSuggestCapture(
   )
 
   const slug = generateSlug(args.topic)
-  const draftPath = `${draftFolder(args.tags)}/${slug}.md`
+  const draftPath = `${draftFolder(args.type, args.project)}/${slug}.md`
   const motivation = generateMotivation(args.context)
 
   const similarNotes = similarResults.map((r) => ({
@@ -136,6 +137,7 @@ export const suggestCaptureTool: ToolDefinition = {
     type: NoteType.describe("Note type"),
     context: z.string().max(5000).describe("The knowledge to capture"),
     tags: z.array(z.string().max(100)).max(50).optional().describe("Searchable tags"),
+    project: z.string().max(100).optional().describe("Project name for folder organization (omit for project-agnostic notes)"),
   }),
   handler: async (args, ctx) => {
     let queryEmbedding: Float32Array | undefined

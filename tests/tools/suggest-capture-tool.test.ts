@@ -61,7 +61,7 @@ test("executeSuggestCapture generates correct path and type", async () => {
     undefined,
     idf,
   )
-  expect(result.draftPath).toBe("_unsorted/NEW_PATTERN.md")
+  expect(result.draftPath).toBe("GLOBAL/patterns/NEW_PATTERN.md")
   expect(result.draftFrontmatter.type).toBe("patterns")
 })
 
@@ -77,15 +77,15 @@ test("executeSuggestCapture finds similar existing notes", async () => {
   expect(result.similarNotes[0]!.title.toLowerCase()).toContain("bevy")
 })
 
-test("executeSuggestCapture uses first tag as folder", async () => {
+test("executeSuggestCapture uses project and type as folder", async () => {
   await setup
   const result = executeSuggestCapture(
-    { topic: "new pattern", type: "patterns", context: "Some pattern", tags: ["rust", "lifetimes"] },
+    { topic: "new pattern", type: "patterns", context: "Some pattern", project: "my-project" },
     entries,
     undefined,
     idf,
   )
-  expect(result.draftPath).toBe("rust/NEW_PATTERN.md")
+  expect(result.draftPath).toBe("my-project/patterns/NEW_PATTERN.md")
 })
 
 test("tags pass through correctly", async () => {
@@ -203,7 +203,7 @@ test("formatSuggestion contains draft path", async () => {
   )
   const output = formatSuggestion(suggestion)
   expect(output).toContain("**Draft path:**")
-  expect(output).toContain("_unsorted/TEST_FORMAT.md")
+  expect(output).toContain("GLOBAL/patterns/TEST_FORMAT.md")
 })
 
 test("formatSuggestion contains frontmatter yaml block", async () => {

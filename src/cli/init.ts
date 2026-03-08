@@ -6,7 +6,6 @@ import { loadManifest, saveManifest, hashContent, type VaultManifest } from "./v
 import { registerVaultWithObsidian } from "./obsidian"
 import { installGlobal, registerMcpServer } from "./claude-code"
 import config from "../config"
-import { detectLegacyLayout, executeMigration } from "./migrate"
 
 export type StepStatus = "created" | "skipped" | "failed"
 
@@ -69,17 +68,6 @@ export async function executeInit(vaultPathOverride?: string): Promise<InitResul
   }
 
   await saveManifest(VAULT_PATH, newManifest)
-
-  if (await detectLegacyLayout(VAULT_PATH)) {
-    const migration = await executeMigration(VAULT_PATH)
-    if (migration.moved.length > 0) {
-      const detail = `${migration.moved.length} notes moved to tag-based folders`
-      steps.push({ name: "folder migration", status: "created", detail })
-    }
-    for (const dir of migration.removedDirs) {
-      steps.push({ name: `remove ${dir}/`, status: "created", detail: "empty legacy folder" })
-    }
-  }
 
   const obsidianResult = await registerVaultWithObsidian(VAULT_PATH)
   if ("registered" in obsidianResult) {

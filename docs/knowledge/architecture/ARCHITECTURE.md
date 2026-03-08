@@ -67,7 +67,6 @@ src/
     ├── claude-code.ts    # Claude Code MCP server config management
     ├── obsidian.ts       # Obsidian vault registration
     ├── logging.ts        # Log viewer (--logging)
-    ├── migrate.ts        # Config migration helpers
     ├── spinner.ts        # Terminal spinner
     └── vault-bundle.gen.ts  # Generated vault template bundle
 ```

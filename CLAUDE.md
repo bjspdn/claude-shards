@@ -4,6 +4,6 @@ Use MCP tool `read` with the note path to fetch full details on demand.
 
 | T  | Title                                                                                    | Path                                                  | ~Tok  |
 |----|------------------------------------------------------------------------------------------|-------------------------------------------------------|-------|
-| 🏗️ | High-level architecture of the Claude Shards codebase                                    | @docs/knowledge/architecture/ARCHITECTURE.md          | ~1080 |
+| 🏗️ | High-level architecture of the Claude Shards codebase                                    | @docs/knowledge/architecture/ARCHITECTURE.md          | ~1070 |
 | 🟢 | The 10 most critical web application security risks from the OWASP Top 10 (2025 edition) | @docs/knowledge/references/OWASP_TOP_10.md            | ~690  |
 | 🟢 | TypeScript type safety and runtime validation patterns for secure web applications       | @docs/knowledge/references/TYPESCRIPT_WEB_SECURITY.md | ~790  |
