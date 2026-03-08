@@ -39,19 +39,44 @@ const MOCK_ENTRIES: NoteEntry[] = [
   },
 ]
 
-test("buildIndexTable generates padded markdown table", () => {
+test("buildIndexTable generates padded markdown table with 4 columns", () => {
   const table = buildIndexTable(MOCK_ENTRIES)
   const lines = table.split("\n")
   expect(lines).toHaveLength(4)
   expect(lines[0]).toContain("| T")
   expect(lines[0]).toContain("Title")
-  expect(lines[1]).toMatch(/^\|[-]+\|[-]+\|[-]+\|[-]+\|[-]+\|$/)
+  expect(lines[0]).not.toContain("S")
+  expect(lines[1]).toMatch(/^\|[-]+\|[-]+\|[-]+\|[-]+\|$/)
   expect(lines[2]).toContain("System ordering matters")
   expect(lines[2]).toContain("gotchas/ordering.md")
   expect(lines[3]).toContain("Use Bun over Node")
   expect(lines[3]).toContain("decisions/bun.md")
   const rowLengths = lines.filter((_, i) => i !== 1).map((l) => l.length)
   expect(new Set(rowLengths).size).toBe(1)
+})
+
+test("buildIndexTable uses description over title when available", () => {
+  const entries: NoteEntry[] = [
+    {
+      frontmatter: {
+        type: "gotchas",
+        description: "A concise description",
+        projects: [],
+        tags: [],
+        created: new Date(),
+        updated: new Date(),
+        status: "active",
+      },
+      filePath: "/vault/gotchas/test.md",
+      relativePath: "gotchas/test.md",
+      title: "The Full Title",
+      body: "body",
+      tokenCount: 50,
+    },
+  ]
+  const table = buildIndexTable(entries)
+  expect(table).toContain("A concise description")
+  expect(table).not.toContain("The Full Title")
 })
 
 test("buildIndexTable returns empty message for no entries", () => {
@@ -62,6 +87,7 @@ test("buildIndexTable returns empty message for no entries", () => {
 test("formatKnowledgeSection wraps table with header and legend", () => {
   const section = formatKnowledgeSection(MOCK_ENTRIES)
   expect(section).toContain("## Knowledge Index")
+  expect(section).toContain("See docs/knowledge/ for full note contents.")
   expect(section).toContain("🔴 = gotchas")
   expect(section).toContain("| T")
   expect(section).toContain("Title")

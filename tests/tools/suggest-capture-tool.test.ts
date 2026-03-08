@@ -22,12 +22,12 @@ const setup = loadVault(VAULT).then((e) => {
   idf = buildIdfTable(e)
 })
 
-test("generateSlug produces valid slug from topic", () => {
-  expect(generateSlug("Bevy System Ordering")).toBe("bevy-system-ordering")
+test("generateSlug produces UPPER_SNAKE_CASE from topic", () => {
+  expect(generateSlug("Bevy System Ordering")).toBe("BEVY_SYSTEM_ORDERING")
 })
 
-test("generateSlug strips leading/trailing hyphens", () => {
-  expect(generateSlug("--hello world--")).toBe("hello-world")
+test("generateSlug strips leading/trailing underscores", () => {
+  expect(generateSlug("--hello world--")).toBe("HELLO_WORLD")
 })
 
 test("generateSlug truncates to 60 chars", () => {
@@ -36,7 +36,7 @@ test("generateSlug truncates to 60 chars", () => {
 })
 
 test("generateSlug handles special characters", () => {
-  expect(generateSlug("foo@bar#baz!qux")).toBe("foo-bar-baz-qux")
+  expect(generateSlug("foo@bar#baz!qux")).toBe("FOO_BAR_BAZ_QUX")
 })
 
 test("generateMotivation trims to word boundary", () => {
@@ -61,7 +61,7 @@ test("executeSuggestCapture generates correct path and type", async () => {
     undefined,
     idf,
   )
-  expect(result.draftPath).toBe("_unsorted/new-pattern.md")
+  expect(result.draftPath).toBe("_unsorted/NEW_PATTERN.md")
   expect(result.draftFrontmatter.type).toBe("patterns")
 })
 
@@ -85,7 +85,7 @@ test("executeSuggestCapture uses first tag as folder", async () => {
     undefined,
     idf,
   )
-  expect(result.draftPath).toBe("rust/new-pattern.md")
+  expect(result.draftPath).toBe("rust/NEW_PATTERN.md")
 })
 
 test("tags and projects pass through correctly", async () => {
@@ -207,7 +207,7 @@ test("formatSuggestion contains draft path", async () => {
   )
   const output = formatSuggestion(suggestion)
   expect(output).toContain("**Draft path:**")
-  expect(output).toContain("_unsorted/test-format.md")
+  expect(output).toContain("_unsorted/TEST_FORMAT.md")
 })
 
 test("formatSuggestion contains frontmatter yaml block", async () => {

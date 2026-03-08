@@ -2,16 +2,11 @@ import { z } from "zod"
 import { unlink } from "fs/promises"
 import matter from "gray-matter"
 import type { NoteEntry } from "../vault/types"
-import { buildIndexTable } from "../index-engine/index"
 import { formatDate } from "../utils"
 import type { ToolDefinition } from "./types"
 import config from "../config"
 
-interface IndexArgs {
-  project?: string
-}
-
-interface StaleResult {
+export interface StaleResult {
   staleCount: number
   activatedCount: number
   deletedCount: number
@@ -83,38 +78,20 @@ async function updateNoteStatus(entry: NoteEntry, status: "active" | "stale", st
   await Bun.write(entry.filePath, updated)
 }
 
-export function executeIndex(
-  args: IndexArgs,
-  entries: NoteEntry[],
-): string {
-  let filtered = entries
-
-  if (args.project) {
-    filtered = filtered.filter((e) =>
-      e.frontmatter.projects.includes(args.project!),
-    )
-  }
-
-  return buildIndexTable(filtered)
-}
-
 function formatStaleReport(result: StaleResult): string {
   const parts: string[] = []
   if (result.staleCount > 0) parts.push(`${result.staleCount} marked stale`)
   if (result.activatedCount > 0) parts.push(`${result.activatedCount} reactivated`)
   if (result.deletedCount > 0) parts.push(`${result.deletedCount} deleted: ${result.deletedPaths.join(", ")}`)
-  return parts.length > 0 ? `\n\nStale lifecycle: ${parts.join(", ")}` : ""
+  return parts.length > 0 ? `Stale lifecycle: ${parts.join(", ")}` : "No lifecycle changes"
 }
 
-export const indexTool: ToolDefinition = {
-  name: "index",
-  description: "Return the compressed knowledge index table for the current project or vault",
-  inputSchema: z.object({
-    project: z.string().optional().describe("Filter to notes tagged with this project name"),
-  }),
-  handler: async (args, ctx) => {
+export const hygieneTool: ToolDefinition = {
+  name: "hygiene",
+  description: "Run vault lifecycle hygiene: mark stale notes and delete expired ones",
+  inputSchema: z.object({}),
+  handler: async (_args, ctx) => {
     const staleResult = await markStaleNotes(ctx.entries, ctx.vaultPath)
-    const table = executeIndex(args, ctx.entries)
-    return { text: table + formatStaleReport(staleResult) }
+    return { text: formatStaleReport(staleResult) }
   },
 }

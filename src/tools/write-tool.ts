@@ -378,7 +378,7 @@ export const writeTool: ToolDefinition = {
     "(gotchas \u2192 the decisions/patterns involved, patterns \u2192 the decisions " +
     "they implement, references \u2192 patterns that use them).",
   inputSchema: z.object({
-    path: z.string().describe("Relative path within vault (e.g. rust/my-new-note.md)"),
+    path: z.string().describe("Relative path within vault (e.g. gotchas/SYNC_BEFORE_INIT.md). Use UPPER_SNAKE_CASE filenames."),
     mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
     type: NoteType.optional().describe("Note type (required for create/replace)"),
     title: z.string().optional().describe("Note title — becomes the H1 heading (required for create/replace)"),

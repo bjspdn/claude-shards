@@ -12,10 +12,9 @@ export function formatTokenCount(count: number): string {
 export function toIndexEntry(entry: NoteEntry): IndexEntry {
   return {
     icon: NOTE_TYPE_ICONS[entry.frontmatter.type],
-    title: entry.title,
+    title: entry.frontmatter.description ?? entry.title,
     relativePath: entry.relativePath,
     tokenDisplay: formatTokenCount(entry.tokenCount),
-    status: entry.frontmatter.status === "stale" ? "STALE" : "ACTIVE",
   }
 }
 
@@ -24,10 +23,10 @@ export function buildIndexTable(entries: NoteEntry[]): string {
     return "No knowledge entries match the current filters."
   }
 
-  const headers = ["T", "S", "Title", "Path", "~Tok"]
+  const headers = ["T", "Title", "Path", "~Tok"]
   const rows = entries.map((e) => {
     const idx = toIndexEntry(e)
-    return [idx.icon, idx.status, idx.title, idx.relativePath, idx.tokenDisplay]
+    return [idx.icon, idx.title, idx.relativePath, idx.tokenDisplay]
   })
 
   const colWidths = headers.map((h, i) =>
@@ -48,7 +47,7 @@ export function formatKnowledgeSection(entries: NoteEntry[]): string {
 
   return [
     config.display.sectionTitle,
-    config.display.instructionLine,
+    "See docs/knowledge/ for full note contents.",
     config.display.iconLegend,
     "",
     table,

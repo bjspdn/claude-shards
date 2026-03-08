@@ -26,9 +26,9 @@ export interface CaptureSuggestion {
 
 export function generateSlug(topic: string): string {
   return topic
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
     .slice(0, config.similarity.slugMaxLen)
 }
 

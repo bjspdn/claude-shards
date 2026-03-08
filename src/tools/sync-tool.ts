@@ -1,8 +1,7 @@
 import { z } from "zod"
-import { join, resolve } from "path"
+import { join, dirname, basename } from "path"
+import { mkdir, readdir, rm } from "fs/promises"
 import type { NoteEntry } from "../vault/types"
-import { loadProjectConfig, createDefaultConfig } from "../vault/config"
-import { filterEntries } from "../vault/loader"
 import {
   formatKnowledgeSection,
   injectKnowledgeSection,
@@ -12,21 +11,17 @@ import {
 import type { ToolDefinition } from "./types"
 import globalConfig from "../config"
 
-function hasTechTag(entry: NoteEntry): boolean {
-  return entry.frontmatter.tags.some((t) => globalConfig.discovery.techTags.has(t))
-}
-
-interface SyncResult {
+export interface SyncResult {
   entryCount: number
   totalTokens: number
   summary: string
 }
 
-function extractTableEntries(content: string): string[] | null {
+export function extractTableEntries(content: string): string[] | null {
   const sectionStart = content.indexOf(globalConfig.display.sectionTitle)
   if (sectionStart === -1) return null
 
-  let sectionEnd = content.indexOf(
+  const sectionEnd = content.indexOf(
     "\n## ",
     sectionStart + globalConfig.display.sectionTitle.length,
   )
@@ -47,16 +42,18 @@ function extractTableEntries(content: string): string[] | null {
   )
 }
 
-function buildEntryFingerprint(entries: NoteEntry[]): string[] {
+export function buildEntryFingerprint(entries: NoteEntry[], pathPrefix: string): string[] {
   return entries.map((e) => {
     const idx = toIndexEntry(e)
-    return [idx.icon, idx.title, idx.relativePath, idx.tokenDisplay].join("|")
+    const localPath = `@docs/knowledge/${e.frontmatter.type}/${basename(e.relativePath)}`
+    return [idx.icon, idx.title, pathPrefix ? localPath : idx.relativePath, idx.tokenDisplay].join("|")
   })
 }
 
 async function syncToFile(
   claudeMdPath: string,
   filtered: NoteEntry[],
+  targetDir: string,
 ): Promise<{ entryCount: number; totalTokens: number; changed: boolean }> {
   const totalTokens = filtered.reduce((sum, e) => sum + e.tokenCount, 0)
 
@@ -69,123 +66,155 @@ async function syncToFile(
     if (
       sectionAtTop &&
       existingEntries !== null &&
-      existingEntries.join("\n") === buildEntryFingerprint(filtered).join("\n")
+      existingEntries.join("\n") === buildEntryFingerprint(filtered, targetDir).join("\n")
     ) {
       return { entryCount: filtered.length, totalTokens, changed: false }
     }
   }
 
+  const localEntries = filtered.map((e) => ({
+    ...e,
+    relativePath: `@docs/knowledge/${e.frontmatter.type}/${basename(e.relativePath)}`,
+  }))
+
   const updated = existing
-    ? injectKnowledgeSection(existing, filtered)
-    : formatKnowledgeSection(filtered) + "\n"
+    ? injectKnowledgeSection(existing, localEntries)
+    : formatKnowledgeSection(localEntries) + "\n"
 
   await Bun.write(claudeMdPath, updated)
 
   return { entryCount: filtered.length, totalTokens, changed: true }
 }
 
-interface SyncOptions {
-  globalClaudeDir?: string
+async function copyNotesToProject(
+  entries: NoteEntry[],
+  vaultPath: string,
+  targetDir: string,
+): Promise<void> {
+  for (const entry of entries) {
+    const typePath = join(targetDir, "docs", "knowledge", entry.frontmatter.type)
+    await mkdir(typePath, { recursive: true })
+    const dest = join(typePath, basename(entry.relativePath))
+    const content = await Bun.file(entry.filePath).text()
+    await Bun.write(dest, content)
+  }
 }
 
-/**
- * Sync the Knowledge Index section into a project's CLAUDE.md (and the global ~/.claude/CLAUDE.md).
- * @param targetDir - Project directory containing the target CLAUDE.md.
- * @param allEntries - All loaded vault note entries.
- * @param vaultPath - Absolute path to the vault directory.
- * @param options.globalClaudeDir - Override for ~/.claude (used in tests).
- */
-export async function executeSync(
+async function cleanupRemovedNotes(
+  syncedEntries: NoteEntry[],
   targetDir: string,
-  allEntries: NoteEntry[],
-  vaultPath: string,
-  options: SyncOptions = {},
-): Promise<SyncResult> {
-  let config = await loadProjectConfig(targetDir)
-  let autoCreated = false
+): Promise<string[]> {
+  const knowledgeDir = join(targetDir, "docs", "knowledge")
+  const removed: string[] = []
 
-  const globalClaudeDir = options.globalClaudeDir ?? resolve(globalConfig.paths.globalClaudeDir)
-  const isGlobalDir = resolve(targetDir) === resolve(globalClaudeDir)
-
-  if (!config && !isGlobalDir) {
-    config = await createDefaultConfig(targetDir, allEntries)
-    autoCreated = true
-  }
-
-  const filterConfig = config?.filter
-    ? { ...config, filter: { ...config.filter, tags: undefined } }
-    : config
-  let filtered = filterEntries(allEntries, filterConfig)
-
-  const projectName = config?.project?.name
-  const filterTags = config?.filter?.tags
-  if (projectName) {
-    filtered = filtered.filter(
-      (e) =>
-        e.frontmatter.projects.includes(projectName) ||
-        (e.frontmatter.projects.length === 0 &&
-          filterTags?.length !== undefined &&
-          filterTags.length > 0 &&
-          e.frontmatter.tags.some((t) => filterTags.includes(t))),
-    )
-  } else {
-    filtered = filtered.filter(
-      (e) => e.frontmatter.projects.length === 0 && !hasTechTag(e),
-    )
-  }
-
-  const { entryCount, totalTokens, changed } = await syncToFile(
-    join(targetDir, "CLAUDE.md"),
-    filtered,
+  const syncedFiles = new Set(
+    syncedEntries.map((e) => `${e.frontmatter.type}/${basename(e.relativePath)}`),
   )
 
-  let summary = changed
-    ? `Synced ${entryCount} entries to CLAUDE.md (${formatTokenCount(totalTokens)} total index tokens)`
-    : `CLAUDE.md already up to date (${entryCount} entries, ${formatTokenCount(totalTokens)} total index tokens)`
-
-  if (autoCreated) {
-    const allTags = [...new Set(allEntries.flatMap((e) => e.frontmatter.tags))].sort()
-    const inferredTags = config?.filter?.tags
-    if (inferredTags?.length) {
-      summary += `\nAuto-created .context.toml with inferred tags: [${inferredTags.join(", ")}]`
-    } else {
-      summary += `\nAuto-created .context.toml (no tags inferred from file extensions)`
+  try {
+    const typeDirs = await readdir(knowledgeDir)
+    for (const typeDir of typeDirs) {
+      const typePath = join(knowledgeDir, typeDir)
+      try {
+        const files = await readdir(typePath)
+        for (const file of files) {
+          const key = `${typeDir}/${file}`
+          if (!syncedFiles.has(key)) {
+            await rm(join(typePath, file))
+            removed.push(key)
+          }
+        }
+        const remaining = await readdir(typePath)
+        if (remaining.length === 0) {
+          await rm(typePath, { recursive: true })
+        }
+      } catch {}
     }
-    if (allTags.length > 0) {
-      summary += `\nAvailable vault tags: [${allTags.join(", ")}] — edit .context.toml filter.tags to refine`
+    const remaining = await readdir(knowledgeDir)
+    if (remaining.length === 0) {
+      await rm(knowledgeDir, { recursive: true })
+    }
+  } catch {}
+
+  return removed
+}
+
+export async function executeSync(
+  notes: string[],
+  allEntries: NoteEntry[],
+  targetDir?: string,
+): Promise<SyncResult> {
+  const dir = targetDir ?? process.cwd()
+
+  if (notes.length === 0) {
+    return {
+      entryCount: 0,
+      totalTokens: 0,
+      summary: "No notes specified. Provide vault-relative paths of notes to sync into the project (e.g. gotchas/SYNC_BEFORE_INIT.md).",
     }
   }
 
-  if (!isGlobalDir) {
-    const globalEntries = allEntries.filter(
-      (e) => e.frontmatter.projects.length === 0 && !hasTechTag(e),
-    )
-    const globalResult = await syncToFile(
-      join(globalClaudeDir, "CLAUDE.md"),
-      globalEntries,
-    )
-    summary += globalResult.changed
-      ? `\nSynced ${globalResult.entryCount} global entries to ~/.claude/CLAUDE.md (${formatTokenCount(globalResult.totalTokens)} total index tokens)`
-      : `\n~/.claude/CLAUDE.md already up to date (${globalResult.entryCount} entries, ${formatTokenCount(globalResult.totalTokens)} total index tokens)`
+  const found: NoteEntry[] = []
+  const skippedStale: string[] = []
+  const notFound: string[] = []
+
+  for (const notePath of notes) {
+    const entry = allEntries.find((e) => e.relativePath === notePath)
+    if (!entry) {
+      notFound.push(notePath)
+      continue
+    }
+    if (entry.frontmatter.status === "stale") {
+      skippedStale.push(notePath)
+      continue
+    }
+    found.push(entry)
+  }
+
+  await copyNotesToProject(found, "", dir)
+  const removed = await cleanupRemovedNotes(found, dir)
+
+  const { entryCount, totalTokens, changed } = await syncToFile(
+    join(dir, "CLAUDE.md"),
+    found,
+    dir,
+  )
+
+  const parts: string[] = []
+
+  if (changed) {
+    parts.push(`Synced ${entryCount} entries to CLAUDE.md (${formatTokenCount(totalTokens)} total index tokens)`)
+  } else {
+    parts.push(`CLAUDE.md already up to date (${entryCount} entries, ${formatTokenCount(totalTokens)} total index tokens)`)
+  }
+
+  if (removed.length > 0) {
+    parts.push(`Removed ${removed.length} stale files from docs/knowledge/: ${removed.join(", ")}`)
+  }
+
+  if (skippedStale.length > 0) {
+    parts.push(`Skipped stale: ${skippedStale.join(", ")}`)
+  }
+
+  if (notFound.length > 0) {
+    parts.push(`Not found: ${notFound.join(", ")}`)
   }
 
   return {
     entryCount,
     totalTokens,
-    summary,
+    summary: parts.join("\n"),
   }
 }
 
-/** MCP tool: generates or updates the Knowledge Index section in CLAUDE.md files. */
 export const syncTool: ToolDefinition = {
   name: "sync",
-  description: "Generate or update the Knowledge Index section in a project's CLAUDE.md",
+  description: "Copy specified vault notes into docs/knowledge/ and update CLAUDE.md Knowledge Index",
   inputSchema: z.object({
-    targetDir: z.string().optional().describe("Project directory (defaults to server CWD)"),
+    notes: z.array(z.string()).describe("Vault-relative paths of notes to sync into the project"),
   }),
-  handler: async ({ targetDir }, ctx) => {
-    const dir = targetDir ?? process.cwd()
-    const result = await executeSync(dir, ctx.entries, ctx.vaultPath)
+  handler: async ({ notes }, ctx) => {
+    const result = await executeSync(notes, ctx.entries)
     return { text: result.summary }
   },
 }

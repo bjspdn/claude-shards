@@ -55,7 +55,6 @@ export interface IndexEntry {
   title: string
   relativePath: string
   tokenDisplay: string
-  status: string
 }
 
 export const ProjectConfigSchema = z.object({

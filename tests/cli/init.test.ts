@@ -21,7 +21,6 @@ test("VAULT_BUNDLE contains expected files", () => {
   expect(VAULT_BUNDLE["CLAUDE.md"]).toContain("Claude Shards Vault")
   expect(VAULT_BUNDLE[".obsidian/app.json"]).toBeDefined()
   expect(VAULT_BUNDLE["skills/plan-methodology.md"]).toBeDefined()
-  expect(VAULT_BUNDLE["skills/break-into-tasks.md"]).toBeDefined()
 })
 
 test("formatInitSummary produces readable output", () => {

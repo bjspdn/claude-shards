@@ -6,8 +6,8 @@ import { loadVault, buildLinkGraph } from "./vault/loader"
 import { watchVault } from "./vault/watcher"
 import {
   registerTools,
-  indexTool, readTool, searchTool, syncTool,
-  writeTool, diagnosticsTool, healthTool, suggestCaptureTool, kanbanTool,
+  hygieneTool, readTool, searchTool, syncTool,
+  writeTool, diagnosticsTool, healthTool, suggestCaptureTool,
   buildIdfTable,
   type ToolContext,
 } from "./tools"
@@ -223,8 +223,8 @@ async function runServer() {
   }
 
   registerTools(server, [
-    indexTool, readTool, searchTool, syncTool,
-    writeTool, diagnosticsTool, healthTool, suggestCaptureTool, kanbanTool,
+    hygieneTool, readTool, searchTool, syncTool,
+    writeTool, diagnosticsTool, healthTool, suggestCaptureTool,
   ], ctx)
 
   const transport = new StdioServerTransport()

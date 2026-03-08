@@ -1,7 +1,7 @@
 import { loadVault, buildLinkGraph } from "../src/vault/loader"
 import { executeSearch, formatSearchResults } from "../src/tools/search-tool"
 import { buildIdfTable } from "../src/tools/bm25"
-import { executeIndex } from "../src/tools/index-tool"
+import { buildIndexTable } from "../src/index-engine/index"
 import { executeRead } from "../src/tools/read-tool"
 import { join } from "path"
 import { homedir } from "os"
@@ -92,7 +92,7 @@ async function main() {
 
   hr("INDEX GENERATION")
   const ti = performance.now()
-  const indexOutput = executeIndex({}, entries)
+  const indexOutput = buildIndexTable(entries)
   const indexMs = performance.now() - ti
   const lines = indexOutput.split("\n")
   const entryCount = lines.length - 2

@@ -1,196 +1,163 @@
 import { test, expect, beforeEach } from "bun:test"
 import { executeSync } from "../../src/tools/sync-tool"
-import { loadVault } from "../../src/vault/loader"
 import type { NoteEntry } from "../../src/vault/types"
 import { join } from "path"
-import { mkdtemp, mkdir } from "fs/promises"
+import { mkdtemp, readdir, mkdir } from "fs/promises"
 import { tmpdir } from "os"
 
-const VAULT = join(import.meta.dir, "../fixtures/vault")
-let entries: Awaited<ReturnType<typeof loadVault>>
-const setup = loadVault(VAULT).then((e) => (entries = e))
+function makeEntry(overrides: Partial<NoteEntry> & { relativePath: string; filePath: string }): NoteEntry {
+  return {
+    title: "Test Note",
+    body: "body content",
+    tokenCount: 100,
+    frontmatter: {
+      type: "gotchas",
+      projects: [],
+      tags: [],
+      created: new Date(),
+      updated: new Date(),
+      status: "active",
+      ...overrides.frontmatter,
+    },
+    ...overrides,
+  } as NoteEntry
+}
 
 let tempDir: string
-let globalDir: string
+let vaultDir: string
 
 beforeEach(async () => {
   tempDir = await mkdtemp(join(tmpdir(), "sync-test-"))
-  globalDir = await mkdtemp(join(tmpdir(), "sync-global-"))
+  vaultDir = await mkdtemp(join(tmpdir(), "sync-vault-"))
 })
 
-test("executeSync creates CLAUDE.md and auto-creates .context.toml", async () => {
-  await setup
-  const result = await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-  expect(result.summary).toContain("Synced")
+async function writeVaultNote(relativePath: string, content: string): Promise<string> {
+  const fullPath = join(vaultDir, relativePath)
+  const dir = fullPath.substring(0, fullPath.lastIndexOf("/"))
+  await mkdir(dir, { recursive: true })
+  await Bun.write(fullPath, content)
+  return fullPath
+}
+
+test("executeSync with empty notes returns prompt message", async () => {
+  const result = await executeSync([], [], tempDir)
   expect(result.entryCount).toBe(0)
-
-  const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
-  expect(content).toContain("## Knowledge Index")
-
-  const configExists = await Bun.file(join(tempDir, ".context.toml")).exists()
-  expect(configExists).toBe(true)
+  expect(result.summary).toContain("No notes specified")
 })
 
-test("executeSync preserves existing CLAUDE.md content outside Knowledge Index", async () => {
-  await setup
-  await Bun.write(
-    join(tempDir, "CLAUDE.md"),
-    "# My Project\n\nImportant rules here.\n\n## Other Section\n\nKeep this.\n",
-  )
-
-  await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-
-  const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
-  expect(content).toContain("# My Project")
-  expect(content).toContain("Important rules here.")
-  expect(content).toContain("## Knowledge Index")
-  expect(content).toContain("## Other Section")
-  expect(content).toContain("Keep this.")
-})
-
-test("executeSync replaces existing Knowledge Index section", async () => {
-  await setup
-  await Bun.write(
-    join(tempDir, "CLAUDE.md"),
-    "# Project\n\n## Knowledge Index\nOld stuff.\n\n## Other\nKeep.\n",
-  )
-
-  await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-
-  const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
-  expect(content).not.toContain("Old stuff")
-  expect(content).toContain("## Knowledge Index")
-  expect(content).toContain("## Other")
-  expect(content).toContain("Keep.")
-})
-
-test("executeSync applies .context.toml filters when present", async () => {
-  await setup
-  const configDir = join(import.meta.dir, "../fixtures/with-config")
-
-  const result = await executeSync(configDir, entries, VAULT, { globalClaudeDir: globalDir })
-  expect(result.entryCount).toBeGreaterThan(0)
-  expect(result.entryCount).toBeLessThan(entries.length)
-})
-
-test("executeSync returns entry count and token summary", async () => {
-  await setup
-  const result = await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-  expect(result.entryCount).toBe(0)
-  expect(result.totalTokens).toBe(0)
-  expect(result.summary).toMatch(/Synced \d+ entries/)
-})
-
-test("executeSync includes global notes when tags overlap", async () => {
-  await setup
-  await Bun.write(
-    join(tempDir, ".context.toml"),
-    '[project]\nname = "test-proj"\n\n[filter]\ntags = ["general"]\n',
-  )
-  const result = await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-  expect(result.entryCount).toBe(1)
-
-  const content = await Bun.file(join(tempDir, "CLAUDE.md")).text()
-  expect(content).toContain("General testing tip")
-})
-
-test("executeSync excludes global notes when no tag overlap", async () => {
-  await setup
-  await Bun.write(
-    join(tempDir, ".context.toml"),
-    '[project]\nname = "test-proj"\n\n[filter]\ntags = ["nonexistent"]\n',
-  )
-  const result = await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-  expect(result.entryCount).toBe(0)
-})
-
-test("executeSync excludes global notes when no filter.tags specified", async () => {
-  await setup
-  await Bun.write(
-    join(tempDir, ".context.toml"),
-    '[project]\nname = "test-proj"\n',
-  )
-  const result = await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-  expect(result.entryCount).toBe(0)
-})
-
-test("executeSync auto-created .context.toml contains inferred tags from extensions", async () => {
-  await setup
-  await Bun.write(join(tempDir, "index.ts"), "export default {}")
-  await Bun.write(join(tempDir, "app.tsx"), "<App />")
-
-  const result = await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-
-  const toml = await Bun.file(join(tempDir, ".context.toml")).text()
-  expect(toml).toContain("typescript")
-  expect(result.summary).toContain("inferred tags")
-  expect(result.summary).toContain("Available vault tags")
-})
-
-test("executeSync also writes global CLAUDE.md with project-less non-tech notes", async () => {
-  await setup
-  await Bun.write(
-    join(tempDir, ".context.toml"),
-    '[project]\nname = "test-proj"\n\n[filter]\ntags = ["rust"]\n',
-  )
-
-  const result = await executeSync(tempDir, entries, VAULT, { globalClaudeDir: globalDir })
-
-  expect(result.summary).toContain("global entries to ~/.claude/CLAUDE.md")
-
-  const globalContent = await Bun.file(join(globalDir, "CLAUDE.md")).text()
-  expect(globalContent).toContain("## Knowledge Index")
-  expect(globalContent).toContain("General testing tip")
-})
-
-test("executeSync skips global sync when targetDir is the global claude dir", async () => {
-  await setup
-  const result = await executeSync(globalDir, entries, VAULT, { globalClaudeDir: globalDir })
-
-  expect(result.summary).not.toContain("global entries")
-
-  const content = await Bun.file(join(globalDir, "CLAUDE.md")).text()
-  expect(content).toContain("## Knowledge Index")
-})
-
-test("executeSync excludes notes with tech tags from global CLAUDE.md", async () => {
-  await setup
-  const syntheticEntries: NoteEntry[] = [
-    {
-      title: "General Tip",
-      relativePath: "gotchas/general.md",
-      filePath: "/vault/gotchas/general.md",
-      tokenCount: 100,
-      body: "general knowledge",
-      frontmatter: { type: "gotchas", tags: ["productivity"], projects: [], created: new Date(), updated: new Date() },
-    },
-    {
-      title: "React Hooks Guide",
-      relativePath: "references/react-hooks.md",
-      filePath: "/vault/references/react-hooks.md",
-      tokenCount: 200,
-      body: "react specific",
-      frontmatter: { type: "references", tags: ["react", "performance"], projects: [], created: new Date(), updated: new Date() },
-    },
-    {
-      title: "Rust Lifetimes",
-      relativePath: "gotchas/rust-lifetimes.md",
-      filePath: "/vault/gotchas/rust-lifetimes.md",
-      tokenCount: 150,
-      body: "rust specific",
-      frontmatter: { type: "gotchas", tags: ["rust"], projects: [], created: new Date(), updated: new Date() },
-    },
+test("executeSync copies files to docs/knowledge/<type>/ and updates CLAUDE.md", async () => {
+  const fp = await writeVaultNote("gotchas/SYNC_BEFORE_INIT.md", "---\ntype: gotchas\n---\n# Note")
+  const entries = [
+    makeEntry({
+      relativePath: "gotchas/SYNC_BEFORE_INIT.md",
+      filePath: fp,
+      title: "Sync before init",
+      frontmatter: { type: "gotchas", projects: [], tags: [], created: new Date(), updated: new Date(), status: "active" },
+    }),
   ]
 
-  await Bun.write(
-    join(tempDir, ".context.toml"),
-    '[project]\nname = "test-proj"\n',
-  )
+  const result = await executeSync(["gotchas/SYNC_BEFORE_INIT.md"], entries, tempDir)
+  expect(result.entryCount).toBe(1)
+  expect(result.summary).toContain("Synced 1 entries")
 
-  await executeSync(tempDir, syntheticEntries, VAULT, { globalClaudeDir: globalDir })
+  const copied = await Bun.file(join(tempDir, "docs/knowledge/gotchas/SYNC_BEFORE_INIT.md")).exists()
+  expect(copied).toBe(true)
 
-  const globalContent = await Bun.file(join(globalDir, "CLAUDE.md")).text()
-  expect(globalContent).toContain("General Tip")
-  expect(globalContent).not.toContain("React Hooks Guide")
-  expect(globalContent).not.toContain("Rust Lifetimes")
+  const claudeMd = await Bun.file(join(tempDir, "CLAUDE.md")).text()
+  expect(claudeMd).toContain("## Knowledge Index")
+  expect(claudeMd).toContain("@docs/knowledge/gotchas/SYNC_BEFORE_INIT.md")
+})
+
+test("executeSync skips stale notes with report", async () => {
+  const fp = await writeVaultNote("gotchas/STALE_NOTE.md", "---\ntype: gotchas\n---\n# Stale")
+  const entries = [
+    makeEntry({
+      relativePath: "gotchas/STALE_NOTE.md",
+      filePath: fp,
+      title: "Stale note",
+      frontmatter: { type: "gotchas", projects: [], tags: [], created: new Date(), updated: new Date(), status: "stale", staleAt: new Date() },
+    }),
+  ]
+
+  const result = await executeSync(["gotchas/STALE_NOTE.md"], entries, tempDir)
+  expect(result.entryCount).toBe(0)
+  expect(result.summary).toContain("Skipped stale")
+  expect(result.summary).toContain("STALE_NOTE.md")
+})
+
+test("executeSync reports not-found paths", async () => {
+  const result = await executeSync(["gotchas/NONEXISTENT.md"], [], tempDir)
+  expect(result.entryCount).toBe(0)
+  expect(result.summary).toContain("Not found")
+  expect(result.summary).toContain("NONEXISTENT.md")
+})
+
+test("executeSync cleans up files no longer in sync list", async () => {
+  const knowledgeDir = join(tempDir, "docs/knowledge/gotchas")
+  await mkdir(knowledgeDir, { recursive: true })
+  await Bun.write(join(knowledgeDir, "OLD_NOTE.md"), "old content")
+
+  const result = await executeSync([], [], tempDir)
+  expect(result.summary).toContain("No notes specified")
+})
+
+test("executeSync removes files not in current sync list", async () => {
+  const knowledgeDir = join(tempDir, "docs/knowledge/decisions")
+  await mkdir(knowledgeDir, { recursive: true })
+  await Bun.write(join(knowledgeDir, "REMOVED.md"), "old content")
+
+  const fp = await writeVaultNote("gotchas/KEEP.md", "---\ntype: gotchas\n---\n# Keep")
+  const entries = [
+    makeEntry({
+      relativePath: "gotchas/KEEP.md",
+      filePath: fp,
+      title: "Keep this",
+      frontmatter: { type: "gotchas", projects: [], tags: [], created: new Date(), updated: new Date(), status: "active" },
+    }),
+  ]
+
+  const result = await executeSync(["gotchas/KEEP.md"], entries, tempDir)
+  expect(result.summary).toContain("Removed")
+  expect(result.summary).toContain("decisions/REMOVED.md")
+
+  const removedExists = await Bun.file(join(knowledgeDir, "REMOVED.md")).exists()
+  expect(removedExists).toBe(false)
+
+  const keptExists = await Bun.file(join(tempDir, "docs/knowledge/gotchas/KEEP.md")).exists()
+  expect(keptExists).toBe(true)
+})
+
+test("executeSync uses description as title in CLAUDE.md table", async () => {
+  const fp = await writeVaultNote("decisions/CHOSE_BUN.md", "---\ntype: decisions\n---\n# Chose Bun")
+  const entries = [
+    makeEntry({
+      relativePath: "decisions/CHOSE_BUN.md",
+      filePath: fp,
+      title: "Chose Bun Over Node",
+      frontmatter: { type: "decisions", description: "Why we chose Bun", projects: [], tags: [], created: new Date(), updated: new Date(), status: "active" },
+    }),
+  ]
+
+  const result = await executeSync(["decisions/CHOSE_BUN.md"], entries, tempDir)
+  const claudeMd = await Bun.file(join(tempDir, "CLAUDE.md")).text()
+  expect(claudeMd).toContain("Why we chose Bun")
+  expect(claudeMd).not.toContain("Chose Bun Over Node")
+})
+
+test("executeSync fingerprint skips rewrite when unchanged", async () => {
+  const fp = await writeVaultNote("gotchas/STABLE.md", "---\ntype: gotchas\n---\n# Stable")
+  const entries = [
+    makeEntry({
+      relativePath: "gotchas/STABLE.md",
+      filePath: fp,
+      title: "Stable note",
+      frontmatter: { type: "gotchas", projects: [], tags: [], created: new Date(), updated: new Date(), status: "active" },
+    }),
+  ]
+
+  const result1 = await executeSync(["gotchas/STABLE.md"], entries, tempDir)
+  expect(result1.summary).toContain("Synced")
+
+  const result2 = await executeSync(["gotchas/STABLE.md"], entries, tempDir)
+  expect(result2.summary).toContain("already up to date")
 })
