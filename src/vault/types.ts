@@ -20,7 +20,6 @@ export type NoteStatus = z.infer<typeof NoteStatus>
 
 export const NoteFrontmatter = z.object({
   type: NoteType,
-  projects: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
   decisions: WikilinkArray,
   patterns: WikilinkArray,

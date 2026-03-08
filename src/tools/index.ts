@@ -1,7 +1,6 @@
 export { registerTools } from "./registry"
 export type { ToolContext, ToolDefinition, ToolResponse } from "./types"
 
-export { hygieneTool } from "./index-tool"
 export { readTool } from "./read-tool"
 export { searchTool } from "./search-tool"
 export { syncTool } from "./sync-tool"

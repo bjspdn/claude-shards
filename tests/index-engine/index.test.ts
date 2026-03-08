@@ -10,7 +10,6 @@ const MOCK_ENTRIES: NoteEntry[] = [
   {
     frontmatter: {
       type: "gotchas",
-      projects: ["bevy-game"],
       tags: ["bevy"],
       created: new Date(),
       updated: new Date(),
@@ -25,7 +24,6 @@ const MOCK_ENTRIES: NoteEntry[] = [
   {
     frontmatter: {
       type: "decisions",
-      projects: ["web-api"],
       tags: ["typescript"],
       created: new Date(),
       updated: new Date(),
@@ -61,7 +59,6 @@ test("buildIndexTable uses description over title when available", () => {
       frontmatter: {
         type: "gotchas",
         description: "A concise description",
-        projects: [],
         tags: [],
         created: new Date(),
         updated: new Date(),

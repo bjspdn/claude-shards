@@ -23,19 +23,21 @@ export async function executeRead(
     return { ok: false, error: "Path resolves outside vault. Use paths relative to vault root." }
   }
 
-  if (entries) {
-    const entry = entries.find((e) => e.relativePath === rel || e.filePath === resolved)
-    if (entry?.frontmatter.status === "stale") {
-      return { ok: false, error: `Note '${notePath}' is stale. Run the 'hygiene' tool to review stale notes.` }
-    }
-  }
-
   const file = Bun.file(resolved)
   if (!(await file.exists())) {
     return { ok: false, error: `Note not found: ${notePath}. Run the 'index' tool to see available notes.` }
   }
 
-  return { ok: true, content: await file.text() }
+  let content = await file.text()
+
+  if (entries) {
+    const entry = entries.find((e) => e.relativePath === rel || e.filePath === resolved)
+    if (entry?.frontmatter.status === "stale") {
+      content += `\n\n⚠ This note is stale. Update it to reactivate, or run hygiene to review.`
+    }
+  }
+
+  return { ok: true, content }
 }
 export const readTool: ToolDefinition = {
   name: "read",

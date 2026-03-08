@@ -12,7 +12,6 @@ interface SuggestCaptureArgs {
   type: NoteType
   context: string
   tags?: string[]
-  projects?: string[]
 }
 
 export interface CaptureSuggestion {
@@ -76,7 +75,6 @@ export function executeSuggestCapture(
     draftFrontmatter: {
       type: args.type,
       tags: args.tags ?? [],
-      projects: args.projects ?? [],
       motivation,
     },
     draftBody: args.context,
@@ -138,7 +136,6 @@ export const suggestCaptureTool: ToolDefinition = {
     type: NoteType.describe("Note type"),
     context: z.string().describe("The knowledge to capture"),
     tags: z.array(z.string()).optional().describe("Searchable tags"),
-    projects: z.array(z.string()).optional().describe("Project names this note relates to. Always include the current project name."),
   }),
   handler: async (args, ctx) => {
     let queryEmbedding: Float32Array | undefined

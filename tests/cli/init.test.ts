@@ -17,10 +17,9 @@ afterEach(async () => {
 })
 
 test("VAULT_BUNDLE contains expected files", () => {
-  expect(VAULT_BUNDLE["welcome.md"]).toContain("Welcome to Claude Shards")
+  expect(VAULT_BUNDLE["Welcome.md"]).toContain("Welcome to Claude Shards")
   expect(VAULT_BUNDLE["CLAUDE.md"]).toContain("Claude Shards Vault")
   expect(VAULT_BUNDLE[".obsidian/app.json"]).toBeDefined()
-  expect(VAULT_BUNDLE["skills/plan-methodology.md"]).toBeDefined()
 })
 
 test("formatInitSummary produces readable output", () => {
@@ -28,7 +27,7 @@ test("formatInitSummary produces readable output", () => {
     vaultPath: "/home/user/.claude-shards/knowledge-base",
     steps: [
       { name: "vault directory", status: "created", detail: "/home/user/.claude-shards/knowledge-base" },
-      { name: "welcome.md", status: "created", detail: "" },
+      { name: "Welcome.md", status: "created", detail: "" },
       { name: "CLAUDE.md", status: "skipped", detail: "user modified" },
       { name: "Claude Code MCP", status: "failed", detail: "CLI not found" },
     ],
@@ -36,7 +35,7 @@ test("formatInitSummary produces readable output", () => {
 
   const summary = formatInitSummary(result)
   expect(summary).toContain("claude-shards init")
-  expect(summary).toContain("welcome.md")
+  expect(summary).toContain("Welcome.md")
   expect(summary).toContain("CLAUDE.md")
   expect(summary).toContain("Claude Code MCP")
   expect(summary).toContain("2 created")
@@ -51,7 +50,7 @@ test("bundle files write to disk correctly", async () => {
     await Bun.write(fullPath, content)
   }
 
-  const welcomeContent = await readFile(join(tempDir, "welcome.md"), "utf-8")
+  const welcomeContent = await readFile(join(tempDir, "Welcome.md"), "utf-8")
   expect(welcomeContent).toContain("Welcome to Claude Shards")
 
   const claudeContent = await readFile(join(tempDir, "CLAUDE.md"), "utf-8")
@@ -59,14 +58,14 @@ test("bundle files write to disk correctly", async () => {
 })
 
 test("selective merge preserves user-modified files", async () => {
-  const originalContent = VAULT_BUNDLE["welcome.md"]
-  const fullPath = join(tempDir, "welcome.md")
+  const originalContent = VAULT_BUNDLE["Welcome.md"]
+  const fullPath = join(tempDir, "Welcome.md")
 
   await Bun.write(fullPath, originalContent)
 
   await saveManifest(tempDir, {
     version: "0.1.0",
-    files: { "welcome.md": hashContent(originalContent) },
+    files: { "Welcome.md": hashContent(originalContent) },
   })
 
   const userModified = "# My Custom Welcome\n\nI changed this."
@@ -87,7 +86,7 @@ test("selective merge overwrites unmodified files", async () => {
 
   await saveManifest(tempDir, {
     version: "0.1.0",
-    files: { "welcome.md": hashContent(originalContent) },
+    files: { "Welcome.md": hashContent(originalContent) },
   })
 
   const diskContent = await readFile(fullPath, "utf-8")

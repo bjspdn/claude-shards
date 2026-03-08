@@ -12,7 +12,6 @@ function makeEntry(overrides: Partial<NoteEntry> & { relativePath: string; fileP
     tokenCount: 100,
     frontmatter: {
       type: "gotchas",
-      projects: [],
       tags: [],
       created: new Date(),
       updated: new Date(),
@@ -52,7 +51,7 @@ test("executeSync copies files to docs/knowledge/<type>/ and updates CLAUDE.md",
       relativePath: "gotchas/SYNC_BEFORE_INIT.md",
       filePath: fp,
       title: "Sync before init",
-      frontmatter: { type: "gotchas", projects: [], tags: [], created: new Date(), updated: new Date(), status: "active" },
+      frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
     }),
   ]
 
@@ -75,7 +74,7 @@ test("executeSync skips stale notes with report", async () => {
       relativePath: "gotchas/STALE_NOTE.md",
       filePath: fp,
       title: "Stale note",
-      frontmatter: { type: "gotchas", projects: [], tags: [], created: new Date(), updated: new Date(), status: "stale", staleAt: new Date() },
+      frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "stale", staleAt: new Date() },
     }),
   ]
 
@@ -101,10 +100,10 @@ test("executeSync cleans up files no longer in sync list", async () => {
   expect(result.summary).toContain("No notes specified")
 })
 
-test("executeSync removes files not in current sync list", async () => {
+test("executeSync preserves files from previous syncs not in current request", async () => {
   const knowledgeDir = join(tempDir, "docs/knowledge/decisions")
   await mkdir(knowledgeDir, { recursive: true })
-  await Bun.write(join(knowledgeDir, "REMOVED.md"), "old content")
+  await Bun.write(join(knowledgeDir, "PREVIOUS.md"), "previously synced")
 
   const fp = await writeVaultNote("gotchas/KEEP.md", "---\ntype: gotchas\n---\n# Keep")
   const entries = [
@@ -112,19 +111,41 @@ test("executeSync removes files not in current sync list", async () => {
       relativePath: "gotchas/KEEP.md",
       filePath: fp,
       title: "Keep this",
-      frontmatter: { type: "gotchas", projects: [], tags: [], created: new Date(), updated: new Date(), status: "active" },
+      frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
     }),
   ]
 
   const result = await executeSync(["gotchas/KEEP.md"], entries, tempDir)
-  expect(result.summary).toContain("Removed")
-  expect(result.summary).toContain("decisions/REMOVED.md")
+  expect(result.summary).not.toContain("Removed")
 
-  const removedExists = await Bun.file(join(knowledgeDir, "REMOVED.md")).exists()
-  expect(removedExists).toBe(false)
+  const previousExists = await Bun.file(join(knowledgeDir, "PREVIOUS.md")).exists()
+  expect(previousExists).toBe(true)
 
   const keptExists = await Bun.file(join(tempDir, "docs/knowledge/gotchas/KEEP.md")).exists()
   expect(keptExists).toBe(true)
+})
+
+test("executeSync removes stale files that were explicitly requested", async () => {
+  const knowledgeDir = join(tempDir, "docs/knowledge/gotchas")
+  await mkdir(knowledgeDir, { recursive: true })
+  await Bun.write(join(knowledgeDir, "STALE_NOTE.md"), "stale content")
+
+  const fp = await writeVaultNote("gotchas/STALE_NOTE.md", "---\ntype: gotchas\nstatus: stale\n---\n# Stale")
+  const entries = [
+    makeEntry({
+      relativePath: "gotchas/STALE_NOTE.md",
+      filePath: fp,
+      title: "Stale note",
+      frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "stale" },
+    }),
+  ]
+
+  const result = await executeSync(["gotchas/STALE_NOTE.md"], entries, tempDir)
+  expect(result.summary).toContain("Removed")
+  expect(result.summary).toContain("gotchas/STALE_NOTE.md")
+
+  const staleExists = await Bun.file(join(knowledgeDir, "STALE_NOTE.md")).exists()
+  expect(staleExists).toBe(false)
 })
 
 test("executeSync uses description as title in CLAUDE.md table", async () => {
@@ -134,7 +155,7 @@ test("executeSync uses description as title in CLAUDE.md table", async () => {
       relativePath: "decisions/CHOSE_BUN.md",
       filePath: fp,
       title: "Chose Bun Over Node",
-      frontmatter: { type: "decisions", description: "Why we chose Bun", projects: [], tags: [], created: new Date(), updated: new Date(), status: "active" },
+      frontmatter: { type: "decisions", description: "Why we chose Bun", tags: [], created: new Date(), updated: new Date(), status: "active" },
     }),
   ]
 
@@ -151,7 +172,7 @@ test("executeSync fingerprint skips rewrite when unchanged", async () => {
       relativePath: "gotchas/STABLE.md",
       filePath: fp,
       title: "Stable note",
-      frontmatter: { type: "gotchas", projects: [], tags: [], created: new Date(), updated: new Date(), status: "active" },
+      frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
     }),
   ]
 

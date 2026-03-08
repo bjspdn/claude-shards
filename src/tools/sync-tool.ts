@@ -103,6 +103,7 @@ async function copyNotesToProject(
 async function cleanupRemovedNotes(
   syncedEntries: NoteEntry[],
   targetDir: string,
+  requestedPaths: Set<string>,
 ): Promise<string[]> {
   const knowledgeDir = join(targetDir, "docs", "knowledge")
   const removed: string[] = []
@@ -119,7 +120,8 @@ async function cleanupRemovedNotes(
         const files = await readdir(typePath)
         for (const file of files) {
           const key = `${typeDir}/${file}`
-          if (!syncedFiles.has(key)) {
+          const vaultPath = `${typeDir}/${file}`
+          if (!syncedFiles.has(key) && requestedPaths.has(vaultPath)) {
             await rm(join(typePath, file))
             removed.push(key)
           }
@@ -172,7 +174,7 @@ export async function executeSync(
   }
 
   await copyNotesToProject(found, "", dir)
-  const removed = await cleanupRemovedNotes(found, dir)
+  const removed = await cleanupRemovedNotes(found, dir, new Set(notes))
 
   const { entryCount, totalTokens, changed } = await syncToFile(
     join(dir, "CLAUDE.md"),

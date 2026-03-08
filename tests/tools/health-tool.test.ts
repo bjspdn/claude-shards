@@ -2,6 +2,7 @@ import { test, expect } from "bun:test"
 import { analyzeHealth, formatHealthReport } from "../../src/tools/health-tool"
 import { loadVault, buildLinkGraph } from "../../src/vault/loader"
 import type { NoteEntry, LinkGraph } from "../../src/vault/types"
+import type { StaleResult } from "../../src/tools/index-tool"
 import { join } from "path"
 
 const VAULT = join(import.meta.dir, "../fixtures/vault")
@@ -97,4 +98,47 @@ test("formatHealthReport includes note counts", async () => {
   expect(output).toContain(`Total notes: ${report.totalNotes}`)
   expect(output).toContain(`Linked: ${report.linkedNotes}`)
   expect(output).toContain(`Orphans: ${report.orphanNotes.length}`)
+})
+
+test("formatHealthReport includes lifecycle section with stale result", async () => {
+  await setup
+  const report = analyzeHealth(entries, linkGraph)
+  const staleResult: StaleResult = {
+    staleCount: 2,
+    activatedCount: 1,
+    deletedCount: 1,
+    deletedPaths: ["gotchas/old-note.md"],
+    stalePaths: ["patterns/stale-one.md", "patterns/stale-two.md"],
+    staleSynced: ["patterns/stale-one.md"],
+  }
+  const output = formatHealthReport(report, staleResult)
+  expect(output).toContain("## Lifecycle")
+  expect(output).toContain("2 marked stale")
+  expect(output).toContain("1 reactivated")
+  expect(output).toContain("1 deleted: gotchas/old-note.md")
+  expect(output).toContain("⚠ Stale notes still synced")
+  expect(output).toContain("## Overview")
+})
+
+test("formatHealthReport shows no lifecycle changes when nothing changed", async () => {
+  await setup
+  const report = analyzeHealth(entries, linkGraph)
+  const staleResult: StaleResult = {
+    staleCount: 0,
+    activatedCount: 0,
+    deletedCount: 0,
+    deletedPaths: [],
+    stalePaths: [],
+    staleSynced: [],
+  }
+  const output = formatHealthReport(report, staleResult)
+  expect(output).toContain("## Lifecycle")
+  expect(output).toContain("No lifecycle changes")
+})
+
+test("formatHealthReport omits lifecycle section without stale result", async () => {
+  await setup
+  const report = analyzeHealth(entries, linkGraph)
+  const output = formatHealthReport(report)
+  expect(output).not.toContain("## Lifecycle")
 })

@@ -20,7 +20,7 @@ interface WriteCreateCmd {
   description?: string
   motivation?: string
   tags?: string[]
-  projects?: string[]
+
   decisions?: string[]
   patterns?: string[]
   gotchas?: string[]
@@ -36,7 +36,7 @@ interface WriteReplaceCmd {
   description?: string
   motivation?: string
   tags?: string[]
-  projects?: string[]
+
   decisions?: string[]
   patterns?: string[]
   gotchas?: string[]
@@ -92,7 +92,7 @@ export function parseWriteArgs(args: {
   description?: string
   motivation?: string
   tags?: string[]
-  projects?: string[]
+
   decisions?: string[]
   patterns?: string[]
   gotchas?: string[]
@@ -129,7 +129,6 @@ export function parseWriteArgs(args: {
         description: args.description,
         motivation: args.motivation,
         tags: args.tags,
-        projects: args.projects,
         decisions: args.decisions,
         patterns: args.patterns,
         gotchas: args.gotchas,
@@ -144,7 +143,6 @@ export function parseWriteArgs(args: {
         description: args.description,
         motivation: args.motivation,
         tags: args.tags,
-        projects: args.projects,
         decisions: args.decisions,
         patterns: args.patterns,
         gotchas: args.gotchas,
@@ -167,7 +165,7 @@ function buildFrontmatter(args: {
   motivation?: string
   status?: string
   tags?: string[]
-  projects?: string[]
+
   decisions?: string[]
   patterns?: string[]
   gotchas?: string[]
@@ -183,11 +181,6 @@ function buildFrontmatter(args: {
 
   if (args.motivation) {
     lines.push(`motivation: "${args.motivation}"`)
-  }
-
-  if (args.projects?.length) {
-    lines.push("projects:")
-    for (const p of args.projects) lines.push(`  - ${p}`)
   }
 
   if (args.tags?.length) {
@@ -260,7 +253,6 @@ export async function executeWrite(
         motivation: data.motivation,
         status: data.status,
         tags: data.tags,
-        projects: data.projects,
         decisions: flattenWikilinks(data.decisions),
         patterns: flattenWikilinks(data.patterns),
         gotchas: flattenWikilinks(data.gotchas),
@@ -306,7 +298,6 @@ export async function executeWrite(
         motivation: data.motivation,
         status: data.status,
         tags: data.tags,
-        projects: data.projects,
         decisions: flattenWikilinks(data.decisions),
         patterns: flattenWikilinks(data.patterns),
         gotchas: flattenWikilinks(data.gotchas),
@@ -336,7 +327,6 @@ export async function executeWrite(
         description: cmd.description,
         motivation: cmd.motivation,
         tags: cmd.tags,
-        projects: cmd.projects,
         decisions: cmd.decisions,
         patterns: cmd.patterns,
         gotchas: cmd.gotchas,
@@ -387,7 +377,6 @@ export const writeTool: ToolDefinition = {
     body: z.string().optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
     section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
     tags: z.array(z.string()).optional().describe("Searchable tags"),
-    projects: z.array(z.string()).optional().describe("Project names this note relates to"),
     decisions: z.array(z.string()).optional().describe("Wikilinks to related decision notes (e.g. [[chose-x]])"),
     patterns: z.array(z.string()).optional().describe("Wikilinks to related pattern notes (e.g. [[my-pattern]])"),
     gotchas: z.array(z.string()).optional().describe("Wikilinks to related gotcha notes (e.g. [[my-gotcha]])"),

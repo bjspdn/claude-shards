@@ -44,7 +44,7 @@ test("read tool blocks path traversal", async () => {
   expect(result.ok).toBe(false)
 })
 
-test("read tool blocks stale notes", async () => {
+test("read tool returns stale notes with warning", async () => {
   const staleEntries: NoteEntry[] = [
     {
       title: "Stale Note",
@@ -52,13 +52,13 @@ test("read tool blocks stale notes", async () => {
       filePath: join(VAULT, "gotchas/bevy-system-ordering.md"),
       tokenCount: 100,
       body: "body",
-      frontmatter: { type: "gotchas", tags: [], projects: [], created: new Date(), updated: new Date(), status: "stale", staleAt: new Date() },
+      frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "stale", staleAt: new Date() },
     },
   ]
   const result = await executeRead("gotchas/bevy-system-ordering.md", VAULT, staleEntries)
-  expect(result.ok).toBe(false)
-  if (!result.ok) {
-    expect(result.error).toContain("stale")
+  expect(result.ok).toBe(true)
+  if (result.ok) {
+    expect(result.content).toContain("⚠ This note is stale")
   }
 })
 

@@ -59,7 +59,6 @@ test("creates file with correct frontmatter and body", async () => {
       title: "Test Title",
       body: "Some body content.",
       tags: ["rust", "bevy"],
-      projects: ["my-project"],
     }),
     entries,
     tempVault,
@@ -73,8 +72,6 @@ test("creates file with correct frontmatter and body", async () => {
   expect(content).toContain("tags:")
   expect(content).toContain("  - rust")
   expect(content).toContain("  - bevy")
-  expect(content).toContain("projects:")
-  expect(content).toContain("  - my-project")
   expect(content).toContain("created:")
   expect(content).toContain("updated:")
   expect(content).toContain("# Test Title")
@@ -264,7 +261,7 @@ test("parseWriteArgs: section rejected for non-patch modes", () => {
 
 test("append adds body to end and bumps updated date", async () => {
   await executeWrite(
-    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Original", body: "first paragraph", tags: ["tag1"], projects: ["proj1"] }),
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Original", body: "first paragraph", tags: ["tag1"] }),
     entries,
     tempVault,
   )
@@ -285,7 +282,6 @@ test("append adds body to end and bumps updated date", async () => {
   expect(content).toContain("# Original")
   expect(content).toContain("type: gotchas")
   expect(content).toContain("  - tag1")
-  expect(content).toContain("  - proj1")
 })
 
 test("append preserves created date", async () => {
@@ -441,7 +437,7 @@ test("parseWriteArgs: patch requires section param", () => {
 
 test("patch preserves created date and metadata", async () => {
   await executeWrite(
-    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Sec\n\nold", tags: ["t1"], projects: ["p1"] }),
+    writeCreate({ path: "gotchas/note.md", type: "gotchas", title: "Note", body: "## Sec\n\nold", tags: ["t1"] }),
     entries,
     tempVault,
   )
@@ -458,7 +454,6 @@ test("patch preserves created date and metadata", async () => {
   expect(createdMatch![1]).toBe(formatDate(createdBefore))
   expect(content).toContain("type: gotchas")
   expect(content).toContain("  - t1")
-  expect(content).toContain("  - p1")
 })
 
 test("patch with no body deletes a middle section", async () => {

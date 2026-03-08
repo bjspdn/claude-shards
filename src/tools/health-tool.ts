@@ -1,5 +1,6 @@
 import type { NoteEntry, LinkGraph } from "../vault/types"
 import type { ToolDefinition } from "./types"
+import { markStaleNotes, detectStaleSynced, type StaleResult } from "./index-tool"
 
 interface HealthReport {
   totalNotes: number
@@ -86,8 +87,24 @@ export function analyzeHealth(entries: NoteEntry[], linkGraph: LinkGraph): Healt
   return { totalNotes: allPaths.size, linkedNotes, orphanNotes, hubNotes, clusters }
 }
 
-export function formatHealthReport(report: HealthReport): string {
+function formatLifecycleSection(result: StaleResult): string {
+  const lines: string[] = ["## Lifecycle"]
+  const parts: string[] = []
+  if (result.staleCount > 0) parts.push(`${result.staleCount} marked stale`)
+  if (result.activatedCount > 0) parts.push(`${result.activatedCount} reactivated`)
+  if (result.deletedCount > 0) parts.push(`${result.deletedCount} deleted: ${result.deletedPaths.join(", ")}`)
+  if (result.staleSynced.length > 0) parts.push(`⚠ Stale notes still synced to projects: ${result.staleSynced.join(", ")}. Run sync to update, or update the notes to reactivate them.`)
+  lines.push(parts.length > 0 ? parts.join(", ") : "No lifecycle changes")
+  return lines.join("\n")
+}
+
+export function formatHealthReport(report: HealthReport, staleResult?: StaleResult): string {
   const lines: string[] = []
+
+  if (staleResult) {
+    lines.push(formatLifecycleSection(staleResult))
+    lines.push("")
+  }
 
   lines.push("## Overview")
   lines.push(`- Total notes: ${report.totalNotes}`)
@@ -130,9 +147,13 @@ export function formatHealthReport(report: HealthReport): string {
 
 export const healthTool: ToolDefinition = {
   name: "health",
-  description: "Analyze knowledge vault health: orphan notes, hub notes, and connected clusters",
-  handler: (_args, ctx) => {
+  description: "Run vault lifecycle hygiene and analyze health: stale/expired notes, orphans, hubs, and clusters",
+  handler: async (_args, ctx) => {
+    const staleResult = await markStaleNotes(ctx.entries, ctx.vaultPath)
+    if (staleResult.stalePaths.length > 0) {
+      staleResult.staleSynced = await detectStaleSynced(staleResult.stalePaths, process.cwd())
+    }
     const report = analyzeHealth(ctx.entries, ctx.linkGraph)
-    return { text: formatHealthReport(report) }
+    return { text: formatHealthReport(report, staleResult) }
   },
 }

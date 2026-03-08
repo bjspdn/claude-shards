@@ -1,9 +1,8 @@
-import { z } from "zod"
+import { join } from "path"
 import { unlink } from "fs/promises"
 import matter from "gray-matter"
 import type { NoteEntry } from "../vault/types"
 import { formatDate } from "../utils"
-import type { ToolDefinition } from "./types"
 import config from "../config"
 
 export interface StaleResult {
@@ -11,6 +10,8 @@ export interface StaleResult {
   activatedCount: number
   deletedCount: number
   deletedPaths: string[]
+  stalePaths: string[]
+  staleSynced: string[]
 }
 
 export async function markStaleNotes(
@@ -20,7 +21,7 @@ export async function markStaleNotes(
   deleteDays = config.lifecycle.deleteDays,
   now = new Date(),
 ): Promise<StaleResult> {
-  const result: StaleResult = { staleCount: 0, activatedCount: 0, deletedCount: 0, deletedPaths: [] }
+  const result: StaleResult = { staleCount: 0, activatedCount: 0, deletedCount: 0, deletedPaths: [], stalePaths: [], staleSynced: [] }
   const staleThreshold = new Date(now.getTime() - staleDays * 86400000)
   const deleteThreshold = new Date(now.getTime() - deleteDays * 86400000)
 
@@ -45,6 +46,7 @@ export async function markStaleNotes(
         entry.frontmatter.status = "stale"
         entry.frontmatter.staleAt = now
         result.staleCount++
+        result.stalePaths.push(entry.relativePath)
       }
     } else {
       if (entry.frontmatter.status === "stale") {
@@ -63,9 +65,26 @@ export async function markStaleNotes(
   return result
 }
 
-async function updateNoteStatus(entry: NoteEntry, status: "active" | "stale", staleAt?: string): Promise<void> {
+export async function detectStaleSynced(stalePaths: string[], projectDir: string): Promise<string[]> {
+  const synced: string[] = []
+  for (const relPath of stalePaths) {
+    const syncedPath = join(projectDir, "docs", "knowledge", relPath)
+    if (await Bun.file(syncedPath).exists()) {
+      synced.push(relPath)
+    }
+  }
+  return synced
+}
+
+export async function updateNoteStatus(entry: NoteEntry, status: "active" | "stale", staleAt?: string): Promise<void> {
   const raw = await Bun.file(entry.filePath).text()
   const { data, content } = matter(raw)
+
+  for (const key of Object.keys(data)) {
+    if (data[key] instanceof Date) {
+      data[key] = formatDate(data[key])
+    }
+  }
 
   data.status = status
   if (status === "stale" && staleAt) {
@@ -78,20 +97,3 @@ async function updateNoteStatus(entry: NoteEntry, status: "active" | "stale", st
   await Bun.write(entry.filePath, updated)
 }
 
-function formatStaleReport(result: StaleResult): string {
-  const parts: string[] = []
-  if (result.staleCount > 0) parts.push(`${result.staleCount} marked stale`)
-  if (result.activatedCount > 0) parts.push(`${result.activatedCount} reactivated`)
-  if (result.deletedCount > 0) parts.push(`${result.deletedCount} deleted: ${result.deletedPaths.join(", ")}`)
-  return parts.length > 0 ? `Stale lifecycle: ${parts.join(", ")}` : "No lifecycle changes"
-}
-
-export const hygieneTool: ToolDefinition = {
-  name: "hygiene",
-  description: "Run vault lifecycle hygiene: mark stale notes and delete expired ones",
-  inputSchema: z.object({}),
-  handler: async (_args, ctx) => {
-    const staleResult = await markStaleNotes(ctx.entries, ctx.vaultPath)
-    return { text: formatStaleReport(staleResult) }
-  },
-}

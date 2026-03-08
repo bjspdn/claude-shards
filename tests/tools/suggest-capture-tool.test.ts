@@ -88,7 +88,7 @@ test("executeSuggestCapture uses first tag as folder", async () => {
   expect(result.draftPath).toBe("rust/NEW_PATTERN.md")
 })
 
-test("tags and projects pass through correctly", async () => {
+test("tags pass through correctly", async () => {
   await setup
   const result = executeSuggestCapture(
     {
@@ -96,17 +96,15 @@ test("tags and projects pass through correctly", async () => {
       type: "decisions",
       context: "Some decision context",
       tags: ["typescript", "testing"],
-      projects: ["my-project"],
     },
     entries,
     undefined,
     idf,
   )
   expect(result.draftFrontmatter.tags).toEqual(["typescript", "testing"])
-  expect(result.draftFrontmatter.projects).toEqual(["my-project"])
 })
 
-test("tags and projects default to empty arrays", async () => {
+test("tags default to empty array", async () => {
   await setup
   const result = executeSuggestCapture(
     { topic: "test topic", type: "gotchas", context: "Some context" },
@@ -115,7 +113,6 @@ test("tags and projects default to empty arrays", async () => {
     idf,
   )
   expect(result.draftFrontmatter.tags).toEqual([])
-  expect(result.draftFrontmatter.projects).toEqual([])
 })
 
 test("suggestUpdate is set when similarity is high", () => {
@@ -124,7 +121,6 @@ test("suggestUpdate is set when similarity is high", () => {
       frontmatter: {
         type: "gotchas",
         tags: ["exact-match"],
-        projects: [],
         decisions: [],
         patterns: [],
         gotchas: [],
