@@ -29,6 +29,9 @@ export interface ShardsConfig {
     slugMaxLen: number
     contextMaxLen: number
   }
+  sync: {
+    gatherMaxTokens: number
+  }
   discovery: {
     ignoreDirs: string[]
     extToTags: Record<string, string[]>
@@ -104,6 +107,9 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
       slugMaxLen: 60,
       contextMaxLen: 120,
     },
+    sync: {
+      gatherMaxTokens: 2500,
+    },
     discovery: {
       ignoreDirs: ["node_modules", ".*", "target", "dist", "build"],
       extToTags: {
@@ -164,6 +170,7 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
     lifecycle: { ...defaults.lifecycle, ...overrides.lifecycle },
     search: { ...defaults.search, ...overrides.search },
     similarity: { ...defaults.similarity, ...overrides.similarity },
+    sync: { ...defaults.sync, ...overrides.sync },
     discovery: { ...defaults.discovery, ...overrides.discovery },
     display: { ...defaults.display, ...overrides.display },
   })

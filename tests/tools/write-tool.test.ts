@@ -6,6 +6,10 @@ import { join } from "path"
 import { mkdtemp, rm } from "fs/promises"
 import { tmpdir } from "os"
 
+function vaultFile(vault: string, path: string) {
+  return join(vault, "GLOBAL", path)
+}
+
 let tempVault: string
 let entries: NoteEntry[]
 
@@ -39,11 +43,11 @@ test("rejects path traversal", async () => {
 })
 
 test("rejects write to existing file in create mode", async () => {
-  const filePath = join(tempVault, "existing.md")
+  const filePath = vaultFile(tempVault, "gotchas/existing.md")
   await Bun.write(filePath, "already here")
 
   const result = await executeWrite(
-    writeCreate({ path: "existing.md", type: "gotchas", title: "Dup", body: "nope" }),
+    writeCreate({ path: "gotchas/existing.md", type: "gotchas", title: "Dup", body: "nope" }),
     entries,
     tempVault,
   )
@@ -67,7 +71,7 @@ test("creates file with correct frontmatter and body", async () => {
   expect(result.ok).toBe(true)
   if (!result.ok) return
 
-  const content = await Bun.file(join(tempVault, "gotchas/test-note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/test-note.md")).text()
   expect(content).toContain("type: gotchas")
   expect(content).toContain("tags:")
   expect(content).toContain("  - rust")
@@ -102,7 +106,7 @@ test("pushes new entry to entries array", async () => {
   expect(entries.length).toBe(1)
   expect(entries[0]!.title).toBe("New Note")
   expect(entries[0]!.frontmatter.type).toBe("gotchas")
-  expect(entries[0]!.relativePath).toBe("gotchas/new.md")
+  expect(entries[0]!.relativePath).toBe("GLOBAL/gotchas/new.md")
 })
 
 test("entries stay sorted by type priority after insert", async () => {
@@ -147,7 +151,7 @@ test("replaces existing file in replace mode", async () => {
   if (!result.ok) return
   expect(result.updated).toBe(true)
 
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   expect(content).toContain("# Updated")
   expect(content).toContain("new body")
 })
@@ -167,7 +171,7 @@ test("preserves original created date on replace", async () => {
     tempVault,
   )
 
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   const createdMatch = content.match(/created: (\S+)/)
   expect(createdMatch).toBeTruthy()
   expect(createdMatch![1]).toBe(formatDate(originalCreated))
@@ -203,7 +207,7 @@ test("no duplicate entries after replace", async () => {
     tempVault,
   )
 
-  const matching = entries.filter((e) => e.relativePath === "gotchas/note.md")
+  const matching = entries.filter((e) => e.relativePath === "GLOBAL/gotchas/note.md")
   expect(matching.length).toBe(1)
   expect(matching[0]!.title).toBe("V3")
 })
@@ -276,7 +280,7 @@ test("append adds body to end and bumps updated date", async () => {
   if (!result.ok) return
   expect(result.updated).toBe(true)
 
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   expect(content).toContain("first paragraph")
   expect(content).toContain("appended paragraph")
   expect(content).toContain("# Original")
@@ -298,7 +302,7 @@ test("append preserves created date", async () => {
     tempVault,
   )
 
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   const createdMatch = content.match(/created: (\S+)/)
   expect(createdMatch).toBeTruthy()
   expect(createdMatch![1]).toBe(formatDate(createdBefore))
@@ -352,7 +356,7 @@ test("patch replaces section by heading", async () => {
   if (!result.ok) return
   expect(result.updated).toBe(true)
 
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   expect(content).toContain("new content A")
   expect(content).not.toContain("old content A")
   expect(content).toContain("## Section A")
@@ -374,7 +378,7 @@ test("patch handles last section with no following heading", async () => {
   )
 
   expect(result.ok).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   expect(content).toContain("replaced content")
   expect(content).not.toContain("old content")
   expect(content).toContain("## Only Section")
@@ -394,7 +398,7 @@ test("patch respects heading level hierarchy", async () => {
   )
 
   expect(result.ok).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   expect(content).toContain("new parent")
   expect(content).toContain("new child")
   expect(content).not.toContain("parent text")
@@ -449,7 +453,7 @@ test("patch preserves created date and metadata", async () => {
     tempVault,
   )
 
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   const createdMatch = content.match(/created: (\S+)/)
   expect(createdMatch![1]).toBe(formatDate(createdBefore))
   expect(content).toContain("type: gotchas")
@@ -470,7 +474,7 @@ test("patch with no body deletes a middle section", async () => {
   )
 
   expect(result.ok).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   expect(content).toContain("## Section A")
   expect(content).toContain("content A")
   expect(content).not.toContain("## Section B")
@@ -493,7 +497,7 @@ test("patch with no body deletes the last section", async () => {
   )
 
   expect(result.ok).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   expect(content).toContain("## First")
   expect(content).toContain("keep this")
   expect(content).not.toContain("## Last")
@@ -514,7 +518,7 @@ test("patch with empty string body deletes the section", async () => {
   )
 
   expect(result.ok).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/note.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/note.md")).text()
   expect(content).toContain("## Keep")
   expect(content).toContain("kept")
   expect(content).not.toContain("## Remove")
@@ -536,7 +540,7 @@ test("create mode with category links emits wikilinks in frontmatter YAML", asyn
   )
 
   expect(result.ok).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/linked.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/linked.md")).text()
   expect(content).toContain("decisions:")
   expect(content).toContain('  - "[[chose-ecs-over-oop]]"')
   expect(content).toContain("patterns:")
@@ -557,7 +561,7 @@ test("create with description emits description in frontmatter", async () => {
   )
 
   expect(result.ok).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/with-desc.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/with-desc.md")).text()
   expect(content).toContain('description: "Gotcha with system ordering causing render issues"')
 })
 
@@ -574,7 +578,7 @@ test("create without description omits description from frontmatter", async () =
   )
 
   expect(result.ok).toBe(true)
-  const content = await Bun.file(join(tempVault, "gotchas/no-desc.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/no-desc.md")).text()
   expect(content).not.toContain("description:")
 })
 
@@ -597,7 +601,7 @@ test("append preserves existing description", async () => {
     tempVault,
   )
 
-  const content = await Bun.file(join(tempVault, "gotchas/desc-append.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/desc-append.md")).text()
   expect(content).toContain('description: "A semantic summary"')
   expect(content).toContain("appended")
 })
@@ -621,7 +625,7 @@ test("patch preserves existing description", async () => {
     tempVault,
   )
 
-  const content = await Bun.file(join(tempVault, "gotchas/desc-patch.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/desc-patch.md")).text()
   expect(content).toContain('description: "A semantic summary"')
   expect(content).toContain("new content")
 })
@@ -645,9 +649,47 @@ test("append mode preserves existing category links", async () => {
     tempVault,
   )
 
-  const content = await Bun.file(join(tempVault, "gotchas/linked.md")).text()
+  const content = await Bun.file(vaultFile(tempVault, "gotchas/linked.md")).text()
   expect(content).toContain("decisions:")
   expect(content).toContain('  - "[[chose-ecs-over-oop]]"')
   expect(content).toContain("appended")
 })
 
+test("bare type path is auto-prefixed with GLOBAL", async () => {
+  const result = await executeWrite(
+    writeCreate({ path: "references/MY_NOTE.md", type: "references", title: "My Note", body: "content" }),
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+  expect(result.path).toBe("GLOBAL/references/MY_NOTE.md")
+
+  const exists = await Bun.file(vaultFile(tempVault, "references/MY_NOTE.md")).exists()
+  expect(exists).toBe(true)
+})
+
+test("path already under GLOBAL is not double-prefixed", async () => {
+  const result = await executeWrite(
+    writeCreate({ path: "GLOBAL/gotchas/NOTE.md", type: "gotchas", title: "Note", body: "content" }),
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+  expect(result.path).toBe("GLOBAL/gotchas/NOTE.md")
+})
+
+test("path under a project folder is not prefixed", async () => {
+  const result = await executeWrite(
+    writeCreate({ path: "my-project/gotchas/NOTE.md", type: "gotchas", title: "Note", body: "content" }),
+    entries,
+    tempVault,
+  )
+
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+  expect(result.path).toBe("my-project/gotchas/NOTE.md")
+})

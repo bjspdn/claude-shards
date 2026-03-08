@@ -7,6 +7,7 @@ import { parseNote } from "../vault/parser"
 import { formatDate } from "../utils"
 import type { ToolDefinition } from "./types"
 import { logError } from "../logger"
+import { draftFolder } from "../vault/paths"
 
 type WriteResult =
   | { ok: true; path: string; updated: boolean }
@@ -223,6 +224,13 @@ export async function executeWrite(
   if (cmd.path.startsWith("/")) {
     logError("security", "absolute path attempt in write", { path: cmd.path })
     return { ok: false, error: "Absolute paths not allowed. Use paths relative to vault root." }
+  }
+
+  const NOTE_TYPES = new Set(NoteType.options)
+  const firstSegment = cmd.path.split("/")[0]
+  if (firstSegment && NOTE_TYPES.has(firstSegment as any)) {
+    const rest = cmd.path.slice(firstSegment.length + 1)
+    cmd = { ...cmd, path: `${draftFolder(firstSegment)}/${rest}` }
   }
 
   const resolved = resolve(vaultPath, cmd.path)

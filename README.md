@@ -88,25 +88,24 @@ Add { cache: 'no-store' } or use revalidate to avoid stale data...
 
 ## MCP Tools
 
-### `research`
+### `read`
 
-Batched search+read in one call. Finds matching shards by keyword, returns the results table plus full content.
+Load the full content of a note by path.
 
-| Param       | Type     | Required | Description                                         |
-|-------------|----------|----------|-----------------------------------------------------|
-| `query`     | string   | Yes      | Space-separated keywords                            |
-| `types`     | string[] | No       | Filter by shard type                                |
-| `tags`      | string[] | No       | Filter by tag                                       |
-| `limit`     | number   | No       | Max results (default 10)                            |
-| `maxTokens` | number   | No       | Token budget — stops including bodies once exceeded |
+| Param  | Type   | Required | Description                |
+|--------|--------|----------|----------------------------|
+| `path` | string | Yes      | Vault-relative note path   |
 
-### `index`
+### `search`
 
-Compressed markdown table of all vault shards (or filtered by project). Primary way Claude discovers available knowledge.
+Hybrid BM25 + semantic search across vault notes.
 
-| Param     | Type   | Required | Description                               |
-|-----------|--------|----------|-------------------------------------------|
-| `project` | string | No       | Filter to shards tagged with this project |
+| Param   | Type     | Required | Description                  |
+|---------|----------|----------|------------------------------|
+| `query` | string   | Yes      | Search query                 |
+| `types` | string[] | No       | Filter by shard type         |
+| `tags`  | string[] | No       | Filter by tag                |
+| `limit` | number   | No       | Max results (default 10)     |
 
 ### `write`
 
@@ -125,31 +124,41 @@ Creates or updates a shard. Three modes: `create` (default) adds a new shard wit
 
 ### `sync`
 
-Generates a `## Knowledge Index` section in a project's `CLAUDE.md`. Injects the index table so Claude sees relevant shards at conversation start without a tool call.
+Wikilink-aware sync with two-phase workflow. Use `mode: "gather"` to get note content with resolved dependencies (via the link graph) for Claude to synthesize, then call again with `synthesized` content to write self-contained files to `docs/knowledge/` and update the CLAUDE.md Knowledge Index.
 
-| Param       | Type   | Required | Description                         |
-|-------------|--------|----------|-------------------------------------|
-| `targetDir` | string | No       | Project directory (defaults to CWD) |
+| Param         | Type                    | Required | Description                                                                                     |
+|---------------|-------------------------|----------|-------------------------------------------------------------------------------------------------|
+| `notes`       | string[]                | Yes      | Vault-relative paths of notes to sync                                                           |
+| `mode`        | `"sync"` \| `"gather"` | No       | `"gather"` returns content with dependencies; `"sync"` (default) writes files and updates index |
+| `synthesized` | Record<string, string>  | No       | Map of vault-relative path → synthesized content to write instead of vault originals            |
 
-### `diagnostics`
+### `health`
 
-Live runtime diagnostics — vault stats (shard counts by type, total tokens), file watcher activity, process metrics, and server version. No parameters.
+Vault health check — surfaces stale notes and missing links. No parameters.
+
+### `suggest-capture`
+
+Suggests knowledge worth capturing based on the current conversation context.
 
 ## Vault Structure
 
-Organize however you like. The server finds all `.md` files recursively, ignoring hidden dirs and `node_modules`.
+Notes are organized by project, then by type. The server finds all `.md` files recursively, ignoring hidden dirs and `node_modules`.
 
 ```
 ~/.claude-shards/knowledge-base/
-  gotchas/
-    nextjs-fetch-cache.md
-  decisions/
-    chose-app-router-over-pages.md
-  patterns/
-    react-compound-components.md
-  references/
-    tailwind-cheatsheet.md
+  my-next-app/                          # Project-specific notes
+    gotchas/
+      NEXTJS_FETCH_CACHE.md
+    decisions/
+      CHOSE_APP_ROUTER.md
+  GLOBAL/                               # Project-agnostic notes
+    patterns/
+      REACT_COMPOUND_COMPONENTS.md
+    references/
+      TAILWIND_CHEATSHEET.md
 ```
+
+When synced to a project, notes are written to `docs/knowledge/{type}/{SLUG}.md`.
 
 ### Frontmatter Fields
 

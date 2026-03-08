@@ -1,6 +1,6 @@
 import { test, expect, beforeEach } from "bun:test"
-import { executeSync } from "../../src/tools/sync-tool"
-import type { NoteEntry } from "../../src/vault/types"
+import { executeSync, gatherNoteContent, formatGatheredOutput } from "../../src/tools/sync-tool"
+import type { NoteEntry, LinkGraph } from "../../src/vault/types"
 import { join } from "path"
 import { mkdtemp, readdir, mkdir } from "fs/promises"
 import { tmpdir } from "os"
@@ -20,6 +20,19 @@ function makeEntry(overrides: Partial<NoteEntry> & { relativePath: string; fileP
     },
     ...overrides,
   } as NoteEntry
+}
+
+function makeLinkGraph(forward: Record<string, string[]> = {}): LinkGraph {
+  const fwd = new Map<string, Set<string>>()
+  const rev = new Map<string, Set<string>>()
+  for (const [src, targets] of Object.entries(forward)) {
+    fwd.set(src, new Set(targets))
+    for (const t of targets) {
+      if (!rev.has(t)) rev.set(t, new Set())
+      rev.get(t)!.add(src)
+    }
+  }
+  return { forward: fwd, reverse: rev }
 }
 
 let tempDir: string
@@ -182,3 +195,172 @@ test("executeSync fingerprint skips rewrite when unchanged", async () => {
   const result2 = await executeSync(["gotchas/STABLE.md"], entries, tempDir)
   expect(result2.summary).toContain("already up to date")
 })
+
+test("gatherNoteContent resolves forward links from link graph", () => {
+  const noteA = makeEntry({
+    relativePath: "references/NOTE_A.md",
+    filePath: "/vault/references/NOTE_A.md",
+    title: "Note A",
+    body: "Content of A",
+    frontmatter: { type: "references", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+  const noteB = makeEntry({
+    relativePath: "gotchas/NOTE_B.md",
+    filePath: "/vault/gotchas/NOTE_B.md",
+    title: "Note B",
+    body: "Content of B",
+    frontmatter: { type: "gotchas", description: "B description", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+
+  const linkGraph = makeLinkGraph({
+    "references/NOTE_A.md": ["gotchas/NOTE_B.md"],
+  })
+
+  const gathered = gatherNoteContent(noteA, [noteA, noteB], linkGraph)
+  expect(gathered.path).toBe("references/NOTE_A.md")
+  expect(gathered.body).toBe("Content of A")
+  expect(gathered.dependencies).toHaveLength(1)
+  expect(gathered.dependencies[0].path).toBe("gotchas/NOTE_B.md")
+  expect(gathered.dependencies[0].title).toBe("Note B")
+  expect(gathered.dependencies[0].body).toBe("Content of B")
+  expect(gathered.dependencies[0].description).toBe("B description")
+})
+
+test("gatherNoteContent returns empty dependencies when no links", () => {
+  const note = makeEntry({
+    relativePath: "gotchas/SOLO.md",
+    filePath: "/vault/gotchas/SOLO.md",
+    title: "Solo",
+    body: "No links here",
+    frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+
+  const linkGraph = makeLinkGraph()
+  const gathered = gatherNoteContent(note, [note], linkGraph)
+  expect(gathered.dependencies).toHaveLength(0)
+})
+
+test("gatherNoteContent skips unresolved links gracefully", () => {
+  const note = makeEntry({
+    relativePath: "gotchas/LINKED.md",
+    filePath: "/vault/gotchas/LINKED.md",
+    title: "Linked",
+    body: "Has a link",
+    frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+
+  const linkGraph = makeLinkGraph({
+    "gotchas/LINKED.md": ["gotchas/MISSING.md"],
+  })
+
+  const gathered = gatherNoteContent(note, [note], linkGraph)
+  expect(gathered.dependencies).toHaveLength(0)
+})
+
+test("formatGatheredOutput marks duplicates when dependency is also requested", () => {
+  const gathered: GatheredNote[] = [
+    {
+      path: "references/A.md",
+      type: "references",
+      body: "A content",
+      dependencies: [
+        { path: "gotchas/B.md", title: "B", type: "gotchas", body: "B content" },
+      ],
+    },
+  ]
+  const requestedPaths = new Set(["references/A.md", "gotchas/B.md"])
+  const output = formatGatheredOutput(gathered, requestedPaths, 5000)
+  expect(output).toContain("deduplicate in synthesis")
+})
+
+test("formatGatheredOutput truncates dependencies when exceeding gatherMaxTokens", () => {
+  const longBody = "x".repeat(20000)
+  const gathered: GatheredNote[] = [
+    {
+      path: "references/A.md",
+      type: "references",
+      body: "short",
+      dependencies: [
+        { path: "gotchas/B.md", title: "B", type: "gotchas", body: longBody },
+      ],
+    },
+  ]
+  const requestedPaths = new Set(["references/A.md"])
+  const output = formatGatheredOutput(gathered, requestedPaths, 500)
+  expect(output).toContain("[truncated]")
+  expect(output.length).toBeLessThan(longBody.length)
+})
+
+test("sync gather mode returns content tree without writing files", async () => {
+  const fp = await writeVaultNote("references/GATHER_ME.md", "---\ntype: references\n---\n# Gather Me")
+  const noteA = makeEntry({
+    relativePath: "references/GATHER_ME.md",
+    filePath: fp,
+    title: "Gather Me",
+    body: "Gathered body content",
+    frontmatter: { type: "references", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+
+  const linkGraph = makeLinkGraph()
+  const result = await executeSync(
+    ["references/GATHER_ME.md"],
+    [noteA],
+    tempDir,
+    { mode: "gather", linkGraph },
+  )
+
+  expect(result.entryCount).toBe(1)
+  expect(result.summary).toContain("Gathered body content")
+  expect(result.summary).toContain("references/GATHER_ME.md")
+
+  const claudeMdExists = await Bun.file(join(tempDir, "CLAUDE.md")).exists()
+  expect(claudeMdExists).toBe(false)
+
+  const copiedExists = await Bun.file(join(tempDir, "docs/knowledge/references/GATHER_ME.md")).exists()
+  expect(copiedExists).toBe(false)
+})
+
+test("sync with synthesized content writes provided content to docs/knowledge/", async () => {
+  const fp = await writeVaultNote("gotchas/SYNTH.md", "---\ntype: gotchas\n---\n# Original")
+  const entry = makeEntry({
+    relativePath: "gotchas/SYNTH.md",
+    filePath: fp,
+    title: "Synth Note",
+    frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+
+  const synthesizedContent = "# Synthesized\n\nThis is the synthesized version."
+  const result = await executeSync(
+    ["gotchas/SYNTH.md"],
+    [entry],
+    tempDir,
+    { synthesized: { "gotchas/SYNTH.md": synthesizedContent } },
+  )
+
+  expect(result.entryCount).toBe(1)
+  const written = await Bun.file(join(tempDir, "docs/knowledge/gotchas/SYNTH.md")).text()
+  expect(written).toBe(synthesizedContent)
+})
+
+test("sync with synthesized content still updates CLAUDE.md index", async () => {
+  const fp = await writeVaultNote("gotchas/SYNTH2.md", "---\ntype: gotchas\n---\n# Original")
+  const entry = makeEntry({
+    relativePath: "gotchas/SYNTH2.md",
+    filePath: fp,
+    title: "Synth Note 2",
+    frontmatter: { type: "gotchas", tags: [], created: new Date(), updated: new Date(), status: "active" },
+  })
+
+  await executeSync(
+    ["gotchas/SYNTH2.md"],
+    [entry],
+    tempDir,
+    { synthesized: { "gotchas/SYNTH2.md": "synthesized" } },
+  )
+
+  const claudeMd = await Bun.file(join(tempDir, "CLAUDE.md")).text()
+  expect(claudeMd).toContain("## Knowledge Index")
+  expect(claudeMd).toContain("@docs/knowledge/gotchas/SYNTH2.md")
+})
+
+import type { GatheredNote } from "../../src/tools/sync-tool"
