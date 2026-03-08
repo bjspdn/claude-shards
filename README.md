@@ -19,7 +19,7 @@ Claude Shards is an MCP server that gives Claude Code persistent knowledge throu
 ## Install
 
 ```sh
-bun install -g claude-shards && claude-shards --init
+bun install -g @bjspdn/claude-shards && claude-shards --init
 ```
 
 Then start a Claude Code session — the MCP tools are available immediately.
