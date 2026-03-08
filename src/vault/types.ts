@@ -13,7 +13,7 @@ export function flattenWikilinks(val: unknown): string[] {
   return []
 }
 
-const WikilinkArray = z.any().default([]).transform((val) => flattenWikilinks(val))
+const WikilinkArray = z.union([z.string(), z.array(z.unknown())]).default([]).transform((val) => flattenWikilinks(val))
 
 export const NoteStatus = z.enum(["active", "stale"]).default("active")
 export type NoteStatus = z.infer<typeof NoteStatus>

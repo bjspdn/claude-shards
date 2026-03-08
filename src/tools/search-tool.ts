@@ -226,10 +226,10 @@ export const searchTool: ToolDefinition = {
   name: "search",
   description: "Keyword search across vault notes, scored by title/tag/body matches. Returns a ranked results table — use the read tool to fetch full content of specific results.",
   inputSchema: z.object({
-    query: z.string().describe("Space-separated keywords to search for"),
+    query: z.string().max(1000).describe("Space-separated keywords to search for"),
     types: z.array(NoteType).optional().describe("Filter to these note types"),
-    tags: z.array(z.string()).optional().describe("Filter to notes with these tags"),
-    limit: z.number().optional().describe("Max results (default 10)"),
+    tags: z.array(z.string().max(100)).max(50).optional().describe("Filter to notes with these tags"),
+    limit: z.number().int().min(1).max(100).optional().describe("Max results (default 10)"),
   }),
   handler: async (args, ctx) => {
     let queryEmbedding: Float32Array | undefined

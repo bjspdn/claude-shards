@@ -1,6 +1,7 @@
 import { homedir } from "os"
 import { join } from "path"
 import { parse } from "smol-toml"
+import { z } from "zod"
 
 export interface ShardsConfig {
   paths: {
@@ -40,14 +41,13 @@ export interface ShardsConfig {
   }
 }
 
-interface PersistedConfig {
-  vault?: { path?: string }
-}
-
+const PersistedConfigSchema = z.object({
+  vault: z.object({ path: z.string().optional() }).optional(),
+})
 function loadPersistedVaultPath(shardsDir: string): string | undefined {
   try {
     const raw = require("fs").readFileSync(join(shardsDir, "config.toml"), "utf-8")
-    const parsed = parse(raw) as PersistedConfig
+    const parsed = PersistedConfigSchema.parse(parse(raw))
     return parsed.vault?.path
   } catch {
     return undefined

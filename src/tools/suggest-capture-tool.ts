@@ -132,10 +132,10 @@ export const suggestCaptureTool: ToolDefinition = {
   description:
     "Call this proactively when you encounter reusable knowledge — patterns, gotchas, or decisions worth remembering. Prefer updating existing notes over creating duplicates.",
   inputSchema: z.object({
-    topic: z.string().describe("Short title/topic for the note"),
+    topic: z.string().max(200).describe("Short title/topic for the note"),
     type: NoteType.describe("Note type"),
-    context: z.string().describe("The knowledge to capture"),
-    tags: z.array(z.string()).optional().describe("Searchable tags"),
+    context: z.string().max(5000).describe("The knowledge to capture"),
+    tags: z.array(z.string().max(100)).max(50).optional().describe("Searchable tags"),
   }),
   handler: async (args, ctx) => {
     let queryEmbedding: Float32Array | undefined

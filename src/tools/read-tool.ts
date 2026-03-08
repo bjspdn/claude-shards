@@ -2,6 +2,7 @@ import { join, resolve, relative } from "path"
 import { z } from "zod"
 import type { NoteEntry } from "../vault/types"
 import type { ToolDefinition } from "./types"
+import { logError } from "../logger"
 
 type ReadResult =
   | { ok: true; content: string }
@@ -13,6 +14,7 @@ export async function executeRead(
   entries?: NoteEntry[],
 ): Promise<ReadResult> {
   if (notePath.startsWith("/")) {
+    logError("security", "absolute path attempt in read", { path: notePath })
     return { ok: false, error: "Absolute paths not allowed. Use paths relative to vault root." }
   }
 
@@ -20,6 +22,7 @@ export async function executeRead(
   const rel = relative(vaultPath, resolved)
 
   if (rel.startsWith("..")) {
+    logError("security", "path traversal attempt in read", { path: notePath })
     return { ok: false, error: "Path resolves outside vault. Use paths relative to vault root." }
   }
 
@@ -43,7 +46,7 @@ export const readTool: ToolDefinition = {
   name: "read",
   description: "Fetch full content of a vault note by its relative path",
   inputSchema: z.object({
-    path: z.string().describe("Relative path within vault (e.g. bevy/system-ordering.md)"),
+    path: z.string().max(500).describe("Relative path within vault (e.g. bevy/system-ordering.md)"),
   }),
   handler: async ({ path }, ctx) => {
     const result = await executeRead(path, ctx.vaultPath, ctx.entries)

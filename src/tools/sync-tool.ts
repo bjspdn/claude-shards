@@ -2,6 +2,7 @@ import { z } from "zod"
 import { join, dirname, basename } from "path"
 import { mkdir, readdir, rm } from "fs/promises"
 import type { NoteEntry } from "../vault/types"
+import { logError } from "../logger"
 import {
   formatKnowledgeSection,
   injectKnowledgeSection,
@@ -130,13 +131,17 @@ async function cleanupRemovedNotes(
         if (remaining.length === 0) {
           await rm(typePath, { recursive: true })
         }
-      } catch {}
+      } catch (err) {
+        logError("tool", `sync cleanup failed for ${typePath}`, { error: String(err) })
+      }
     }
     const remaining = await readdir(knowledgeDir)
     if (remaining.length === 0) {
       await rm(knowledgeDir, { recursive: true })
     }
-  } catch {}
+  } catch (err) {
+    logError("tool", `sync cleanup failed for ${knowledgeDir}`, { error: String(err) })
+  }
 
   return removed
 }
@@ -213,7 +218,7 @@ export const syncTool: ToolDefinition = {
   name: "sync",
   description: "Copy specified vault notes into docs/knowledge/ and update CLAUDE.md Knowledge Index",
   inputSchema: z.object({
-    notes: z.array(z.string()).describe("Vault-relative paths of notes to sync into the project"),
+    notes: z.array(z.string().max(500)).max(100).describe("Vault-relative paths of notes to sync into the project"),
   }),
   handler: async ({ notes }, ctx) => {
     const result = await executeSync(notes, ctx.entries)

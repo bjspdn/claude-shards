@@ -2,17 +2,19 @@ import { readFile, writeFile, copyFile } from "fs/promises"
 import { join } from "path"
 import { randomBytes } from "crypto"
 import { homedir } from "os"
+import { z } from "zod"
 
-type ObsidianVault = {
-  path: string
-  ts: number
-  open?: boolean
-}
+const ObsidianVaultSchema = z.object({
+  path: z.string(),
+  ts: z.number(),
+  open: z.boolean().optional(),
+})
 
-type ObsidianConfig = {
-  vaults: Record<string, ObsidianVault>
-  [key: string]: unknown
-}
+const ObsidianConfigSchema = z.looseObject({
+  vaults: z.record(z.string(), ObsidianVaultSchema),
+})
+
+type ObsidianConfig = z.infer<typeof ObsidianConfigSchema>
 
 export type RegisterResult =
   | { registered: true; vaultId: string }
@@ -37,7 +39,7 @@ export async function loadObsidianConfig(
 ): Promise<ObsidianConfig | null> {
   try {
     const raw = await readFile(configPath, "utf-8")
-    return JSON.parse(raw) as ObsidianConfig
+    return ObsidianConfigSchema.parse(JSON.parse(raw))
   } catch {
     return null
   }

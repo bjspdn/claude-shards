@@ -6,6 +6,7 @@ import { NoteType, NOTE_TYPE_PRIORITY, flattenWikilinks, type NoteEntry } from "
 import { parseNote } from "../vault/parser"
 import { formatDate } from "../utils"
 import type { ToolDefinition } from "./types"
+import { logError } from "../logger"
 
 type WriteResult =
   | { ok: true; path: string; updated: boolean }
@@ -220,6 +221,7 @@ export async function executeWrite(
   vaultPath: string,
 ): Promise<WriteResult> {
   if (cmd.path.startsWith("/")) {
+    logError("security", "absolute path attempt in write", { path: cmd.path })
     return { ok: false, error: "Absolute paths not allowed. Use paths relative to vault root." }
   }
 
@@ -227,6 +229,7 @@ export async function executeWrite(
   const rel = relative(vaultPath, resolved)
 
   if (rel.startsWith("..")) {
+    logError("security", "path traversal attempt in write", { path: cmd.path })
     return { ok: false, error: "Path resolves outside vault. Use paths relative to vault root." }
   }
 
@@ -368,19 +371,19 @@ export const writeTool: ToolDefinition = {
     "(gotchas \u2192 the decisions/patterns involved, patterns \u2192 the decisions " +
     "they implement, references \u2192 patterns that use them).",
   inputSchema: z.object({
-    path: z.string().describe("Relative path within vault (e.g. gotchas/SYNC_BEFORE_INIT.md). Use UPPER_SNAKE_CASE filenames."),
+    path: z.string().max(500).describe("Relative path within vault (e.g. gotchas/SYNC_BEFORE_INIT.md). Use UPPER_SNAKE_CASE filenames."),
     mode: z.enum(["create", "replace", "append", "patch"]).optional().describe("Write mode: create (default), replace, append, or patch"),
     type: NoteType.optional().describe("Note type (required for create/replace)"),
-    title: z.string().optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
-    description: z.string().optional().describe("One-line semantic summary for search"),
-    motivation: z.string().optional().describe("Why this note was created — shown in search results"),
-    body: z.string().optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
-    section: z.string().optional().describe("Section heading to replace (required for patch mode)"),
-    tags: z.array(z.string()).optional().describe("Searchable tags"),
-    decisions: z.array(z.string()).optional().describe("Wikilinks to related decision notes (e.g. [[chose-x]])"),
-    patterns: z.array(z.string()).optional().describe("Wikilinks to related pattern notes (e.g. [[my-pattern]])"),
-    gotchas: z.array(z.string()).optional().describe("Wikilinks to related gotcha notes (e.g. [[my-gotcha]])"),
-    references: z.array(z.string()).optional().describe("Wikilinks to related reference notes (e.g. [[my-reference]])"),
+    title: z.string().max(200).optional().describe("Note title — becomes the H1 heading (required for create/replace)"),
+    description: z.string().max(500).optional().describe("One-line semantic summary for search"),
+    motivation: z.string().max(500).optional().describe("Why this note was created — shown in search results"),
+    body: z.string().max(50_000).optional().describe("Markdown body content (required for all modes except patch — omit to delete section)"),
+    section: z.string().max(200).optional().describe("Section heading to replace (required for patch mode)"),
+    tags: z.array(z.string().max(100)).max(50).optional().describe("Searchable tags"),
+    decisions: z.array(z.string().max(500)).max(50).optional().describe("Wikilinks to related decision notes (e.g. [[chose-x]])"),
+    patterns: z.array(z.string().max(500)).max(50).optional().describe("Wikilinks to related pattern notes (e.g. [[my-pattern]])"),
+    gotchas: z.array(z.string().max(500)).max(50).optional().describe("Wikilinks to related gotcha notes (e.g. [[my-gotcha]])"),
+    references: z.array(z.string().max(500)).max(50).optional().describe("Wikilinks to related reference notes (e.g. [[my-reference]])"),
     overwrite: z.boolean().optional().describe("Deprecated — use mode 'replace' instead"),
   }),
   handler: async (args, ctx) => {

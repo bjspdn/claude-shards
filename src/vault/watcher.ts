@@ -140,7 +140,9 @@ export function watchVault(
           walkAndWatch(join(dirPath, entry.name))
         }
       }
-    } catch {}
+    } catch (err) {
+      logError("watcher", `failed to walk directory ${dirPath}`, { error: String(err) })
+    }
   }
 
   walkAndWatch(vaultPath)
