@@ -8,6 +8,7 @@ Claude Shards is a knowledge management tool for Claude Code, backed by an Obsid
 2. **Sync to projects** — The `sync` tool copies selected notes into your project's `docs/knowledge/` folder and updates the Knowledge Index in CLAUDE.md. Notes are organized by type:
    ```
    docs/knowledge/
+   ├── architecture/
    ├── decisions/
    ├── patterns/
    ├── gotchas/
@@ -17,7 +18,7 @@ Claude Shards is a knowledge management tool for Claude Code, backed by an Obsid
 
 ## Vault structure
 
-- Notes are organized into folders by their `type` frontmatter field (e.g., `decisions/`, `patterns/`, `gotchas/`, `references/`)
+- Notes are organized into folders by their `type` frontmatter field (e.g., `architecture/`, `decisions/`, `patterns/`, `gotchas/`, `references/`)
 - `_unsorted/` holds notes that don't have a type yet
 - `.obsidian/` contains Obsidian app configuration
 

@@ -37,6 +37,7 @@ export interface ShardsConfig {
   display: {
     sectionTitle: string
     iconLegend: string
+    architectureLegend: string
     instructionLine: string
   }
 }
@@ -74,12 +75,14 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
       contextToml: ".context.toml",
     },
     noteTypeIcons: {
+      architecture: "🏗️",
       gotchas: "🔴",
       decisions: "🟤",
       patterns: "🔵",
       references: "🟢",
     },
     noteTypePriority: {
+      architecture: -1,
       gotchas: 0,
       decisions: 1,
       patterns: 2,
@@ -147,6 +150,7 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
     display: {
       sectionTitle: "## Knowledge Index",
       iconLegend: "🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
+      architectureLegend: "🏗️ = architecture (read these at session start)  🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
       instructionLine: "Use MCP tool `read` with the note path to fetch full details on demand.",
     },
   }

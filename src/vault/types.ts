@@ -1,7 +1,7 @@
 import { z } from "zod"
 import config from "../config"
 
-export const NoteType = z.enum(["gotchas", "decisions", "patterns", "references"])
+export const NoteType = z.enum(["architecture", "gotchas", "decisions", "patterns", "references"])
 export type NoteType = z.infer<typeof NoteType>
 
 export const NOTE_TYPE_ICONS = config.noteTypeIcons as Record<NoteType, string>

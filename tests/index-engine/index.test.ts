@@ -84,7 +84,7 @@ test("buildIndexTable returns empty message for no entries", () => {
 test("formatKnowledgeSection wraps table with header and legend", () => {
   const section = formatKnowledgeSection(MOCK_ENTRIES)
   expect(section).toContain("## Knowledge Index")
-  expect(section).toContain("See docs/knowledge/ for full note contents.")
+  expect(section).toContain("Use MCP tool `read` with the note path to fetch full details on demand.")
   expect(section).toContain("🔴 = gotchas")
   expect(section).toContain("| T")
   expect(section).toContain("Title")

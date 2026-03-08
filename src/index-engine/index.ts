@@ -44,11 +44,15 @@ export function buildIndexTable(entries: NoteEntry[]): string {
 
 export function formatKnowledgeSection(entries: NoteEntry[]): string {
   const table = buildIndexTable(entries)
+  const hasArchitecture = entries.some((e) => e.frontmatter.type === "architecture")
+  const legend = hasArchitecture
+    ? config.display.architectureLegend
+    : config.display.iconLegend
 
   return [
     config.display.sectionTitle,
-    "See docs/knowledge/ for full note contents.",
-    config.display.iconLegend,
+    config.display.instructionLine,
+    legend,
     "",
     table,
   ].join("\n")
