@@ -57,7 +57,7 @@ test("createConfig has correct display defaults", () => {
   const cfg = createConfig()
   expect(cfg.display.sectionTitle).toBe("## Knowledge Index")
   expect(cfg.display.iconLegend).toContain("🔴 = gotchas")
-  expect(cfg.display.instructionLine).toContain("MCP tool")
+  expect(cfg.display.instructionLine).toContain("auto-loaded into context")
 })
 
 test("createConfig merges overrides per group", () => {

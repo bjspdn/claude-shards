@@ -28,7 +28,7 @@ export async function executeRead(
 
   const file = Bun.file(resolved)
   if (!(await file.exists())) {
-    return { ok: false, error: `Note not found: ${notePath}. Run the 'index' tool to see available notes.` }
+    return { ok: false, error: `Note not found: ${notePath}. Use the 'search' tool to find available notes.` }
   }
 
   let content = await file.text()

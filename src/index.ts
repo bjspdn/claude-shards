@@ -61,7 +61,7 @@ async function printHelp() {
     }
   } catch {}
 
-  console.log(`${C.bold}Claude Shards${C.reset} — Persistent memory for Claude Code
+  console.log(`${C.bold}Claude Shards${C.reset} — Persistent knowledge for Claude Code
 
 ${C.bold}Usage:${C.reset}
   ${C.cyan}claude-shards --init${C.reset}        Set up vault and register MCP server

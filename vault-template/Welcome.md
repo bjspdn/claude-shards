@@ -18,7 +18,8 @@ Claude Shards is a knowledge management tool for Claude Code, backed by an Obsid
 
 ## Vault structure
 
-- Notes are organized into folders by their `type` frontmatter field (e.g., `architecture/`, `decisions/`, `patterns/`, `gotchas/`, `references/`)
+- Notes are organized by project, then by type: `{project}/{type}/{SLUG}.md` (e.g. `my-app/gotchas/SYNC_BEFORE_INIT.md`)
+- Project-agnostic notes go under `GLOBAL/{type}/{SLUG}.md`
 - `_unsorted/` holds notes that don't have a type yet
 - `.obsidian/` contains Obsidian app configuration
 

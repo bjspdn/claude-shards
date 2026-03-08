@@ -108,7 +108,7 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
       contextMaxLen: 120,
     },
     sync: {
-      gatherMaxTokens: 2500,
+      gatherMaxTokens: 250,
     },
     discovery: {
       ignoreDirs: ["node_modules", ".*", "target", "dist", "build"],
@@ -156,8 +156,8 @@ export function createConfig(overrides?: Partial<ShardsConfig>): ShardsConfig {
     display: {
       sectionTitle: "## Knowledge Index",
       iconLegend: "🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
-      architectureLegend: "🏗️ = architecture (read these at session start)  🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
-      instructionLine: "Use MCP tool `read` with the note path to fetch full details on demand.",
+      architectureLegend: "🏗️ = architecture  🔴 = gotchas  🟤 = decisions  🔵 = patterns  🟢 = references",
+      instructionLine: "Notes listed here are auto-loaded into context. Use `search` to find other vault notes.",
     },
   }
 

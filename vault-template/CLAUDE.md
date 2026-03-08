@@ -9,8 +9,13 @@ All knowledge notes use YAML frontmatter with these fields:
 ```yaml
 ---
 type: architecture | decisions | patterns | gotchas | references
+status: active | stale
 tags:
   - relevant-tag
+decisions: []
+patterns: []
+gotchas: []
+references: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
