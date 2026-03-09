@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/bjspdn/claude-shards/compare/claude-shards-v0.22.0...claude-shards-v1.0.0) (2026-03-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* let install/uninstall be handled by the NPM
+
+### Features
+
+* let install/uninstall be handled by the NPM ([2ff960f](https://github.com/bjspdn/claude-shards/commit/2ff960ff9fdaefa81ea67a4c6de4eb54fb6c6219))
+
+
+### Bug Fixes
+
+* added --ignore-scripts ([e9dd69a](https://github.com/bjspdn/claude-shards/commit/e9dd69afa04217d9e16ff2e26adddb12fe510797))
+
 ## [0.22.0](https://github.com/bjspdn/claude-shards/compare/claude-shards-v0.21.0...claude-shards-v0.22.0) (2026-03-08)
 
 
