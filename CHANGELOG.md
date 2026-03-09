@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/bjspdn/claude-shards/compare/claude-shards-v1.0.1...claude-shards-v1.0.2) (2026-03-09)
+
+
+### Bug Fixes
+
+* add small CLI presentation ([d7b785b](https://github.com/bjspdn/claude-shards/commit/d7b785bca49670b8c8539dac81639ebfb5e02959))
+* add small CLI presentation ([4b5eb33](https://github.com/bjspdn/claude-shards/commit/4b5eb338e2c207c76717d06289a90ddc1f9a6735))
+
 ## [1.0.1](https://github.com/bjspdn/claude-shards/compare/claude-shards-v1.0.0...claude-shards-v1.0.1) (2026-03-09)
 
 
