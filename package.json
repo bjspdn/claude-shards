@@ -5,6 +5,9 @@
   "module": "dist/index.js",
   "main": "dist/index.js",
   "type": "module",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/bjspdn/claude-shards.git"
@@ -19,8 +22,8 @@
     "prebuild": "bun run bundle-vault",
     "build": "bunup",
     "prepublishOnly": "bun run build",
-    "postinstall": "claude-shards --init",
-    "preuninstall": "claude-shards --cleanup"
+    "postinstall": "bun dist/index.js --init",
+    "preuninstall": "bun dist/index.js --cleanup"
   },
   "bin": {
     "claude-shards": "dist/index.js"

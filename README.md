@@ -4,7 +4,7 @@
 
 **Structured knowledge base for Claude Code, built on Obsidian.**
 
-![npm](https://img.shields.io/npm/v/claude-shards?style=flat-square&logo=npm)
+![npm](https://img.shields.io/npm/v/@bjspdn/claude-shards?style=flat-square&logo=npm)
 ![Claude Compatible](https://img.shields.io/badge/Claude_Code-Compatible-D97706?style=flat-square&logo=anthropic)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
