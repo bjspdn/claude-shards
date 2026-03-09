@@ -3,8 +3,7 @@ import { join, dirname } from "path"
 import { C } from "../utils"
 import { VAULT_BUNDLE } from "./vault-bundle.gen"
 import { loadManifest, saveManifest, hashContent, type VaultManifest } from "./vault-manifest"
-import { registerVaultWithObsidian } from "./obsidian"
-import { installGlobal, registerMcpServer } from "./claude-code"
+import { registerMcpServer } from "./claude-code"
 import config from "../config"
 
 export type StepStatus = "created" | "skipped" | "failed"
@@ -68,28 +67,6 @@ export async function executeInit(vaultPathOverride?: string): Promise<InitResul
   }
 
   await saveManifest(VAULT_PATH, newManifest)
-
-  const obsidianResult = await registerVaultWithObsidian(VAULT_PATH)
-  if ("registered" in obsidianResult) {
-    steps.push({
-      name: "Obsidian registration",
-      status: "created",
-      detail: `vault ID: ${obsidianResult.vaultId}`,
-    })
-  } else {
-    steps.push({
-      name: "Obsidian registration",
-      status: "skipped",
-      detail: obsidianResult.reason,
-    })
-  }
-
-  const installResult = await installGlobal()
-  if (installResult.success) {
-    steps.push({ name: "global install", status: "created", detail: "claude-shards binary installed" })
-  } else {
-    steps.push({ name: "global install", status: "failed", detail: installResult.error })
-  }
 
   const mcpResult = await registerMcpServer()
   if (mcpResult.success) {
