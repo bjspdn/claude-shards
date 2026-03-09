@@ -15,31 +15,17 @@ import { warmup, encode, isReady, buildEmbeddingIndex, updateEmbeddings, type Em
 import { removeMcpServer } from "./cli/claude-code"
 import { executeInit, formatInitSummary } from "./cli/init"
 import { rm } from "fs/promises"
-import { createInterface } from "readline"
 import config from "./config"
+import { C } from "./utils"
 import { initLogFile, logInfo, logError } from "./logger"
 import { instrumentToolLogging } from "./tool-logger"
 
 const VAULT_PATH = config.paths.vaultPath
 
-function confirm(question: string): Promise<boolean> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close()
-      resolve(answer.toLowerCase().startsWith("y"))
-    })
-  })
-}
-
-async function runCleanup() {
+async function runUninstall() {
   await removeMcpServer()
-
-  const shardsDir = config.paths.shardsDir
-  if (process.stdin.isTTY && await confirm(`\nRemove ${shardsDir}? [y/N] `)) {
-    await rm(shardsDir, { recursive: true, force: true })
-    console.log("Removed.")
-  }
+  await rm(config.paths.shardsDir, { recursive: true, force: true })
+  Bun.spawn(["bun", "remove", "-g", "@bjspdn/claude-shards"], { stdio: ["ignore", "ignore", "ignore"] })
 }
 
 async function runServer() {
@@ -118,10 +104,24 @@ async function runServer() {
   process.on("SIGTERM", shutdown)
 }
 
+function printVersion() {
+  console.log(pkg.version)
+}
+
+function printUsage() {
+  console.log(`${C.bold}claude-shards${C.reset} ${C.dim}v${pkg.version}${C.reset}`)
+  console.log()
+  console.log("Commands:")
+  console.log(`  ${C.cyan}--init${C.reset}        ${C.dim}Set up vault and register MCP server${C.reset}`)
+  console.log(`  ${C.cyan}--uninstall${C.reset}   ${C.dim}Remove claude-shards completely${C.reset}`)
+}
+
 const args = process.argv.slice(2)
 
-if (args.includes("--cleanup")) {
-  runCleanup().catch((err) => {
+if (args.includes("--version")) {
+  printVersion()
+} else if (args.includes("--uninstall")) {
+  runUninstall().catch((err) => {
     console.error("Fatal:", err)
     process.exit(1)
   })
@@ -135,8 +135,7 @@ if (args.includes("--cleanup")) {
     process.exit(1)
   })
 } else if (process.stdin.isTTY) {
-  console.log("claude-shards — persistent knowledge for Claude Code via MCP.")
-  process.exit(0)
+  printUsage()
 } else {
   runServer().catch((err) => {
     console.error("Fatal:", err)
