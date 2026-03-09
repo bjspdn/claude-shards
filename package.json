@@ -18,7 +18,9 @@
     "bundle-vault": "bun scripts/bundle-vault.ts",
     "prebuild": "bun run bundle-vault",
     "build": "bunup",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "postinstall": "claude-shards --init",
+    "preuninstall": "claude-shards --cleanup"
   },
   "bin": {
     "claude-shards": "dist/index.js"

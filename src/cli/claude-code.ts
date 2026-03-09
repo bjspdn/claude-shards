@@ -4,55 +4,7 @@ export type McpRegisterResult =
   | { success: true; output: string }
   | { success: false; error: string; manualCommand: string }
 
-export type GlobalInstallResult =
-  | { success: true }
-  | { success: false; error: string }
-
 export const SERVER_CMD = ["claude-shards", "--stdio"]
-
-export function installGlobal(): Promise<GlobalInstallResult> {
-  return new Promise((resolve) => {
-    let stderr = ""
-
-    const proc = spawn("bun", ["install", "-g", "claude-shards"], { stdio: ["ignore", "ignore", "pipe"] })
-
-    proc.stderr.on("data", (data: Buffer) => { stderr += data.toString() })
-
-    proc.on("error", (err: NodeJS.ErrnoException) => {
-      resolve({ success: false, error: err.message })
-    })
-
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve({ success: true })
-      } else {
-        resolve({ success: false, error: stderr.trim() || `bun install exited with code ${code}` })
-      }
-    })
-  })
-}
-
-export function uninstallGlobal(): Promise<GlobalInstallResult> {
-  return new Promise((resolve) => {
-    let stderr = ""
-
-    const proc = spawn("bun", ["remove", "-g", "claude-shards"], { stdio: ["ignore", "ignore", "pipe"] })
-
-    proc.stderr.on("data", (data: Buffer) => { stderr += data.toString() })
-
-    proc.on("error", (err: NodeJS.ErrnoException) => {
-      resolve({ success: false, error: err.message })
-    })
-
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve({ success: true })
-      } else {
-        resolve({ success: false, error: stderr.trim() || `bun remove exited with code ${code}` })
-      }
-    })
-  })
-}
 
 const REGISTER_ARGS = [
   "mcp", "add",

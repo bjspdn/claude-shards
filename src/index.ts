@@ -12,156 +12,34 @@ import {
   type ToolContext,
 } from "./tools"
 import { warmup, encode, isReady, buildEmbeddingIndex, updateEmbeddings, type EmbeddingIndex } from "./embeddings"
-import { installGlobal, uninstallGlobal, registerMcpServer, removeMcpServer } from "./cli/claude-code"
-import { spinner } from "./cli/spinner"
+import { removeMcpServer } from "./cli/claude-code"
 import { executeInit, formatInitSummary } from "./cli/init"
-import { unregisterVaultFromObsidian } from "./cli/obsidian"
-import { C } from "./utils"
+import { rm } from "fs/promises"
+import { createInterface } from "readline"
 import config from "./config"
-import { fetchLatestVersion, fetchReleaseNotes, initUpdateCheck } from "./update-checker"
 import { initLogFile, logInfo, logError } from "./logger"
 import { instrumentToolLogging } from "./tool-logger"
-import { runLogViewer } from "./cli/logging"
-import { mkdir, rm } from "fs/promises"
-import { stringify } from "smol-toml"
-import { createInterface } from "readline"
-
-type CliCommand = "init" | "serve" | "version" | "update" | "uninstall" | "logging" | "help"
 
 const VAULT_PATH = config.paths.vaultPath
 
-function parseCliArgs(): { command: CliCommand; vaultPath?: string } {
-  const args = process.argv.slice(2)
-  const vaultPathIdx = args.indexOf("--vault-path")
-  const vaultPath = vaultPathIdx !== -1 ? args[vaultPathIdx + 1] : undefined
-
-  if (args.includes("--version") || args.includes("-v")) return { command: "version" }
-  if (args.includes("--update")) return { command: "update" }
-  if (args.includes("--uninstall")) return { command: "uninstall" }
-  if (args.includes("--init")) return { command: "init", vaultPath }
-  if (args.includes("--logging")) return { command: "logging" }
-  if (args.includes("--stdio")) return { command: "serve" }
-  if (!process.stdin.isTTY) return { command: "serve" }
-  return { command: "help" }
-}
-
-async function printHelp() {
-  let updateLine = ""
-  try {
-    const latest = await fetchLatestVersion()
-    if (latest !== pkg.version) {
-      const notes = await fetchReleaseNotes(latest)
-      const parts = [`\n\n${C.yellow}Update available:${C.reset} v${pkg.version} → ${C.green}v${latest}${C.reset}`]
-      if (notes.length > 0) {
-        parts.push(`${C.bold}What's new:${C.reset}`)
-        for (const note of notes) parts.push(`  ${C.dim}-${C.reset} ${note}`)
-      }
-      parts.push(`Run ${C.cyan}claude-shards --update${C.reset} to upgrade`)
-      updateLine = parts.join("\n")
-    }
-  } catch {}
-
-  console.log(`${C.bold}Claude Shards${C.reset} — Persistent knowledge for Claude Code
-
-${C.bold}Usage:${C.reset}
-  ${C.cyan}claude-shards --init${C.reset}        Set up vault and register MCP server
-  ${C.cyan}  --vault-path <path>${C.reset}    Use a custom vault directory
-  ${C.cyan}claude-shards --update${C.reset}      Update to the latest version
-  ${C.cyan}claude-shards --uninstall${C.reset}   Remove Claude Shards, MCP server, and optionally the vault
-  ${C.cyan}claude-shards --version${C.reset}     Show installed version
-  ${C.cyan}claude-shards --logging${C.reset}     Tail the MCP server log
-
-${C.bold}First-time install:${C.reset}
-  ${C.cyan}bun install -g claude-shards && claude-shards --init${C.reset}
-
-${C.dim}Vault:${C.reset} ${VAULT_PATH}
-${C.dim}Docs:${C.reset}  https://github.com/0xspdn/claude-shards${updateLine}`)
-}
-
-async function runUpdate() {
-  let s = spinner("Checking for updates")
-  const latest = await fetchLatestVersion()
-
-  if (latest === pkg.version) {
-    s.succeed(`Already on latest: ${C.green}v${pkg.version}${C.reset}`)
-    return
-  }
-
-  s.succeed(`${C.dim}v${pkg.version}${C.reset} → ${C.green}v${latest}${C.reset}`)
-
-  s = spinner("Installing")
-  const installResult = await installGlobal()
-  if (!installResult.success) {
-    s.fail("Install failed")
-    throw new Error(`Global install failed: ${installResult.error}`)
-  }
-  s.succeed("Installed package")
-
-  s = spinner("Registering MCP server")
-  const mcpResult = await registerMcpServer()
-  if (!mcpResult.success) {
-    s.fail("Registration failed")
-    throw new Error(`MCP registration failed: ${mcpResult.error}`)
-  }
-  s.succeed("Registered MCP server")
-
-  console.log(`\n${C.green}Updated to v${latest}${C.reset}`)
-}
-
-function promptConfirm(question: string): Promise<boolean> {
+function confirm(question: string): Promise<boolean> {
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
       rl.close()
-      resolve(answer.toLowerCase() === "y")
+      resolve(answer.toLowerCase().startsWith("y"))
     })
   })
 }
 
-async function runUninstall() {
-  console.log(`${C.bold}claude-shards uninstall${C.reset}\n`)
-
+async function runCleanup() {
   await removeMcpServer()
-  console.log(`  ${C.green}+${C.reset} Removed MCP server`)
-
-  await unregisterVaultFromObsidian(VAULT_PATH)
-  console.log(`  ${C.green}+${C.reset} Unregistered Obsidian vault`)
 
   const shardsDir = config.paths.shardsDir
-  const deleteVault = await promptConfirm(`  Delete vault at ${C.dim}${VAULT_PATH}${C.reset}? ${C.dim}(y/N)${C.reset} `)
-  if (deleteVault) {
+  if (process.stdin.isTTY && await confirm(`\nRemove ${shardsDir}? [y/N] `)) {
     await rm(shardsDir, { recursive: true, force: true })
-    console.log(`  ${C.green}+${C.reset} Deleted vault`)
-  } else {
-    console.log(`  ${C.yellow}-${C.reset} Kept vault`)
+    console.log("Removed.")
   }
-
-  const uninstallResult = await uninstallGlobal()
-  if (uninstallResult.success) {
-    console.log(`  ${C.green}+${C.reset} Uninstalled claude-shards binary`)
-  } else {
-    console.log(`  ${C.red}!${C.reset} Failed to uninstall: ${uninstallResult.error}`)
-  }
-
-  console.log(`\n${C.green}Done${C.reset}`)
-}
-
-async function persistVaultPath(vaultPath: string) {
-  const shardsDir = config.paths.shardsDir
-  await mkdir(shardsDir, { recursive: true })
-  const configPath = `${shardsDir}/config.toml`
-  await Bun.write(configPath, stringify({ vault: { path: vaultPath } }) + "\n")
-}
-
-async function runInit(vaultPath?: string) {
-  if (vaultPath) {
-    await persistVaultPath(vaultPath)
-  }
-  const result = await executeInit(vaultPath)
-  console.log(formatInitSummary(result))
-
-  const failed = result.steps.filter((s) => s.status === "failed").length
-  process.exit(failed > 0 ? 1 : 0)
 }
 
 async function runServer() {
@@ -200,7 +78,6 @@ async function runServer() {
   const { stop: stopWatcher } = watchVault(VAULT_PATH, entries, onFlush)
 
   initEmbeddings()
-  initUpdateCheck()
   logInfo("server", `loaded ${entries.length} notes`)
   console.error(`Loaded ${entries.length} notes from ${VAULT_PATH}`)
 
@@ -241,33 +118,25 @@ async function runServer() {
   process.on("SIGTERM", shutdown)
 }
 
-const cli = parseCliArgs()
+const args = process.argv.slice(2)
 
-if (cli.command === "version") {
-  console.log(pkg.version)
+if (args.includes("--cleanup")) {
+  runCleanup().catch((err) => {
+    console.error("Fatal:", err)
+    process.exit(1)
+  })
+} else if (args.includes("--init")) {
+  executeInit().then((result) => {
+    console.log(formatInitSummary(result))
+    const failed = result.steps.filter((s) => s.status === "failed").length
+    process.exit(failed > 0 ? 1 : 0)
+  }).catch((err) => {
+    console.error("Fatal:", err)
+    process.exit(1)
+  })
+} else if (process.stdin.isTTY) {
+  console.log("claude-shards — persistent knowledge for Claude Code via MCP.")
   process.exit(0)
-} else if (cli.command === "help") {
-  printHelp().then(() => process.exit(0)).catch(() => process.exit(0))
-} else if (cli.command === "update") {
-  runUpdate().catch((err) => {
-    console.error("Fatal:", err)
-    process.exit(1)
-  })
-} else if (cli.command === "uninstall") {
-  runUninstall().catch((err) => {
-    console.error("Fatal:", err)
-    process.exit(1)
-  })
-} else if (cli.command === "init") {
-  runInit(cli.vaultPath).catch((err) => {
-    console.error("Fatal:", err)
-    process.exit(1)
-  })
-} else if (cli.command === "logging") {
-  runLogViewer().catch((err) => {
-    console.error("Fatal:", err)
-    process.exit(1)
-  })
 } else {
   runServer().catch((err) => {
     console.error("Fatal:", err)

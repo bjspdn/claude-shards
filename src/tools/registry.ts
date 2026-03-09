@@ -1,5 +1,4 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { getUpdateNotice } from "../update-checker"
 import type { ToolDefinition, ToolContext } from "./types"
 
 /**
@@ -27,7 +26,7 @@ export function registerTools(
         if ("isError" in result) {
           return { content: [{ type: "text" as const, text: result.text }], isError: true }
         }
-        return { content: [{ type: "text" as const, text: result.text + await getUpdateNotice() }] }
+        return { content: [{ type: "text" as const, text: result.text }] }
       },
     )
   }
