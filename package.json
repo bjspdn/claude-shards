@@ -1,6 +1,6 @@
 {
   "name": "@bjspdn/claude-shards",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server that gives Claude Code persistent knowledge via an Obsidian-compatible vault",
   "module": "dist/index.js",
   "main": "dist/index.js",
