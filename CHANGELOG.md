@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/bjspdn/claude-shards/compare/claude-shards-v1.0.0...claude-shards-v1.0.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* run script from dist ([5811ead](https://github.com/bjspdn/claude-shards/commit/5811ead59cc6e0267cf3aa14b8e3f2a856edaccb))
+* run script from dist ([3e75362](https://github.com/bjspdn/claude-shards/commit/3e753622751a468d655d7a445afbfc2193279344))
+
 ## [1.0.0](https://github.com/bjspdn/claude-shards/compare/claude-shards-v0.22.0...claude-shards-v1.0.0) (2026-03-09)
 
 
