@@ -2,7 +2,7 @@
 
 # Claude Shards
 
-**Structured knowledge base for Claude Code, built on Obsidian.**
+**Structured knowledge base for Claude Code, built for Obsidian.**
 
 ![npm](https://img.shields.io/npm/v/@bjspdn/claude-shards?style=flat-square&logo=npm)
 ![Claude Compatible](https://img.shields.io/badge/Claude_Code-Compatible-D97706?style=flat-square&logo=anthropic)
@@ -12,12 +12,17 @@
 
 ---
 
-## What it does
+## The idea
 
-Claude Shards is an MCP server that gives Claude Code persistent knowledge through an Obsidian-compatible vault. Knowledge is captured as markdown notes with typed YAML frontmatter (architecture, decisions, patterns, gotchas, references) and linked together with wikilinks. The `sync` tool writes relevant notes into your project's `docs/knowledge/` folder and injects a Knowledge Index table into CLAUDE.md, so Claude has the right context at session start.
+Claude Shards is an MCP server that gives Claude Code persistent knowledge through an Obsidian-compatible vault. Knowledge is captured as markdown notes with typed YAML frontmatter (architecture, decisions, patterns, gotchas, references) and linked together with wikilinks. The `sync` tool gathers, summarize & writes relevant notes into your project's `docs/knowledge/` folder and injects a Knowledge Index table into CLAUDE.md, so Claude has the right context at session start.
+
+### About Summarization
+TODO: Write a paragraph explaining the summarization mechanism & token budget. 
+
 
 ## Install
-
+> Upon initialization, it will create a `~/.claude-shards` containing the vault.
+ 
 ```sh
 bun install -g @bjspdn/claude-shards && claude-shards --init
 ```
@@ -36,14 +41,14 @@ Then start a Claude Code session — the MCP tools are available immediately.
 | `suggest-capture` | Proactive knowledge capture suggestions                          |
 
 ## CLI
+> TODO: Write a small description explaining the CLI. 
 
 | Flag          | Description                                      |
 |---------------|--------------------------------------------------|
 | `--init`      | Scaffold a new vault and register the MCP server |
-| `--update`    | Update to the latest version                     |
 | `--uninstall` | Remove MCP server registration and config        |
 | `--version`   | Print the installed version                      |
-| `--logging`   | View structured server logs                      |
+
 
 ## How it works
 
