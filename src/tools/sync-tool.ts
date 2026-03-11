@@ -10,6 +10,7 @@ import {
   toIndexEntry,
 } from "../index-engine/index"
 import type { ToolDefinition } from "./types"
+import { resolveNotePath } from "./read-tool"
 import globalConfig from "../config"
 
 export interface SyncResult {
@@ -279,34 +280,42 @@ export async function executeSync(
     return {
       entryCount: 0,
       totalTokens: 0,
-      summary: "No notes specified. Provide vault-relative paths of notes to sync into the project (e.g. gotchas/SYNC_BEFORE_INIT.md).",
+      summary: "No notes specified. Provide vault-relative paths (e.g. {{type}}/{{slug}}.md) of notes to sync into the project.",
     }
   }
 
   const found: NoteEntry[] = []
   const skippedStale: string[] = []
   const notFound: string[] = []
+  const ambiguous: string[] = []
 
+  const resolvedPaths: string[] = []
   for (const notePath of notes) {
-    const entry = allEntries.find((e) => e.relativePath === notePath)
-    if (!entry) {
+    const match = resolveNotePath(notePath, allEntries)
+    if (Array.isArray(match)) {
+      ambiguous.push(`"${notePath}" matches: ${match.map((e) => e.relativePath).join(", ")}`)
+      continue
+    }
+    if (!match) {
       notFound.push(notePath)
       continue
     }
-    if (entry.frontmatter.status === "stale") {
-      skippedStale.push(notePath)
+    resolvedPaths.push(match.relativePath)
+    if (match.frontmatter.status === "stale") {
+      skippedStale.push(match.relativePath)
       continue
     }
-    found.push(entry)
+    found.push(match)
   }
 
   if (mode === "gather") {
     const linkGraph = options?.linkGraph ?? { forward: new Map(), reverse: new Map() }
     const gathered = found.map((e) => gatherNoteContent(e, allEntries, linkGraph))
-    const requestedPaths = new Set(notes)
+    const requestedPaths = new Set(resolvedPaths)
     const output = formatGatheredOutput(gathered, requestedPaths, globalConfig.sync.gatherMaxTokens)
 
     const parts: string[] = [output]
+    if (ambiguous.length > 0) parts.push(`\nAmbiguous: ${ambiguous.join("; ")}`)
     if (skippedStale.length > 0) parts.push(`\nSkipped stale: ${skippedStale.join(", ")}`)
     if (notFound.length > 0) parts.push(`\nNot found: ${notFound.join(", ")}`)
 
@@ -323,7 +332,7 @@ export async function executeSync(
   if (missingSynthesis.length > 0) {
     const linkGraph = options?.linkGraph ?? { forward: new Map(), reverse: new Map() }
     const gathered = missingSynthesis.map((e) => gatherNoteContent(e, allEntries, linkGraph))
-    const requestedPaths = new Set(notes)
+    const requestedPaths = new Set(resolvedPaths)
     const output = formatGatheredOutput(gathered, requestedPaths, globalConfig.sync.gatherMaxTokens)
 
     const parts: string[] = [
@@ -331,6 +340,7 @@ export async function executeSync(
       "",
       output,
     ]
+    if (ambiguous.length > 0) parts.push(`\nAmbiguous: ${ambiguous.join("; ")}`)
     if (skippedStale.length > 0) parts.push(`\nSkipped stale: ${skippedStale.join(", ")}`)
     if (notFound.length > 0) parts.push(`\nNot found: ${notFound.join(", ")}`)
 
@@ -341,9 +351,17 @@ export async function executeSync(
     }
   }
 
+  if (ambiguous.length > 0) {
+    return {
+      entryCount: 0,
+      totalTokens: 0,
+      summary: `Ambiguous paths — use full vault-relative paths:\n${ambiguous.join("\n")}`,
+    }
+  }
+
   const synthesized = options?.synthesized ?? {}
   await copyNotesToProject(found, "", dir, synthesized)
-  const removed = await cleanupRemovedNotes(found, dir, new Set(notes))
+  const removed = await cleanupRemovedNotes(found, dir, new Set(resolvedPaths))
 
   const withSynthTokens = found.map((e) => {
     const synthContent = synthesized[e.relativePath]
@@ -401,9 +419,9 @@ export async function executeSync(
 
 export const syncTool: ToolDefinition = {
   name: "sync",
-  description: "Two-step sync: first gather (mode: 'gather') to get note content with dependencies, then synthesize the output, then sync (mode: 'sync') with the synthesized map. Sync mode requires a synthesized map covering all requested notes — missing entries will return gather output instead of writing files.",
+  description: "Two-step sync of vault notes into the current project. Step 1: call with mode 'gather' and the note paths — returns note content with dependencies for you to synthesize. Step 2: call with mode 'sync', same note paths, and a synthesized map — writes files to docs/knowledge/ and updates CLAUDE.md. Partial paths are resolved (e.g. {{slug}}.md or {{type}}/{{slug}}.md).",
   inputSchema: z.object({
-    notes: z.array(z.string().max(500)).max(100).describe("Vault-relative paths of notes to sync into the project"),
+    notes: z.array(z.string().max(500)).max(100).describe("Vault-relative paths of notes to sync (e.g. {{project}}/{{type}}/{{slug}}.md). Partial paths like {{type}}/{{slug}}.md or {{slug}}.md are also resolved."),
     mode: z.enum(["sync", "gather"]).default("sync").describe("'gather' returns note content with resolved dependencies for synthesis; 'sync' writes files and updates CLAUDE.md"),
     synthesized: z.record(z.string(), z.string()).optional().describe("Map of vault-relative path → synthesized content to write instead of vault originals"),
     targetDir: z.string().max(1000).optional().describe("Project directory to sync into (defaults to server cwd)"),
