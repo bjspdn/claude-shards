@@ -6,16 +6,19 @@ export type McpRegisterResult =
 
 export const SERVER_CMD = ["claude-shards", "--stdio"]
 
+const ALLOWED_TOOLS = ["read", "write", "search", "suggest-capture", "sync", "health"]
+
 const REGISTER_ARGS = [
   "mcp", "add",
   "--transport", "stdio",
   "--scope", "user",
+  "--allowed-tools", ALLOWED_TOOLS.join(","),
   "claude-shards",
   "--",
   ...SERVER_CMD,
 ]
 
-const MANUAL_COMMAND = `claude mcp add --transport stdio --scope user claude-shards -- ${SERVER_CMD.join(" ")}`
+const MANUAL_COMMAND = `claude mcp add --transport stdio --scope user --allowed-tools ${ALLOWED_TOOLS.join(",")} claude-shards -- ${SERVER_CMD.join(" ")}`
 
 export function removeMcpServer(): Promise<void> {
   return new Promise((resolve) => {

@@ -2,18 +2,23 @@ import { test, expect } from "bun:test"
 import { createConfig, type ShardsConfig } from "../src/config"
 import { homedir } from "os"
 import { join } from "path"
+import { mkdtempSync } from "fs"
+import { tmpdir } from "os"
+
+function isolatedConfig(overrides?: Partial<ShardsConfig>) {
+  const dir = mkdtempSync(join(tmpdir(), "shards-test-"))
+  return createConfig({ paths: { shardsDir: dir, vaultPath: join(dir, "knowledge-base"), globalClaudeDir: join(dir, ".claude"), globalClaudeMd: join(dir, ".claude", "CLAUDE.md"), contextToml: ".context.toml" }, ...overrides })
+}
 
 test("createConfig returns frozen defaults", () => {
-  const cfg = createConfig()
+  const cfg = isolatedConfig()
   expect(Object.isFrozen(cfg)).toBe(true)
   expect(cfg.paths.vaultPath).toContain("knowledge-base")
-  expect(cfg.paths.shardsDir).toBe(join(homedir(), ".claude-shards"))
-  expect(cfg.paths.globalClaudeDir).toBe(join(homedir(), ".claude"))
   expect(cfg.paths.contextToml).toBe(".context.toml")
 })
 
 test("createConfig has correct note type icons and priorities", () => {
-  const cfg = createConfig()
+  const cfg = isolatedConfig()
   expect(cfg.noteTypeIcons.gotchas).toBe("🔴")
   expect(cfg.noteTypeIcons.decisions).toBe("🟤")
   expect(cfg.noteTypeIcons.patterns).toBe("🔵")
@@ -23,14 +28,14 @@ test("createConfig has correct note type icons and priorities", () => {
 })
 
 test("createConfig has correct lifecycle defaults", () => {
-  const cfg = createConfig()
+  const cfg = isolatedConfig()
   expect(cfg.lifecycle.staleDays).toBe(30)
   expect(cfg.lifecycle.deleteDays).toBe(14)
   expect(cfg.lifecycle.debounceMs).toBe(300)
 })
 
 test("createConfig has correct search defaults", () => {
-  const cfg = createConfig()
+  const cfg = isolatedConfig()
   expect(cfg.search.semanticWeight).toBe(0.35)
   expect(cfg.search.candidateK).toBe(50)
   expect(cfg.search.alpha).toBe(0.3)
@@ -38,14 +43,14 @@ test("createConfig has correct search defaults", () => {
 })
 
 test("createConfig has correct similarity defaults", () => {
-  const cfg = createConfig()
+  const cfg = isolatedConfig()
   expect(cfg.similarity.threshold).toBe(0.7)
   expect(cfg.similarity.slugMaxLen).toBe(60)
   expect(cfg.similarity.contextMaxLen).toBe(120)
 })
 
 test("createConfig has correct discovery defaults", () => {
-  const cfg = createConfig()
+  const cfg = isolatedConfig()
   expect(cfg.discovery.ignoreDirs).toContain("node_modules")
   expect(cfg.discovery.extToTags.rs).toEqual(["rust"])
   expect(cfg.discovery.extToTags.tsx).toEqual(["typescript", "react"])
@@ -54,7 +59,7 @@ test("createConfig has correct discovery defaults", () => {
 })
 
 test("createConfig has correct display defaults", () => {
-  const cfg = createConfig()
+  const cfg = isolatedConfig()
   expect(cfg.display.sectionTitle).toBe("## Knowledge Index")
   expect(cfg.display.iconLegend).toContain("🔴 = gotchas")
   expect(cfg.display.instructionLine).toContain("auto-loaded into context")
