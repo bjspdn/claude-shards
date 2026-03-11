@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/bjspdn/claude-shards/compare/claude-shards-v1.0.2...claude-shards-v1.1.0) (2026-03-11)
+
+
+### Features
+
+* add --config + update README.md ([1ff7e87](https://github.com/bjspdn/claude-shards/commit/1ff7e87567356414d658b3984a19adc1440f0566))
+
 ## [1.0.2](https://github.com/bjspdn/claude-shards/compare/claude-shards-v1.0.1...claude-shards-v1.0.2) (2026-03-09)
 
 
