@@ -128,10 +128,19 @@ export function formatSuggestion(suggestion: CaptureSuggestion): string {
   return lines.join("\n")
 }
 
+function captureDescription(): string {
+  const a = config.capture.aggressiveness
+  if (a <= 0) return "DISABLED — do not call this tool."
+  if (a <= 0.3)
+    return "Call this only for highly reusable, critical knowledge — architecture decisions, recurring bugs, or proven patterns. Do not suggest captures for minor observations."
+  if (a <= 0.6)
+    return "Call this proactively when you encounter reusable knowledge — patterns, gotchas, or decisions worth remembering. Prefer updating existing notes over creating duplicates."
+  return "Call this aggressively — capture any insight, pattern, piece of context, or observation that might be useful later. When in doubt, suggest a capture. Prefer updating existing notes over creating duplicates."
+}
+
 export const suggestCaptureTool: ToolDefinition = {
   name: "suggest-capture",
-  description:
-    "Call this proactively when you encounter reusable knowledge — patterns, gotchas, or decisions worth remembering. Prefer updating existing notes over creating duplicates.",
+  description: captureDescription(),
   inputSchema: z.object({
     topic: z.string().max(200).describe("Short title/topic for the note"),
     type: NoteType.describe("Note type"),
