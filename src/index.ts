@@ -15,7 +15,7 @@ import { warmup, encode, isReady, buildEmbeddingIndex, updateEmbeddings, type Em
 import { removeMcpServer } from "./cli/claude-code"
 import { executeInit, formatInitSummary } from "./cli/init"
 import { runConfig } from "./cli/config"
-import { rm } from "fs/promises"
+import { rm, stat } from "fs/promises"
 import config, { loadPersistedConfig } from "./config"
 import { C } from "./utils"
 import { initLogFile, logInfo, logError } from "./logger"
@@ -55,10 +55,57 @@ async function autoUpdate() {
   }
 }
 
+function prompt(question: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    process.stdout.write(question)
+    process.stdin.setEncoding("utf-8")
+    process.stdin.once("data", (data: string) => {
+      resolve(data.trim().toLowerCase() === "y")
+    })
+  })
+}
+
 async function runUninstall() {
-  await removeMcpServer()
-  await rm(config.paths.shardsDir, { recursive: true, force: true })
-  Bun.spawn(["bun", "remove", "-g", "@bjspdn/claude-shards"], { stdio: ["ignore", "ignore", "ignore"] })
+  try {
+    await removeMcpServer()
+    console.log(`${C.green}+${C.reset} Removed MCP server registration`)
+  } catch {
+    console.log(`${C.red}!${C.reset} Failed to remove MCP server registration`)
+  }
+
+  const vaultExists = await stat(config.paths.shardsDir).then(() => true, () => false)
+
+  if (vaultExists) {
+    const deleteVault = await prompt(
+      `${C.yellow}Delete vault at ${config.paths.shardsDir}? [y/N]${C.reset} `,
+    )
+
+    if (deleteVault) {
+      try {
+        await rm(config.paths.shardsDir, { recursive: true, force: true })
+        console.log(`${C.green}+${C.reset} Deleted ${config.paths.shardsDir}`)
+      } catch {
+        console.log(`${C.red}!${C.reset} Failed to delete ${config.paths.shardsDir}`)
+      }
+    } else {
+      console.log(`${C.dim}-${C.reset} Kept vault at ${config.paths.shardsDir}`)
+    }
+  }
+
+  console.log(`${C.dim}Uninstalling @bjspdn/claude-shards...${C.reset}`)
+  const proc = Bun.spawn(["bun", "remove", "-g", "@bjspdn/claude-shards"], { stdio: ["ignore", "pipe", "pipe"] })
+
+  const stderr = await new Response(proc.stderr).text()
+  await proc.exited
+
+  if (stderr.trim()) {
+    console.log(`${C.red}!${C.reset} ${stderr.trim()}`)
+    console.log(`  Run manually: ${C.cyan}bun remove -g @bjspdn/claude-shards${C.reset}`)
+  } else {
+    console.log(`${C.green}+${C.reset} Uninstalled @bjspdn/claude-shards`)
+  }
+
+  process.exit(0)
 }
 
 async function runServer() {
