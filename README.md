@@ -23,12 +23,48 @@ Syncing works in two steps. First, `sync` runs in **gather mode** — it collect
 
 ## Install
 > Upon initialization, it will create a `~/.claude-shards` containing the vault.
- 
+
 ```sh
 bun install -g @bjspdn/claude-shards && claude-shards --init
 ```
 
 Then start a Claude Code session — the MCP tools are available immediately.
+
+### Allowing tools
+
+By default, Claude Code will prompt you each time an MCP tool is invoked. To auto-allow all claude-shards tools, add this to `~/.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude-shards__*"
+    ]
+  }
+}
+```
+
+Or allow specific tools only:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude-shards__read",
+      "mcp__claude-shards__search",
+      "mcp__claude-shards__sync"
+    ]
+  }
+}
+```
+
+## Uninstall
+
+```sh
+claude-shards --uninstall
+```
+
+This removes the MCP server registration, prompts whether to delete `~/.claude-shards` (vault + config), and uninstalls the global package.
 
 ## Tools
 
@@ -49,7 +85,7 @@ The CLI handles setup and configuration. When stdin is piped, it starts the MCP 
 |---------------|--------------------------------------------------|
 | `--init`      | Scaffold a new vault and register the MCP server |
 | `--config`    | Interactive configuration editor                 |
-| `--uninstall` | Remove MCP server registration and config        |
+| `--uninstall` | Remove MCP registration and vault (with confirmation) |
 
 ### Configuration
 
