@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/bjspdn/claude-shards/compare/claude-shards-v1.1.0...claude-shards-v1.1.1) (2026-03-14)
+
+
+### Bug Fixes
+
+* **init:** fix for failed install ([5138017](https://github.com/bjspdn/claude-shards/commit/5138017018ef2587dc7917e1775c89b992b78e44))
+* **init:** fix for failed install ([e8317ad](https://github.com/bjspdn/claude-shards/commit/e8317ad925a2133d7429aa7a964738d0537db8ce))
+
 ## [1.1.0](https://github.com/bjspdn/claude-shards/compare/claude-shards-v1.0.2...claude-shards-v1.1.0) (2026-03-11)
 
 
